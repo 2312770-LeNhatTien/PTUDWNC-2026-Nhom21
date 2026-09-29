@@ -107,9 +107,9 @@ export default function Navbar() {
           <Link href="/recipes/steps-test" className="hover:text-orange-600 transition-colors flex items-center gap-1 font-medium">
             <span>📋</span> Các bước nấu
           </Link>
-          <a href="#categories" className="hover:text-orange-600 transition-colors">
+          <Link href="/categories" className="hover:text-orange-600 transition-colors">
             Danh mục
-          </a>
+          </Link>
           <a href="#about" className="hover:text-orange-600 transition-colors">
             Về chúng tôi
           </a>
@@ -265,13 +265,13 @@ export default function Navbar() {
             >
               Khám phá công thức
             </Link>
-            <a
-              href="#categories"
+            <Link
+              href="/categories"
               onClick={() => setIsMobileMenuOpen(false)}
               className="px-2 py-1.5 rounded-md hover:bg-orange-50 hover:text-orange-600 transition-colors"
             >
               Danh mục món ăn
-            </a>
+            </Link>
             <a
               href="#about"
               onClick={() => setIsMobileMenuOpen(false)}
