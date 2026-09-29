@@ -88,14 +88,13 @@ git checkout -b 2314299-LVDuc-Dang-Ky
 
 #### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
 ```powershell
-dotnet build CulinaryBlog.slnx
+dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
 cd src\Frontend; npm run lint; cd ..\..
 
 git add .
 git commit -m "auth: hien thuc FR-AUTH-001 dang ky tai khoan"
 git push -u origin 2314299-LVDuc-Dang-Ky
 ```
-Nhắn trưởng nhóm Tiến qua Zalo để Tiến review và merge vào `main`.
 
 ---
 
@@ -136,99 +135,80 @@ git checkout -b 2314299-LVDuc-Dang-Nhap
 
 #### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
 ```powershell
-dotnet build CulinaryBlog.slnx
+dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
 cd src\Frontend; npx tsc --noEmit; cd ..\..
 
 git add .
 git commit -m "auth: hien thuc FR-AUTH-002 dang nhap email rate limiting"
 git push -u origin 2314299-LVDuc-Dang-Nhap
 ```
-Nhắn trưởng nhóm Tiến qua Zalo để Tiến review và merge vào `main`.
 
 ---
 
-## 6. HƯỚNG DẪN CHI TIẾT TUẦN 4 (CHUẨN BỊ LÀM)
+## 6. HƯỚNG DẪN CHI TIẾT TUẦN 4: NHÁNH BUỔI 4 & GIẢI TRÌNH KỸ THUẬT
 
-> ⚠️ **Quy ước nhánh**: Mỗi chức năng làm trên một nhánh riêng.
+> ⚠️ **QUY ƯỚC NHÁNH MỚI TỪ TUẦN 4**:
+> - Tạo **1 nhánh duy nhất cho cả buổi 4**: `2314299-LamVanDuc-buoi4`.
+> - Mọi chức năng đều commit trực tiếp trên nhánh này với tiền tố `feat/`.
+> - Khi hoàn thành từng tính năng, tạo Pull Request vào `main` để trưởng nhóm Tiến review và gộp code.
 
----
-
-### Chức năng 1: Đăng xuất & Thu hồi phiên làm việc (FR-AUTH-005)
-
-#### Bước 1: Tạo nhánh mới từ `main`
 ```powershell
+# Tạo nhánh duy nhất cho Buổi 4:
 git checkout main
 git pull origin main
-git checkout -b 2314299-LVDuc-Dang-Xuat
-```
-
-#### Bước 2: Hiện thực Backend
-1. Tạo `src/Backend/CulinaryBlog.Application/Features/Auth/Commands/Logout/`:
-   - `LogoutCommand(string RefreshToken)`: `IRequest<bool>`
-   - `LogoutCommandHandler`:
-     - Tìm Refresh Token trong CSDL.
-     - Đánh dấu thu hồi: `refreshToken.Revoke()` hoặc xóa khỏi bảng `RefreshTokens`.
-     - Lưu thay đổi `await _context.SaveChangesAsync(ct)`.
-2. Đăng ký endpoint POST `/api/v1/auth/logout` trong `AuthEndpoints.cs` (yêu cầu `RequireAuthorization`).
-
-#### Bước 3: Hiện thực Frontend
-1. Thêm nút "Đăng xuất" trong dropdown menu avatar trên `Navbar.tsx`.
-2. Khi người dùng click Đăng xuất:
-   - Gửi yêu cầu POST `/api/v1/auth/logout`.
-   - Xóa token khỏi Storage/Cookie.
-   - Chuyển hướng người dùng về trang đăng nhập `/login` hoặc reload trang chủ.
-
-#### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
-```powershell
-dotnet build CulinaryBlog.slnx
-cd src\Frontend; npx tsc --noEmit; cd ..\..
-
-git add .
-git commit -m "auth: hien thuc FR-AUTH-005 dang xuat thu hoi token"
-git push -u origin 2314299-LVDuc-Dang-Xuat
+git checkout -b 2314299-LamVanDuc-buoi4
 ```
 
 ---
 
-### Chức năng 2: Refresh Token Rotation (FR-AUTH-004)
+### Task 1 (Giai đoạn 1 - Song song): Đăng xuất & Thu hồi phiên làm việc (FR-AUTH-005)
+* **Tiến trình trong nhóm**: Thực hiện ở nửa đầu buổi, làm độc lập song song.
+* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
+  1. *Tạo `LogoutCommand(string RefreshToken)` và `LogoutCommandHandler` trong `Features/Auth/Commands/Logout/`*:
+  2. *Băm SHA-256 chuỗi refresh token nhận từ Client trước khi tìm kiếm trong bảng `RefreshTokens`*:
+     - 👉 **Tại sao?**: Database chỉ lưu `TokenHash` chứ không bao giờ lưu token gốc (SRS 7.8). Bắt buộc phải hash trước thì mới so khớp được với CSDL.
+  3. *Gọi `refreshToken.Revoke()` và `await _context.SaveChangesAsync(ct)`*:
+     - 👉 **Tại sao?**: Khi người dùng đăng xuất, refresh token phải bị hủy ngay lập tức trong database để nếu kẻ xấu nhặt được token cũng không thể dùng lại được.
+  4. *Đăng ký endpoint `POST /api/v1/auth/logout` trong `AuthEndpoints.cs` (`RequireAuthorization`)*:
+     - 👉 **Tại sao?**: Đảm bảo chỉ những ai có Access Token hợp lệ mới được thực hiện quyền thu hồi phiên của chính mình.
+  5. *Frontend thêm nút "Đăng xuất" trên dropdown `Navbar.tsx`, xóa `accessToken` trong localStorage/Cookie*:
+     - 👉 **Tại sao?**: Để giao diện lập tức chuyển về trạng thái Guest, không lưu vết phiên đăng nhập cũ trên trình duyệt.
+  6. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
+     ```powershell
+     dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
+     cd src/Frontend; npx tsc --noEmit; cd ../..
+     git add .
+     git commit -m "feat/auth: hien thuc FR-AUTH-005 dang xuat va thu hoi refresh token trong csdl"
+     ```
 
-#### Bước 1: Tạo nhánh mới từ `main`
-```powershell
-git checkout main
-git pull origin main
-git checkout -b 2314299-LVDuc-Refresh-Token
-```
+---
 
-#### Bước 2: Hiện thực Backend
-1. Thư mục `Features/Auth/Commands/RefreshToken/`:
-   - `RefreshTokenCommand(string RefreshToken)`: `IRequest<AuthResponseDto>`
-   - `RefreshTokenCommandHandler`:
-     - Tìm Refresh Token theo hash SHA-256.
-     - Nếu token đã bị thu hồi (`IsRevoked`): Phát hiện tấn công tái sử dụng (Reuse Detection) -> thu hồi toàn bộ token family của user đó -> ném `UnauthorizedException("Token không hợp lệ.")`.
-     - Nếu hợp lệ: Đánh dấu token cũ `Revoke()`, sinh cặp Access Token + Refresh Token mới, lưu CSDL và trả về `AuthResponseDto`.
-2. Đăng ký endpoint `POST /api/v1/auth/refresh` trong `AuthEndpoints.cs`.
-
-#### Bước 3: Hiện thực Frontend
-1. Cấu hình Axios Interceptor trong `src/Frontend/lib/api/client.ts`:
-   - Bắt mã lỗi 401 khi Access Token hết hạn.
-   - Tự động gọi `POST /api/v1/auth/refresh` với refresh token đang lưu.
-   - Cập nhật access token mới và retry lại request cũ một cách mượt mà, không làm gián đoạn người dùng.
-
-#### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
-```powershell
-dotnet build CulinaryBlog.slnx
-cd src\Frontend; npx tsc --noEmit; cd ..\..
-
-git add .
-git commit -m "auth: hien thuc FR-AUTH-004 refresh token rotation"
-git push -u origin 2314299-LVDuc-Refresh-Token
-```
+### Task 2 (Giai đoạn 2 - Phụ thuộc Task 1): Refresh Token Rotation & Silent Refresh (FR-AUTH-004)
+* **Tiến trình trong nhóm**: Thực hiện ở nửa sau buổi, sau khi Task 1 đã hoàn thành logic thu hồi token.
+* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
+  1. *Viết `RefreshTokenCommandHandler.cs`, băm SHA-256 token và tìm trong CSDL*:
+  2. *Kiểm tra: Nếu token gửi lên đã có `IsRevoked == true` thì lập tức thu hồi toàn bộ token family của user đó và ném `UnauthorizedException`*:
+     - 👉 **Tại sao?**: Đây là kỹ thuật **Reuse Detection (Phát hiện tấn công)**. Một token đã thu hồi mà lại được gửi lên chứng tỏ token đó đã bị kẻ gian đánh cắp. Việc thu hồi toàn bộ phiên buộc user phải đăng nhập lại để bảo vệ tài khoản.
+  3. *Nếu hợp lệ: Đánh dấu thu hồi token cũ `Revoke(newTokenHash)`, cấp cặp token mới và lưu vào DB*:
+     - 👉 **Tại sao?**: Đây là nguyên tắc **Rotation (Xoay vòng token)**: Mỗi refresh token chỉ được dùng đúng 1 lần. Cấp mới liên tục giúp hạn chế tối đa nguy cơ lộ token.
+  4. *Đăng ký endpoint `POST /api/v1/auth/refresh` trong `AuthEndpoints.cs`*:
+  5. *Frontend viết Axios Interceptor trong `client.ts` bắt mã 401*:
+     - 👉 **Tại sao?**: Khi access token 15 phút hết hạn, interceptor sẽ tự động gọi refresh token ngầm và gửi lại request cũ giúp người dùng không bị văng ra trang login khi đang xem dở công thức.
+  6. *Kiểm tra biên dịch, Commit & Đẩy nhánh lên GitHub*:
+     ```powershell
+     dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
+     cd src/Frontend; npx tsc --noEmit; cd ../..
+     git add .
+     git commit -m "feat/auth: hien thuc FR-AUTH-004 refresh token rotation kem reuse detection"
+     git push -u origin 2314299-LamVanDuc-buoi4
+     ```
+  7. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để trưởng nhóm Tiến review & gộp code*.
 
 ---
 
 ## 7. Tiêu Chí Nghiệm Thu (Definition of Done)
 - [ ] Đăng ký tài khoản mới thành công (thử trên Scalar `http://localhost:5000/scalar/v1` hoặc giao diện web).
 - [ ] Đăng nhập đúng mật khẩu trả về Access Token + Refresh Token; sai mật khẩu trả về lỗi 401 rõ ràng.
-- [ ] Navbar hiển thị đúng trạng thái trước và sau khi đăng nhập.
-- [ ] Đăng xuất và refresh token hoạt động trơn tru.
-- [ ] Các nhánh chức năng đã được đẩy lên GitHub và merge vào `main`.
+- [ ] Đăng xuất thu hồi token trong DB thành công.
+- [ ] Axios Interceptor tự động refresh token khi gặp 401.
+- [ ] Nhánh buổi 4 `2314299-LamVanDuc-buoi4` đã được đẩy lên GitHub và tạo PR gộp vào `main`.

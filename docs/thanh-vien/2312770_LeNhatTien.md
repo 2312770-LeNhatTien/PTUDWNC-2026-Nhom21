@@ -21,7 +21,7 @@
 | 2 | **FR-CAT-002** | Xem chi tiết danh mục + bài viết | `Features/Categories/Queries/GetCategoryBySlug/*` | `app/(public)/categories/[slug]/page.tsx` |
 | 3 | **FR-RCP-002** | Xem chi tiết công thức nấu ăn | `Features/Recipes/Queries/GetRecipeBySlug/*` | `app/(public)/recipes/[slug]/page.tsx` |
 | 4 | **FR-RCP-008** | Quản lý gallery ảnh công thức | `Features/Recipes/Commands/ManageImages/*` | `components/recipes/RecipeGalleryEditor.tsx` |
-| 5 | **FR-RCP-004**<br>**FR-RCP-006** | Cập nhật thông tin & Lưu trữ (Archive) | `Features/Recipes/Commands/UpdateRecipe/*`<br>`Features/Recipes/Commands/ArchiveRecipe/*` | `app/dashboard/recipes/[id]/edit/page.tsx` |
+| 5 | **FR-RCP-004**<br>**FR-RCP-006** | Cập nhật Concurrency & Lưu trữ | `Features/Recipes/Commands/UpdateRecipe/*`<br>`Features/Recipes/Commands/ArchiveRecipe/*` | `app/dashboard/recipes/[id]/edit/page.tsx` |
 | 6 | **FR-RCP-007** | Xóa mềm công thức (D1 Soft Delete) | `Features/Recipes/Commands/DeleteRecipe/*` | Nút xóa trong danh sách bài của tôi |
 | 7 | **FR-JOB-003** | Tự động sinh file `sitemap.xml` | `Infrastructure/Jobs/SitemapJob.cs` | Route `/sitemap.xml` SEO |
 
@@ -43,7 +43,7 @@ Tuần 4 (Tuần tới):
   🔲 FR-RCP-008 — Quản lý gallery ảnh công thức (Upload/Xóa ảnh, chọn ảnh chính IsPrimary)
 
 Tuần 5:
-  🔲 FR-RCP-004 — Cập nhật thông tin công thức (UpdateRecipe)
+  🔲 FR-RCP-004 — Cập nhật thông tin công thức (Kiểm tra Concurrency RowVersion)
   🔲 FR-RCP-006 — Lưu trữ công thức (ArchiveRecipe)
 
 Tuần 6:
@@ -53,7 +53,7 @@ Tuần 7:
   🔲 FR-JOB-003 — Hangfire job tự động sinh sitemap.xml SEO
 
 Tuần 8:
-  🔲 Triển khai Production (Docker Compose + Nginx), Kiểm thử tích hợp toàn hệ thống, Hoàn thiện báo cáo đồ án
+  🔲 Triển khai Production (Docker Compose + Nginx HTTPS), Kiểm thử tích hợp toàn hệ thống, Hoàn thiện báo cáo đồ án
 ```
 
 ---
@@ -91,14 +91,13 @@ git checkout -b 2312770-LNTien-Tao-Cong-Thuc-Moi
 
 #### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
 ```powershell
-dotnet build CulinaryBlog.slnx
+dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
 cd src\Frontend; npm run lint; cd ..\..
 
 git add .
 git commit -m "recipe: hien thuc FR-RCP-003 tao cong thuc moi"
 git push -u origin 2312770-LNTien-Tao-Cong-Thuc-Moi
 ```
-Sau đó tạo Pull Request trên GitHub để merge vào `main`.
 
 ---
 
@@ -135,7 +134,7 @@ git checkout -b 2312770-LNTien-Chi-Tiet-Danh-Muc
 
 #### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
 ```powershell
-dotnet build CulinaryBlog.slnx
+dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
 cd src\Frontend; npx tsc --noEmit; cd ..\..
 
 git add .
@@ -145,91 +144,67 @@ git push -u origin 2312770-LNTien-Chi-Tiet-Danh-Muc
 
 ---
 
-## 6. HƯỚNG DẪN CHI TIẾT TUẦN 4 (CHUẨN BỊ LÀM)
+## 6. HƯỚNG DẪN CHI TIẾT TUẦN 4: NHÁNH BUỔI 4 & GIẢI TRÌNH KỸ THUẬT
 
-> ⚠️ **Quy ước nhánh**: Mỗi chức năng làm trên một nhánh riêng.
+> ⚠️ **QUY ƯỚC NHÁNH MỚI TỪ TUẦN 4**:
+> - Tạo **1 nhánh duy nhất cho cả buổi 4**: `2312770-LeNhatTien-buoi4`.
+> - Mọi chức năng đều commit trực tiếp trên nhánh này với tiền tố `feat/`.
+> - Khi hoàn thành từng tính năng, tạo Pull Request vào `main` để review và gộp code.
 
----
-
-### Chức năng 1: Xem chi tiết công thức nấu ăn (FR-RCP-002)
-
-#### Bước 1: Tạo nhánh mới từ `main`
 ```powershell
+# Tạo nhánh duy nhất cho Buổi 4:
 git checkout main
 git pull origin main
-git checkout -b 2312770-LNTien-Chi-Tiet-Cong-Thuc
-```
-
-#### Bước 2: Hiện thực Backend
-1. Mở file `src/Backend/CulinaryBlog.Application/Features/Recipes/Queries/GetRecipeBySlug/GetRecipeBySlugQueryHandler.cs`.
-2. Thay thế dòng ném `NotImplementedException`:
-   - Truy vấn CSDL tìm Recipe theo `Slug` (chưa bị xóa mềm `!IsDeleted`).
-   - Nạp thông tin quan hệ (`Include`): `Category`, `Author`, `Steps` (sắp xếp theo `StepNumber`), `Ingredients` (sắp xếp theo `OrderIndex`), `Images` (sắp xếp theo `OrderIndex`), `Nutrition`.
-   - Kiểm tra quyền xem: Nếu bài ở trạng thái `Draft` hoặc `Archived`, chỉ tác giả (`AuthorId == currentUser.UserId`) hoặc Admin mới được xem. Nếu không phải, ném `ForbiddenException("Bạn không có quyền xem công thức này.")`.
-   - Nếu không tìm thấy công thức, ném `NotFoundException("Không tìm thấy công thức yêu cầu.")`.
-   - Ánh xạ sang `RecipeDetailDto`.
-3. Đăng ký route `GET /api/v1/recipes/{slug}` trong `RecipesEndpoints.cs`.
-
-#### Bước 3: Hiện thực Frontend
-1. Cập nhật hàm `getBySlug(slug: string)` trong `src/Frontend/lib/api/recipes.ts` gọi endpoint `GET /api/v1/recipes/${slug}`.
-2. Xây dựng trang `src/Frontend/app/(public)/recipes/[slug]/page.tsx`:
-   - Hero Section: Tiêu đề lớn, thông tin tác giả, thời gian nấu, khẩu phần, độ khó, ảnh chính sắc nét.
-   - Bảng thông tin dinh dưỡng (Calories, Protein, Carb, Fat).
-   - Checklist nguyên liệu có thể tick chọn khi chuẩn bị nấu.
-   - Timeline các bước thực hiện chi tiết (kèm hình ảnh minh họa của từng bước).
-   - Xử lý Not Found (404) nếu bài viết không tồn tại.
-
-#### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
-```powershell
-dotnet build CulinaryBlog.slnx
-cd src\Frontend; npx tsc --noEmit; cd ..\..
-
-git add .
-git commit -m "recipe: hien thuc FR-RCP-002 xem chi tiet cong thuc"
-git push -u origin 2312770-LNTien-Chi-Tiet-Cong-Thuc
+git checkout -b 2312770-LeNhatTien-buoi4
 ```
 
 ---
 
-### Chức năng 2: Quản lý gallery ảnh công thức (FR-RCP-008)
+### Task 1 (Giai đoạn 1 - Song song): Xem chi tiết công thức nấu ăn (FR-RCP-002)
+* **Tiến trình trong nhóm**: Thực hiện ở nửa đầu buổi, làm song song độc lập với các bạn khác.
+* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
+  1. *Mở `GetRecipeBySlugQueryHandler.cs`, dùng EF Core `.Include()` nạp Category, Author, Steps, Ingredients, Images, Nutrition*:
+     - 👉 **Tại sao?**: Nếu không dùng `.Include()`, EF Core sẽ sinh ra lỗi N+1 Query hoặc dữ liệu liên kết trả về `null`, khiến trang chi tiết công thức bị thiếu nguyên liệu, các bước và hình ảnh.
+  2. *Kiểm tra trạng thái Draft/Archived, nếu không phải tác giả (`AuthorId != currentUser.UserId`) và không phải Admin thì ném `ForbiddenException`*:
+     - 👉 **Tại sao?**: Đảm bảo an toàn thông tin và quyền riêng tư (SRS 3.3). Công thức đang viết nháp chưa được xuất bản thì người ngoài không được phép xem trộm.
+  3. *Đăng ký route `GET /api/v1/recipes/{slug}` trong `RecipesEndpoints.cs`*:
+     - 👉 **Tại sao?**: Cung cấp RESTful API endpoint chuẩn cho Frontend gọi dữ liệu.
+  4. *Frontend tạo trang `src/Frontend/app/(public)/recipes/[slug]/page.tsx` (Hero Banner, tác giả, bảng Calories/Protein/Carb/Fat, checklist nguyên liệu, timeline các bước nấu)*:
+     - 👉 **Tại sao?**: Hiển thị bảng dinh dưỡng để người đọc tính calo; checklist nguyên liệu có thể tick chọn để thuận tiện khi vào bếp; timeline các bước kèm ảnh trực quan.
+  5. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
+     ```powershell
+     dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
+     cd src/Frontend; npx tsc --noEmit; cd ../..
+     git add .
+     git commit -m "feat/recipe: hien thuc FR-RCP-002 xem chi tiet cong thuc kem dinh duong va nguyen lieu"
+     ```
 
-#### Bước 1: Tạo nhánh mới từ `main`
-```powershell
-git checkout main
-git pull origin main
-git checkout -b 2312770-LNTien-Gallery-Anh
-```
+---
 
-#### Bước 2: Hiện thực Backend
-1. Thư mục `Features/Recipes/Commands/ManageImages/`:
-   - `AddRecipeImageCommand(Guid RecipeId, string ImageUrl, string? AltText, bool IsPrimary, int OrderIndex)`: Thêm ảnh vào gallery của recipe.
-   - `DeleteRecipeImageCommand(Guid RecipeId, Guid ImageId)`: Xóa ảnh khỏi gallery (kiểm tra tác giả hoặc Admin).
-   - `SetPrimaryImageCommand(Guid RecipeId, Guid ImageId)`: Đặt 1 ảnh làm ảnh đại diện chính (tự động bỏ cờ IsPrimary của các ảnh khác).
-2. Đăng ký các endpoints trong `RecipesEndpoints.cs`:
-   - `POST /api/v1/recipes/{id}/images`
-   - `DELETE /api/v1/recipes/{id}/images/{imageId}`
-   - `PUT /api/v1/recipes/{id}/images/{imageId}/primary`
-
-#### Bước 3: Hiện thực Frontend
-1. Xây dựng component `src/Frontend/components/recipes/RecipeGalleryEditor.tsx`:
-   - Hiển thị danh sách ảnh hiện có dạng thumbnail grid.
-   - Tích hợp `ImageUploader` để upload ảnh mới lên MinIO và thêm vào gallery.
-   - Nút gắn sao ⭐ "Đặt làm ảnh chính" và nút thùng rác 🗑️ xóa ảnh khỏi gallery.
-
-#### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
-```powershell
-dotnet build CulinaryBlog.slnx
-cd src\Frontend; npx tsc --noEmit; cd ..\..
-
-git add .
-git commit -m "recipe: hien thuc FR-RCP-008 quan ly gallery anh cong thuc"
-git push -u origin 2312770-LNTien-Gallery-Anh
-```
+### Task 2 (Giai đoạn 2 - Sau Task 1): Quản lý gallery ảnh công thức (FR-RCP-008)
+* **Tiến trình trong nhóm**: Thực hiện ở nửa sau buổi, sau khi hoàn thành Task 1.
+* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
+  1. *Tạo các Command `AddRecipeImageCommand`, `DeleteRecipeImageCommand`, `SetPrimaryImageCommand` trong `Features/Recipes/Commands/ManageImages/`*:
+     - 👉 **Tại sao?**: Tách nhỏ từng thao tác theo mô hình CQRS giúp code rõ ràng, dễ bảo trì và phân quyền chính xác.
+  2. *Trong `SetPrimaryImageCommandHandler`: Tìm ảnh cũ có `IsPrimary == true` đổi thành `false`, rồi mới gán ảnh mới được chọn thành `true`*:
+     - 👉 **Tại sao?**: Mỗi món ăn chỉ được có **duy nhất 1 ảnh đại diện chính** hiển thị ngoài trang chủ và thẻ `RecipeCard`. Nếu không bỏ cờ ảnh cũ thì database sẽ bị mâu thuẫn dữ liệu.
+  3. *Đăng ký endpoints trong `RecipesEndpoints.cs`: `POST/DELETE/PUT /api/v1/recipes/{id}/images`*:
+     - 👉 **Tại sao?**: Tạo API giao tiếp chuẩn cho Frontend thao tác bộ sưu tập ảnh.
+  4. *Frontend xây dựng component `RecipeGalleryEditor.tsx` dạng thumbnail grid kèm nút gắn sao ⭐ ảnh đại diện*:
+     - 👉 **Tại sao?**: Giúp tác giả nhìn thấy trực quan tất cả ảnh đã tải lên và dễ dàng chọn ảnh đẹp nhất làm ảnh bìa.
+  5. *Kiểm tra biên dịch, Commit & Đẩy nhánh lên GitHub*:
+     ```powershell
+     dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
+     cd src/Frontend; npx tsc --noEmit; cd ../..
+     git add .
+     git commit -m "feat/recipe: hien thuc FR-RCP-008 quan ly gallery anh va chon anh dai dien chinh"
+     git push -u origin 2312770-LeNhatTien-buoi4
+     ```
 
 ---
 
 ## 7. Tiêu Chí Nghiệm Thu (Definition of Done)
-- [ ] Backend biên dịch không lỗi (`dotnet build CulinaryBlog.slnx`).
+- [ ] Backend biên dịch không lỗi (`dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj`).
 - [ ] Frontend không lỗi TypeScript (`npx tsc --noEmit`).
 - [ ] Test trực tiếp API trên Scalar: `http://localhost:5000/scalar/v1` hoạt động chính xác.
-- [ ] Các nhánh chức năng đã được đẩy lên GitHub và merge vào `main`.
+- [ ] Nhánh buổi 4 `2312770-LeNhatTien-buoi4` đã được đẩy lên GitHub và tạo PR gộp vào `main`.

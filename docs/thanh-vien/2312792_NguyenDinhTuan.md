@@ -39,13 +39,13 @@ Tuần 3 (Đã hoàn thành & merge main):
 
 Tuần 4 (Tuần tới):
   🔲 FR-RCP-009 — Quản lý nguyên liệu công thức (Tuân thủ quyết định D10: cho phép null unit nêm gia vị)
-  🔲 FR-AUTH-006 — Xem thông tin hồ sơ cá nhân (Query Profile /auth/me)
+  🔲 FR-AUTH-006 — Xem thông tin hồ sơ cá nhân (Query Profile /auth/me & UI Profile)
 
 Tuần 5:
   🔲 FR-AUTH-007 — Cập nhật hồ sơ & đổi Avatar (Tích hợp MinIO Avatar và cập nhật DisplayName, Bio)
 
 Tuần 6:
-  🔲 FR-JOB-002 — Hangfire background job tự động nén & tạo thumbnail cho ảnh MinIO
+  🔲 FR-JOB-002 — Hangfire background job tự động nén & tạo thumbnail cho ảnh MinIO ($300x300)
 
 Tuần 7:
   🔲 Tối ưu hóa toàn diện Media MinIO, xử lý ảnh lỗi, tối ưu tốc độ tải ảnh S3
@@ -87,7 +87,7 @@ git checkout -b 2312792-NDTuan-Upload-Minio
 
 #### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
 ```powershell
-dotnet build CulinaryBlog.slnx
+dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
 cd src\Frontend; npm run lint; cd ..\..
 
 git add .
@@ -119,7 +119,7 @@ git checkout -b 2312792-NDTuan-Xoa-Anh-Minio
 
 #### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
 ```powershell
-dotnet build CulinaryBlog.slnx
+dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
 cd src\Frontend; npm run lint; cd ..\..
 
 git add .
@@ -146,29 +146,25 @@ git checkout -b 2312792-NDTuan-Cac-Buoc-Nau
 
 #### Bước 2: Hiện thực Backend
 1. Tạo thư mục `src/Backend/CulinaryBlog.Application/Features/Recipes/Commands/ManageSteps/`:
-   - `AddRecipeStepCommand(Guid RecipeId, string Title, string? Description, int? StepNumber, int? TimerMinutes, string? ImageUrl)`: `IRequest<RecipeStepDto>`
-   - `UpdateRecipeStepCommand(Guid RecipeId, Guid StepId, string Title, string? Description, int? StepNumber, int? TimerMinutes, string? ImageUrl)`: `IRequest<RecipeStepDto>`
-   - `DeleteRecipeStepCommand(Guid RecipeId, Guid StepId)`: `IRequest<bool>`
+   - `AddRecipeStepCommand`: Thêm bước nấu.
+   - `UpdateRecipeStepCommand`: Cập nhật bước.
+   - `DeleteRecipeStepCommand`: Xóa bước nấu.
 2. **Tuân thủ Quyết định Kiến trúc D9**:
    - `Title` là bắt buộc.
    - `StepNumber` là tùy chọn (`int?`): nếu client không truyền, server tự động lấy số bước hiện tại lớn nhất + 1.
    - Tự động renumber thứ tự khi xóa bước nấu.
    - Kiểm tra người sửa/xóa bước nấu phải là tác giả của công thức đó hoặc Admin.
-3. Đăng ký endpoints trong `RecipesEndpoints.cs`:
-   - `GET /api/v1/recipes/{id}/steps`
-   - `POST /api/v1/recipes/{id}/steps`
-   - `PUT /api/v1/recipes/{id}/steps/{stepId}`
-   - `DELETE /api/v1/recipes/{id}/steps/{stepId}`
+3. Đăng ký endpoints trong `RecipesEndpoints.cs`: `POST/PUT/DELETE /api/v1/recipes/{id}/steps`.
 
 #### Bước 3: Hiện thực Frontend
 1. Xây dựng component `src/Frontend/components/recipes/StepListEditor.tsx`:
    - Danh sách các bước nấu có đánh số thứ tự 1, 2, 3...
-   - Nút "Thêm bước", Form nhập tiêu đề, hướng dẫn chi tiết, thời gian đếm ngược (phút) và nút upload ảnh minh họa cho bước đó (sử dụng component `ImageUploader` đã làm ở Tuần 2).
+   - Nút "Thêm bước", Form nhập tiêu đề, hướng dẫn chi tiết, thời gian đếm ngược (phút) và nút upload ảnh minh họa.
    - Nút sửa và xóa từng bước với hộp thoại xác nhận.
 
 #### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
 ```powershell
-dotnet build CulinaryBlog.slnx
+dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
 cd src\Frontend; npx tsc --noEmit; cd ..\..
 
 git add .
@@ -178,81 +174,63 @@ git push -u origin 2312792-NDTuan-Cac-Buoc-Nau
 
 ---
 
-## 6. HƯỚNG DẪN CHI TIẾT TUẦN 4 (CHUẨN BỊ LÀM)
+## 6. HƯỚNG DẪN CHI TIẾT TUẦN 4: NHÁNH BUỔI 4 & GIẢI TRÌNH KỸ THUẬT
 
-> ⚠️ **Quy ước nhánh**: Mỗi chức năng làm trên **một nhánh riêng** tự tạo từ `main`.
+> ⚠️ **QUY ƯỚC NHÁNH MỚI TỪ TUẦN 4**:
+> - Tạo **1 nhánh duy nhất cho cả buổi 4**: `2312792-NguyenDinhTuan-buoi4`.
+> - Mọi chức năng đều commit trực tiếp trên nhánh này với tiền tố `feat/`.
+> - Khi hoàn thành từng tính năng, tạo Pull Request vào `main` để trưởng nhóm Tiến review và gộp code.
 
----
-
-### Chức năng 1: Quản lý nguyên liệu (FR-RCP-009)
-
-#### Bước 1: Tạo nhánh mới từ `main`
 ```powershell
+# Tạo nhánh duy nhất cho Buổi 4:
 git checkout main
 git pull origin main
-git checkout -b 2312792-NDTuan-Nguyen-Lieu
-```
-
-#### Bước 2: Hiện thực Backend
-1. Tạo thư mục `src/Backend/CulinaryBlog.Application/Features/Recipes/Commands/ManageIngredients/`:
-   - `AddRecipeIngredientCommand(Guid RecipeId, string Name, decimal? Quantity, string? Unit, string? Notes, int OrderIndex)`: `IRequest<RecipeIngredientDto>`
-   - `UpdateRecipeIngredientCommand(Guid RecipeId, Guid IngredientId, string Name, decimal? Quantity, string? Unit, string? Notes, int OrderIndex)`: `IRequest<RecipeIngredientDto>`
-   - `DeleteRecipeIngredientCommand(Guid RecipeId, Guid IngredientId)`: `IRequest<bool>`
-2. **Tuân thủ Quyết định Kiến trúc D10**:
-   - `Name` là bắt buộc.
-   - `Quantity` và `Unit` có thể `null` (để hỗ trợ nguyên liệu nêm nếm gia vị: "vừa ăn", "một chút").
-   - Kiểm tra quyền tác giả hoặc Admin.
-3. Đăng ký endpoints trong `RecipesEndpoints.cs`:
-   - `POST /api/v1/recipes/{id}/ingredients`
-   - `PUT /api/v1/recipes/{id}/ingredients/{ingredientId}`
-   - `DELETE /api/v1/recipes/{id}/ingredients/{ingredientId}`
-
-#### Bước 3: Hiện thực Frontend
-1. Xây dựng component `src/Frontend/components/recipes/IngredientListEditor.tsx`:
-   - Danh sách nguyên liệu hiển thị theo bảng hoặc dòng (Tên, Số lượng, Đơn vị, Ghi chú).
-   - Cho phép thêm nhanh nhiều nguyên liệu liên tiếp.
-   - Nút xóa nguyên liệu trực tiếp.
-
-#### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
-```powershell
-dotnet build CulinaryBlog.slnx
-cd src\Frontend; npx tsc --noEmit; cd ..\..
-
-git add .
-git commit -m "recipe: hien thuc FR-RCP-009 quan ly nguyen lieu cong thuc"
-git push -u origin 2312792-NDTuan-Nguyen-Lieu
+git checkout -b 2312792-NguyenDinhTuan-buoi4
 ```
 
 ---
 
-### Chức năng 2: Xem thông tin hồ sơ cá nhân (FR-AUTH-006)
+### Task 1 (Giai đoạn 1 - Song song): Quản lý nguyên liệu (FR-RCP-009)
+* **Tiến trình trong nhóm**: Thực hiện ở nửa đầu buổi, làm độc lập song song.
+* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
+  1. *Tạo Commands trong `ManageIngredients/*`: Khai báo `decimal? Quantity` và `string? Unit` (cho phép `null`)*:
+     - 👉 **Tại sao?**: **Tuân thủ Quyết định D10**. Trong văn hóa ẩm thực Việt, rất nhiều gia vị nêm nếm không thể cân đo chính xác bằng số (ví dụ: "tiêu xay: một chút", "nước mắm: vừa ăn"). Nếu bắt buộc nhập số sẽ khiến người dùng không thể viết công thức chuẩn vị.
+  2. *Thêm Validator kiểm tra tên nguyên liệu không được để trống và độ dài $\le 100$ ký tự*:
+     - 👉 **Tại sao?**: Tránh rác dữ liệu và chống tràn bố cục bảng nguyên liệu ngoài giao diện web.
+  3. *Đăng ký endpoints trong `RecipesEndpoints.cs`: `POST/PUT/DELETE /api/v1/recipes/{id}/ingredients`*:
+     - 👉 **Tại sao?**: Cung cấp đầy đủ các thao tác REST API để Client thêm, sửa định lượng và xóa nguyên liệu.
+  4. *Frontend tạo component `src/Frontend/components/recipes/IngredientListEditor.tsx` dạng bảng nhập liên tiếp*:
+     - 👉 **Tại sao?**: Tác giả có thể nhập một loạt 10–15 nguyên liệu nhanh chóng bằng phím Enter mà không bị load lại trang.
+  5. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
+     ```powershell
+     dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
+     cd src/Frontend; npx tsc --noEmit; cd ../..
+     git add .
+     git commit -m "feat/recipe: hien thuc FR-RCP-009 quan ly nguyen lieu cong thuc ho tro gia vi null unit D10"
+     ```
 
-#### Bước 1: Tạo nhánh mới từ `main`
-```powershell
-git checkout main
-git pull origin main
-git checkout -b 2312792-NDTuan-Xem-Ho-So
-```
+---
 
-#### Bước 2: Hiện thực Backend
-1. Thư mục `Features/Auth/Queries/GetProfile/`:
-   - `GetProfileQuery()`: `IRequest<UserDto>`
-   - `GetProfileQueryHandler`: Lấy `UserId` từ `ICurrentUser`, truy vấn User từ `UserManager`, trả về `{ id, email, displayName, bio, avatarUrl, roles }`. Không bao giờ trả về password hash.
-2. Đăng ký endpoint `GET /api/v1/auth/me` trong `AuthEndpoints.cs` (`RequireAuthorization`).
-
-#### Bước 3: Hiện thực Frontend
-1. Tạo trang `src/Frontend/app/(public)/profile/page.tsx`:
-   - Hiển thị thông tin người dùng: Avatar lớn, DisplayName, Email, Bio giới thiệu bản thân và các vai trò (Roles).
-
-#### Bước 4: Kiểm tra và đẩy nhánh lên GitHub
-```powershell
-dotnet build CulinaryBlog.slnx
-cd src\Frontend; npx tsc --noEmit; cd ..\..
-
-git add .
-git commit -m "auth: hien thuc FR-AUTH-006 xem ho so ca nhan"
-git push -u origin 2312792-NDTuan-Xem-Ho-So
-```
+### Task 2 (Giai đoạn 2 - Sau Task 1): Xem thông tin hồ sơ cá nhân (FR-AUTH-006)
+* **Tiến trình trong nhóm**: Thực hiện ở nửa sau buổi, sau khi hoàn thành Task 1.
+* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
+  1. *Backend viết `GetProfileQueryHandler.cs`, lấy UserId từ `ICurrentUser`*:
+     - 👉 **Tại sao?**: Lấy UserId trực tiếp từ Token đã xác thực của người dùng đang gửi request, tuyệt đối không nhận `userId` từ query string để chống lộ thông tin riêng tư của người khác.
+  2. *Chỉ chọn các trường an toàn `{ id, email, displayName, bio, avatarUrl, roles }`, không map `PasswordHash`*:
+     - 👉 **Tại sao?**: Nguyên tắc bảo mật thông tin tài khoản (NFR-SEC). Không bao giờ trả chuỗi băm mật khẩu về client dưới mọi hình thức.
+  3. *Đăng ký endpoint `GET /api/v1/auth/me` trong `AuthEndpoints.cs` (`RequireAuthorization`)*:
+     - 👉 **Tại sao?**: Đảm bảo bắt buộc phải đăng nhập thì mới gọi được API lấy hồ sơ chính mình.
+  4. *Frontend tạo trang `/profile` hiển thị Avatar lớn, Tên, Tiểu sử và Roles*:
+     - 👉 **Tại sao?**: Cung cấp giao diện trung tâm để người dùng kiểm tra thông tin tài khoản trước khi thực hiện đổi avatar và bio ở Tuần 5.
+  5. *Kiểm tra biên dịch, Commit & Đẩy nhánh lên GitHub*:
+     ```powershell
+     dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
+     cd src/Frontend; npx tsc --noEmit; cd ../..
+     git add .
+     git commit -m "feat/auth: hien thuc FR-AUTH-006 xem thong tin ho so ca nhan tai auth me va UI profile"
+     git push -u origin 2312792-NguyenDinhTuan-buoi4
+     ```
+  6. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để trưởng nhóm Tiến review & gộp code*.
 
 ---
 
@@ -260,4 +238,4 @@ git push -u origin 2312792-NDTuan-Xem-Ho-So
 - [ ] Upload & Xóa ảnh MinIO hoạt động trơn tru.
 - [ ] Quản lý các bước nấu và nguyên liệu hoạt động đúng theo D9 và D10.
 - [ ] Xem hồ sơ cá nhân `/profile` trả về đúng thông tin user hiện tại.
-- [ ] Các nhánh chức năng đã được đẩy lên GitHub và merge vào `main`.
+- [ ] Nhánh buổi 4 `2312792-NguyenDinhTuan-buoi4` đã được đẩy lên GitHub và tạo PR gộp vào `main`.
