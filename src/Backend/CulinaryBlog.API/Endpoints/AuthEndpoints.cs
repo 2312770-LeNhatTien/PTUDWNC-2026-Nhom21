@@ -1,6 +1,7 @@
 using CulinaryBlog.Application.Common.Models;
 using CulinaryBlog.Application.Features.Auth.Commands.Login;
 using CulinaryBlog.Application.Features.Auth.Commands.Logout;
+using CulinaryBlog.Application.Features.Auth.Commands.RefreshToken;
 using CulinaryBlog.Application.Features.Auth.Commands.Register;
 using MediatR;
 
@@ -72,6 +73,28 @@ public static class AuthEndpoints
         .WithSummary("Đăng xuất và thu hồi Refresh Token (FR-AUTH-005)")
         .Produces(StatusCodes.Status204NoContent);
 
+        group.MapPost("/refresh", async (
+            RefreshTokenRequest request,
+            HttpContext httpContext,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var clientIp = httpContext.Connection.RemoteIpAddress?.ToString();
+            var command = new RefreshTokenCommand(
+                RefreshToken: request.RefreshToken,
+                ClientIp: clientIp);
+
+            var result = await mediator.Send(command, cancellationToken);
+            return Results.Ok(ApiResponse.Ok(new
+            {
+                result.AccessToken,
+                result.RefreshToken,
+                result.User
+            }));
+        })
+        .WithName("RefreshToken")
+        .WithSummary("Làm mới Access Token qua Refresh Token Rotation (FR-AUTH-004)");
+
         return app;
     }
 
@@ -86,5 +109,8 @@ public static class AuthEndpoints
         string Password);
 
     public sealed record LogoutRequest(
+        string RefreshToken);
+
+    public sealed record RefreshTokenRequest(
         string RefreshToken);
 }

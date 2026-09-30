@@ -71,7 +71,7 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResponseDto
         var accessToken = _jwtService.GenerateAccessToken(user, roles);
         var (rawRefreshToken, refreshTokenHash) = _jwtService.GenerateRefreshToken();
 
-        var refreshTokenEntity = RefreshToken.Create(
+        var refreshTokenEntity = Domain.Entities.RefreshToken.Create(
             userId: user.Id,
             tokenHash: refreshTokenHash,
             expiryDays: RefreshTokenExpiryDays,
