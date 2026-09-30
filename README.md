@@ -150,12 +150,12 @@ Web chia sẻ công thức nấu ăn chuẩn vị Việt Nam. Backend .NET 10 (C
 ##### 1. GET `/api/v1/recipes/{slug}` (FR-RCP-002)
 * **Cách làm**: Mở `GetRecipeBySlugQueryHandler.cs`, dùng EF Core `.Include()` nạp Category, Author, Steps, Ingredients, Images, Nutrition. Kiểm tra Draft/Archived ném `ForbiddenException` nếu không phải tác giả/Admin.
 * **Tại sao?**: Tránh N+1 query và bảo mật công thức nháp (SRS 3.3).
-* **Commit**: `git commit -m "feat/recipe: cai dat endpoint GET recipes slug chi tiet cong thuc"`
+* **Commit**: `git commit -m "feat/FR-RCP-002: cai dat endpoint GET recipes slug chi tiet cong thuc kem nutrition"`
 
 ##### 2. POST / PATCH / DELETE `/api/v1/recipes/{id}/images` (FR-RCP-008)
 * **Cách làm**: Tạo `AddRecipeImageCommand`, `DeleteRecipeImageCommand`, `SetPrimaryImageCommand`. Trong `SetPrimaryImageCommandHandler`: đổi ảnh cũ `IsPrimary = false` rồi mới gán ảnh mới `IsPrimary = true`.
 * **Tại sao?**: Đảm bảo mỗi công thức chỉ có duy nhất 1 ảnh đại diện chính.
-* **Commit**: `git commit -m "feat/recipe: cai dat cac endpoints quan ly gallery anh recipe images"`
+* **Commit**: `git commit -m "feat/FR-RCP-008: cai dat cac endpoints quan ly gallery anh recipe images"`
 
 ##### 3. PUT `/api/v1/recipes/{id}` (FR-RCP-004) & Archive / Delete (FR-RCP-006 & FR-RCP-007)
 * **Cách làm**:
@@ -163,7 +163,7 @@ Web chia sẻ công thức nấu ăn chuẩn vị Việt Nam. Backend .NET 10 (C
   - Tạo `ArchiveRecipeCommand` đổi status sang `Archived`.
   - Tạo `DeleteRecipeCommand` đánh dấu `IsDeleted = true` theo **Quyết định D1**.
 * **Tại sao?**: Bảo vệ tính toàn vẹn dữ liệu khi 2 tác giả cùng sửa, và bảo tồn dữ liệu bằng Soft Delete.
-* **Commit**: `git commit -m "feat/recipe: cai dat PUT recipes id kem concurrency va PATCH archive DELETE soft delete"`
+* **Commit**: `git commit -m "feat/FR-RCP-004-006-007: cai dat PUT recipes id kem concurrency va PATCH archive DELETE soft delete"`
 
 ---
 
@@ -177,19 +177,19 @@ Web chia sẻ công thức nấu ăn chuẩn vị Việt Nam. Backend .NET 10 (C
 ##### 1. POST `/api/v1/auth/logout` (FR-AUTH-005)
 * **Cách làm**: Băm SHA-256 chuỗi token nhận được, tìm trong bảng `RefreshTokens`, gọi `refreshToken.Revoke()` và `SaveChangesAsync`. Endpoint yêu cầu `RequireAuthorization`.
 * **Tại sao?**: Database chỉ lưu token hash. Thu hồi ngay trong DB để vô hiệu hóa token cũ.
-* **Commit**: `git commit -m "feat/auth: cai dat endpoint POST auth logout thu hoi refresh token"`
+* **Commit**: `git commit -m "feat/FR-AUTH-005: cai dat endpoint POST auth logout thu hoi refresh token"`
 
 ##### 2. POST `/api/v1/auth/refresh` (FR-AUTH-004)
 * **Cách làm**: Tạo `RefreshTokenCommand`. Nếu token đã bị `IsRevoked`, phát hiện tấn công tái sử dụng (Reuse Detection) ➜ thu hồi cả token family. Nếu hợp lệ, cấp cặp token mới (Rotation).
 * **Tại sao?**: Xoay vòng token giúp bảo mật tối đa và tự động cấp lại token ngầm cho client.
-* **Commit**: `git commit -m "feat/auth: cai dat endpoint POST auth refresh token rotation kem reuse detection"`
+* **Commit**: `git commit -m "feat/FR-AUTH-004: cai dat endpoint POST auth refresh token rotation kem reuse detection"`
 
 ##### 3. POST `/api/v1/auth/google` (FR-AUTH-003) & PATCH Publish/Unpublish (FR-RCP-005)
 * **Cách làm**:
   - Tạo `GoogleLoginCommand`: xác thực Google JWT ID Token qua Google API Client. Nếu chưa có user thì tự động tạo tài khoản mới.
   - Tạo `PublishRecipeCommand`: Kiểm tra điều kiện **Quyết định D11** (`Ingredients.Count >= 1 && Steps.Count >= 1`). Nếu thiếu ném `ValidationException("RECIPE_PUBLISH_INCOMPLETE")`.
 * **Tại sao?**: Hỗ trợ đăng nhập tiện lợi một chạm và đảm bảo chất lượng bài viết khi xuất bản.
-* **Commit**: `git commit -m "feat/auth: cai dat endpoint POST google login va PATCH publish unpublish kiem tra D11"`
+* **Commit**: `git commit -m "feat/FR-AUTH-003-RCP-005: cai dat endpoint POST google login va PATCH publish unpublish kiem tra D11"`
 
 ---
 
@@ -205,14 +205,14 @@ Web chia sẻ công thức nấu ăn chuẩn vị Việt Nam. Backend .NET 10 (C
   - `UpdateCategoryCommand`: Cho phép sửa Name, Description, ImageUrl nhưng **bảo toàn nguyên vẹn Slug theo Quyết định D12**.
   - `DeleteCategoryCommand`: Kiểm tra nếu danh mục còn recipes chưa xóa thì ném `ConflictException`. Nếu rỗng, đánh dấu `IsDeleted = true` theo **D1**.
 * **Tại sao?**: Giữ nguyên URL SEO của Google và chống mồ côi dữ liệu khi xóa danh mục.
-* **Commit**: `git commit -m "feat/category: cai dat endpoints PUT va DELETE categories kiem tra D12 va D1"`
+* **Commit**: `git commit -m "feat/FR-CAT-004-005: cai dat endpoints PUT va DELETE categories kiem tra D12 va D1"`
 
 ##### 2. GET `/api/v1/recipes/search` (FR-SRCH-001) & Nâng cấp GET `/api/v1/recipes` (FR-SRCH-002..004)
 * **Cách làm**:
   - Tạo `SearchRecipesQuery`: Dùng PostgreSQL Full-Text Search `to_tsvector('simple', unaccent(title))` để tìm kiếm không dấu tiếng Việt cực nhanh.
   - Cập nhật `GetRecipesQueryHandler`: Bổ sung lọc theo `maxCookTime`, lọc theo danh mục, và sắp xếp linh hoạt theo chuẩn **Quyết định D8** (`sortBy` & `sortOrder`).
 * **Tại sao?**: Cho phép người dùng tìm kiếm món ăn chính xác dù gõ có dấu hay không dấu và lọc theo thời gian rảnh.
-* **Commit**: `git commit -m "feat/search: cai dat endpoint search unaccent tsvector va nang cap bo loc D8"`
+* **Commit**: `git commit -m "feat/FR-SRCH-001-004: cai dat endpoint search unaccent tsvector va nang cap bo loc D8"`
 
 ---
 
@@ -226,14 +226,14 @@ Web chia sẻ công thức nấu ăn chuẩn vị Việt Nam. Backend .NET 10 (C
 ##### 1. POST / PUT / DELETE `/api/v1/recipes/{id}/ingredients` (FR-RCP-009)
 * **Cách làm**: Tạo `AddRecipeIngredientCommand`, `UpdateRecipeIngredientCommand`, `DeleteRecipeIngredientCommand`. Tuân thủ **Quyết định D10**: Cho phép `Quantity` và `Unit` nhận giá trị `null` (gia vị nêm nếm).
 * **Tại sao?**: Hỗ trợ đúng thực tế nấu ăn Việt Nam và phục vụ điều kiện xuất bản D11.
-* **Commit**: `git commit -m "feat/recipe: cai dat day du cac endpoints CRUD nguyen lieu ho tro null unit D10"`
+* **Commit**: `git commit -m "feat/FR-RCP-009: cai dat day du cac endpoints CRUD nguyen lieu ho tro null unit D10"`
 
 ##### 2. GET `/api/v1/auth/me` (FR-AUTH-006) & PATCH `/api/v1/auth/me` (FR-AUTH-007)
 * **Cách làm**:
   - `GetProfileQuery`: Lấy UserId từ `ICurrentUser`, truy vấn thông tin user, không trả về hash mật khẩu.
   - `UpdateProfileCommand`: Cho phép cập nhật `DisplayName`, `Bio`, `AvatarUrl` (URL ảnh upload từ MinIO).
 * **Tại sao?**: Cung cấp API quản lý hồ sơ cá nhân an toàn cho tác giả.
-* **Commit**: `git commit -m "feat/auth: cai dat endpoints GET va PATCH auth me xem va cap nhat ho so"`
+* **Commit**: `git commit -m "feat/FR-AUTH-006-007: cai dat endpoints GET va PATCH auth me xem va cap nhat ho so"`
 
 ---
 

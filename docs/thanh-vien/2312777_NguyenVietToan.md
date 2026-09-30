@@ -36,22 +36,29 @@ Tuần 2 (Đã hoàn thành & merge main):
 Tuần 3 (Đã hoàn thành & merge main):
   ✅ FR-CAT-003 — Admin tạo danh mục mới (Sinh slug chuẩn SEO, RequireAuthorization AdminOnly & UI Admin)
 
-Tuần 4 (Tuần tới):
-  🔲 Tự tay viết RedisCacheService (IDistributedCache, serialize UTF-8, TTL 30 phút & Invalidation)
-  🔲 FR-CAT-004 — Admin cập nhật danh mục (Tuân thủ D12: giữ nguyên slug SEO, xóa cache Redis)
+Tuần 4 (Lab 4 - Hoàn thành 100% Backend API Endpoints):
+  🔲 FR-CAT-004 — PUT /categories/{id} (Cập nhật danh mục bảo toàn nguyên vẹn Slug chuẩn SEO theo D12)
+  🔲 FR-CAT-005 — DELETE /categories/{id} (Xóa mềm danh mục D1, kiểm tra không còn recipes mới cho xóa)
+  🔲 FR-SRCH-001 — GET /recipes/search (Tìm kiếm toàn văn PostgreSQL unaccent tsvector tiếng Việt)
+  🔲 FR-SRCH-002..004 — Nâng cấp GET /recipes (Bộ lọc maxCookTime, difficulty, category & sắp xếp dual-syntax D8)
 
-Tuần 5:
-  🔲 FR-CAT-005 — Admin xóa mềm danh mục (Tuân thủ D1: kiểm tra không có recipes mới cho xóa)
+Tuần 5 (Lab 5 - Frontend Integration & Category / Search UI):
+  🔲 Giao diện Khám phá Danh mục /categories và trang món theo danh mục /categories/[slug]
+  🔲 Modal quản trị danh mục trong /admin/categories (thêm/sửa danh mục bảo toàn slug D12, xóa mềm D1)
+  🔲 Thanh tìm kiếm Live-search debounce 300ms kết hợp Drawer bộ lọc đa tiêu chí chuẩn D8
 
-Tuần 6:
-  🔲 FR-SRCH-001 — Tìm kiếm toàn văn Full-Text Search PostgreSQL (tsvector + unaccent)
-  🔲 FR-SRCH-002..004 — Lọc đa tiêu chí, sắp xếp dual-syntax D8, phân trang
+Tuần 6 (Lab 6 - Tích hợp Redis Caching & Tối ưu hiệu năng):
+  🔲 Hoàn thiện RedisCacheService.cs (IDistributedCache, serialize UTF-8 byte[], TTL 30 phút)
+  🔲 Tích hợp Cache Invalidation tự động xóa cache khi Admin sửa/xóa danh mục (RemoveByPrefixAsync)
+  🔲 Đo lường benchmark thời gian phản hồi API danh mục đạt <= 5ms
 
-Tuần 7:
+Tuần 7 (Lab 7 - Đánh giá sao & Bình luận):
   🔲 FR-INT-001 — Đánh giá sao công thức (Rating 1-5 sao, tính điểm trung bình và số lượt đánh giá)
+  🔲 Component gắn sao ⭐ tương tác tại trang chi tiết món và hiển thị rating trên RecipeCard
 
-Tuần 8:
-  🔲 Triển khai Production, Tối ưu hóa truy vấn CSDL PostgreSQL & Redis Cache, Hoàn thiện báo cáo
+Tuần 8 (Lab 8 - Tối ưu hóa Database & Nghiệm thu):
+  🔲 Tối ưu hóa chỉ mục CSDL PostgreSQL (EXPLAIN ANALYZE), rà soát chuẩn RFC 7807 ProblemDetails
+  🔲 Kiểm tra cấu hình bảo mật Security Headers (CORS, CSP, HSTS) và cùng nhóm chuẩn bị nghiệm thu
 ```
 
 ---
@@ -154,7 +161,7 @@ git checkout -b 2312777-NguyenVietToan-buoi4
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
      git add .
-     git commit -m "feat/category: cai dat endpoints PUT va DELETE categories kiem tra D12 va D1"
+     git commit -m "feat/FR-CAT-004-005: cai dat endpoints PUT va DELETE categories kiem tra D12 va D1"
      ```
 
 ---
@@ -174,7 +181,7 @@ git checkout -b 2312777-NguyenVietToan-buoi4
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
      git add .
-     git commit -m "feat/search: cai dat endpoint search unaccent tsvector va nang cap bo loc D8"
+     git commit -m "feat/FR-SRCH-001-004: cai dat endpoint search unaccent tsvector va nang cap bo loc D8"
      git push -u origin 2312777-NguyenVietToan-buoi4
      ```
   5. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để trưởng nhóm Tiến review & gộp code*.

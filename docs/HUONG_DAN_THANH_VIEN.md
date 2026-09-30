@@ -89,68 +89,71 @@ Mở trình duyệt: http://localhost:3000
 
 ## 3. Quy Ước Nhánh Git & Quy Trình Làm Việc
 
-> ⚠️ **Quan trọng**: Thành viên **KHÔNG tự merge vào `main`**. Chỉ có trưởng nhóm **Lê Nhật Tiến (2312770)** mới được merge sau khi review và xác nhận không xung đột.
+> ⚠️ **Quan trọng**: Thành viên **KHÔNG tự merge vào `main`**. Chỉ có trưởng nhóm **Lê Nhật Tiến (2312770)** mới được merge sau khi review Pull Request trên GitHub và xác nhận không có xung đột.
 
-### 3.1. Quy ước đặt tên nhánh theo từng chức năng
+### 3.1. Quy ước đặt tên nhánh theo từng buổi (Áp dụng từ Tuần 4)
 
-Mỗi chức năng (FR) được làm trên **một nhánh riêng biệt**, tự tạo từ nhánh `main` theo cú pháp:
+Từ Tuần 4 trở đi, nhóm áp dụng cơ chế **1 nhánh làm việc duy nhất cho cả buổi** để thuận tiện quản lý tiến trình:
 
 ```
-<MSSV>-<VietTatHoDemTen>-<Ten-Chuc-Nang>
+<MSSV>-<HoTenKhongDau>-buoi<X>
 ```
 
-| Thành viên | Cú pháp tiền tố | Ví dụ nhánh chức năng |
+| Thành viên | Tên nhánh Buổi 4 | Tên nhánh Buổi 5 |
 | :--- | :--- | :--- |
-| Lê Nhật Tiến (Trưởng nhóm) | `2312770-LNTien-` | `2312770-LNTien-Tao-Cong-Thuc`, `2312770-LNTien-Chi-Tiet-Danh-Muc` |
-| Lâm Văn Đức | `2314299-LVDuc-` | `2314299-LVDuc-Dang-Ky`, `2314299-LVDuc-Dang-Nhap` |
-| Nguyễn Viết Toàn | `2312777-NVToan-` | `2312777-NVToan-Danh-Sach-Danh-Muc`, `2312777-NVToan-Tao-Danh-Muc` |
-| Nguyễn Đình Tuấn | `2312792-NDTuan-` | `2312792-NDTuan-Upload-Minio`, `2312792-NDTuan-Xoa-Anh-Minio` |
+| Lê Nhật Tiến (Trưởng nhóm) | `2312770-LeNhatTien-buoi4` | `2312770-LeNhatTien-buoi5` |
+| Lâm Văn Đức | `2314299-LamVanDuc-buoi4` | `2314299-LamVanDuc-buoi5` |
+| Nguyễn Viết Toàn | `2312777-NguyenVietToan-buoi4` | `2312777-NguyenVietToan-buoi5` |
+| Nguyễn Đình Tuấn | `2312792-NguyenDinhTuan-buoi4` | `2312792-NguyenDinhTuan-buoi5` |
 
-### 3.2. Quy trình làm việc cho từng chức năng
+### 3.2. Quy trình làm việc chi tiết cho từng buổi
 
 #### Bước 1: Luôn cập nhật code mới nhất từ nhánh `main`
-Trước khi tạo nhánh làm chức năng mới, luôn lấy code mới nhất:
+Trước khi tạo nhánh làm việc cho buổi mới, luôn lấy code mới nhất:
 ```powershell
 git checkout main
 git pull origin main
 ```
 
-#### Bước 2: Tự tạo nhánh làm việc mới cho chức năng
+#### Bước 2: Tạo nhánh buổi làm việc của bạn
 ```powershell
-# Cú pháp: git checkout -b <MSSV>-<VietTatHoDemTen>-<Ten-Chuc-Nang>
-# Ví dụ Tuấn làm upload MinIO:
-git checkout -b 2312792-NDTuan-Upload-Minio
+# Cú pháp: git checkout -b <MSSV>-<HoTenKhongDau>-buoi<X>
+# Ví dụ Tiến tạo nhánh buổi 4:
+git checkout -b 2312770-LeNhatTien-buoi4
 
-# Ví dụ Đức làm đăng ký:
-git checkout -b 2314299-LVDuc-Dang-Ky
+# Ví dụ Đức tạo nhánh buổi 4:
+git checkout -b 2314299-LamVanDuc-buoi4
 ```
 
 #### Bước 3: Code và kiểm tra cẩn thận trên máy cá nhân
 - **BẮT BUỘC ĐỌC**: Tài liệu [DECISIONS.md](./DECISIONS.md), [SRS_Culinary_Blog_v1.0.0.md](./SRS_Culinary_Blog_v1.0.0.md) và file hướng dẫn riêng trong thư mục `docs/thanh-vien/`.
-- Chạy `dotnet build CulinaryBlog.slnx` (Backend không được có lỗi compile).
-- Chạy `npm run lint` trong `src/Frontend` (Frontend không được có lỗi lint/TypeScript).
+- Chạy `dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj` (Backend đạt 0 error).
+- Chạy `cd src/Frontend; npx tsc --noEmit; cd ../..` (Frontend đạt 0 error TypeScript).
 
-#### Bước 4: Commit theo chuẩn
-Quy ước thông điệp commit: `<module>: <mô tả ngắn> <mã FR>`
+#### Bước 4: Commit theo chuẩn gắn mã FR trực tiếp
+Quy ước thông điệp commit: `feat/<Mã-FR>: <mô tả chi tiết>`
 ```powershell
 git add .
-git commit -m "file: upload anh len minio 5mb FR-FILE-001"
+git commit -m "feat/FR-RCP-002: cai dat endpoint GET recipes slug chi tiet cong thuc kem nutrition"
 ```
 
-*Một số ví dụ commit hợp lệ:*
-- `auth: hien thuc dang ky tai khoan FR-AUTH-001`
-- `category: them api lay danh sach danh muc kem so recipe FR-CAT-001`
-- `file: cau hinh upload anh len minio FR-FILE-001`
+*Ví dụ commit chuẩn theo từng chức năng trong buổi 4:*
+- Tiến: `git commit -m "feat/FR-RCP-002: cai dat endpoint GET recipes slug chi tiet cong thuc kem nutrition"`
+- Đức: `git commit -m "feat/FR-AUTH-005: cai dat endpoint POST auth logout thu hoi refresh token"`
+- Toàn: `git commit -m "feat/FR-CAT-004-005: cai dat endpoints PUT va DELETE categories kiem tra D12 va D1"`
+- Tuấn: `git commit -m "feat/FR-RCP-009: cai dat day du cac endpoints CRUD nguyen lieu ho tro null unit D10"`
 
-#### Bước 5: Đẩy nhánh chức năng lên GitHub
+#### Bước 5: Đẩy nhánh lên GitHub
 ```powershell
-git push -u origin 2312792-NDTuan-Upload-Minio    # Thay bằng tên nhánh chức năng của bạn
+git push -u origin 2312770-LeNhatTien-buoi4    # Thay bằng tên nhánh buổi của bạn
 ```
 
-#### Bước 6: Báo trưởng nhóm review và merge
-1. Nhắn vào nhóm Zalo/Discord: *"Mình vừa push xong FR-FILE-001 lên nhánh `2312792-NDTuan-Upload-Minio`, Tiến review giúp nhé."*
-2. Trưởng nhóm **Tiến** vào GitHub, so sánh nhánh với `main`, review code, và nếu ổn sẽ **merge vào `main`**.
-3. Sau khi Tiến thông báo đã merge xong, bạn chuyển về `main` để pull code mới nhất về trước khi làm chức năng tiếp theo:
+#### Bước 6: Tạo Pull Request (PR) theo từng chức năng và Báo trưởng nhóm review
+1. Mở trang repository trên GitHub: [PTUDWNC-2026-Nhom21](https://github.com/2312770-coder/PTUDWNC-2026-Nhom21).
+2. Tạo **Pull Request** từ nhánh buổi của bạn vào nhánh `main` ứng với chức năng vừa hoàn tất (Tiêu đề PR: `feat: [Mã-FR] <Tên chức năng>`).
+3. Nhắn vào nhóm Zalo/Discord: *"Mình vừa tạo PR cho [Mã-FR] từ nhánh `...-buoi4`, Tiến review giúp nhé."*
+4. Trưởng nhóm **Lê Nhật Tiến** vào GitHub, kiểm tra diff, review code và gộp (merge) PR vào `main`.
+5. Khi bắt đầu buổi tiếp theo hoặc cần lấy code mới của đồng đội:
 ```powershell
 git checkout main
 git pull origin main

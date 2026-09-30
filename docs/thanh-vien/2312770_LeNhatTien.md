@@ -38,22 +38,29 @@ Tuần 2 (Đã hoàn thành & merge main):
 Tuần 3 (Đã hoàn thành & merge main):
   ✅ FR-CAT-002 — Xem chi tiết danh mục kèm danh sách bài viết (Backend + Frontend /categories/[slug])
 
-Tuần 4 (Tuần tới):
-  🔲 FR-RCP-002 — Xem chi tiết công thức nấu ăn (Backend GetRecipeBySlugQueryHandler & Frontend /recipes/[slug])
-  🔲 FR-RCP-008 — Quản lý gallery ảnh công thức (Upload/Xóa ảnh, chọn ảnh chính IsPrimary)
+Tuần 4 (Lab 4 - Hoàn thành 100% Backend API Endpoints):
+  🔲 FR-RCP-002 — GET /recipes/{slug} (Chi tiết công thức kèm nạp đầy đủ nguyên liệu, bước nấu, dinh dưỡng)
+  🔲 FR-RCP-008 — POST/PATCH/DELETE /recipes/{id}/images (Quản lý gallery ảnh, chọn ảnh đại diện chính IsPrimary)
+  🔲 FR-RCP-004 — PUT /recipes/{id} (Cập nhật công thức kiểm soát tương tranh lạc quan RowVersion)
+  🔲 FR-RCP-006 — PATCH /recipes/{id}/archive (Lưu trữ công thức)
+  🔲 FR-RCP-007 — DELETE /recipes/{id} (Xóa mềm công thức Soft Delete theo chuẩn Quyết định D1)
 
-Tuần 5:
-  🔲 FR-RCP-004 — Cập nhật thông tin công thức (Kiểm tra Concurrency RowVersion)
-  🔲 FR-RCP-006 — Lưu trữ công thức (ArchiveRecipe)
+Tuần 5 (Lab 5 - Frontend Integration):
+  🔲 Giao diện Chi tiết món ăn /recipes/[slug] (Hero banner, Bảng Nutrition Facts, Checklist nguyên liệu, Timeline các bước)
+  🔲 Component RecipeGalleryEditor.tsx xem bộ sưu tập và chọn ảnh bìa chính
 
-Tuần 6:
-  🔲 FR-RCP-007 — Xóa mềm công thức (Soft Delete theo D1)
+Tuần 6 (Lab 6 - Author Dashboard & Quản trị bài viết):
+  🔲 Giao diện Quản trị bài viết cá nhân /dashboard/recipes (Lọc theo trạng thái, thao tác Archive, Xóa mềm D1)
+  🔲 Xử lý UI xung đột tương tranh Optimistic Concurrency Control (bắt lỗi HTTP 409 Conflict)
 
-Tuần 7:
-  🔲 FR-JOB-003 — Hangfire job tự động sinh sitemap.xml SEO
+Tuần 7 (Lab 7 - Hangfire Jobs & SEO):
+  🔲 Cấu hình bảo mật Hangfire Dashboard tại /hangfire (Authorization filter quyền Admin)
+  🔲 FR-JOB-003 — Hangfire recurring job tự động quét CSDL và sinh file sitemap.xml SEO lúc 2:00 sáng
 
-Tuần 8:
-  🔲 Triển khai Production (Docker Compose + Nginx HTTPS), Kiểm thử tích hợp toàn hệ thống, Hoàn thiện báo cáo đồ án
+Tuần 8 (Lab 8 - Triển khai Production & Nghiệm thu):
+  🔲 Viết Dockerfile multi-stage build cho Backend và Next.js Frontend
+  🔲 Cấu hình docker-compose.prod.yml + Nginx Reverse Proxy (kèm chứng chỉ SSL HTTPS)
+  🔲 Kiểm thử tích hợp toàn diện E2E và hoàn thiện báo cáo đồ án, slide bảo vệ
 ```
 
 ---
@@ -173,7 +180,7 @@ git checkout -b 2312770-LeNhatTien-buoi4
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
      git add .
-     git commit -m "feat/recipe: cai dat endpoint GET recipes slug chi tiet cong thuc"
+     git commit -m "feat/FR-RCP-002: cai dat endpoint GET recipes slug chi tiet cong thuc kem nutrition"
      ```
 
 ---
@@ -191,7 +198,7 @@ git checkout -b 2312770-LeNhatTien-buoi4
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
      git add .
-     git commit -m "feat/recipe: cai dat cac endpoints quan ly gallery anh recipe images"
+     git commit -m "feat/FR-RCP-008: cai dat cac endpoints quan ly gallery anh recipe images"
      ```
 
 ---
@@ -210,7 +217,7 @@ git checkout -b 2312770-LeNhatTien-buoi4
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
      git add .
-     git commit -m "feat/recipe: cai dat PUT recipes id kem concurrency va PATCH archive DELETE soft delete"
+     git commit -m "feat/FR-RCP-004-006-007: cai dat PUT recipes id kem concurrency va PATCH archive DELETE soft delete"
      git push -u origin 2312770-LeNhatTien-buoi4
      ```
   6. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để review và gộp code*.

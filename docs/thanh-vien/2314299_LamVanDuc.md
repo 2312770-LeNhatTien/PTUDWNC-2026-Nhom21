@@ -36,21 +36,31 @@ Tuần 2 (Đã hoàn thành & merge main):
 Tuần 3 (Đã hoàn thành & merge main):
   ✅ FR-AUTH-002 — Đăng nhập Email/Mật khẩu + Cấu hình Rate Limiting 5 req/phút chống Brute-Force
 
-Tuần 4 (Tuần tới):
-  🔲 FR-AUTH-005 — Đăng xuất tài khoản & Thu hồi Refresh Token trong CSDL (Backend + Frontend Navbar)
-  🔲 FR-AUTH-004 — Làm mới Access Token (Refresh Token Rotation + Reuse Detection ngầm)
+Tuần 4 (Lab 4 - Hoàn thành 100% Backend API Endpoints):
+  🔲 FR-AUTH-005 — POST /auth/logout (Đăng xuất tài khoản & Thu hồi Refresh Token trong CSDL)
+  🔲 FR-AUTH-004 — POST /auth/refresh (Làm mới Access Token: Rotation & Reuse Detection phát hiện tấn công)
+  🔲 FR-AUTH-003 — POST /auth/google (Đăng nhập Google OAuth 2.0 xác thực Google JWT ID Token)
+  🔲 FR-RCP-005 — PATCH /recipes/{id}/publish & /unpublish (Xuất bản công thức kiểm tra điều kiện D11)
 
-Tuần 5:
-  🔲 FR-AUTH-003 — Đăng nhập bên thứ ba Google OAuth 2.0
+Tuần 5 (Lab 5 - Frontend Integration & Auth UI):
+  🔲 Giao diện Đăng nhập và Đăng ký chuyên nghiệp (Validation form, UX rõ ràng)
+  🔲 Nút Đăng nhập một chạm Google OAuth 2.0 tích hợp Google Identity Services SDK
+  🔲 Axios Interceptor trong client.ts bắt HTTP 401 tự động refresh token ngầm (Silent Refresh)
+  🔲 Dropdown Menu tài khoản trên Navbar với nút Đăng xuất an toàn
 
-Tuần 6:
-  🔲 FR-RCP-005 — Xuất bản / Hủy xuất bản công thức (Tuân thủ điều kiện D11: >= 1 bước & >= 1 nguyên liệu)
+Tuần 6 (Lab 6 - Luồng Xuất bản & Phân quyền Next.js):
+  🔲 Công tắc (toggle switch) Publish / Unpublish trên giao diện soạn bài
+  🔲 Modal kiểm tra và cảnh báo điều kiện D11 (bắt buộc >= 1 bước nấu và >= 1 nguyên liệu)
+  🔲 Cấu hình Next.js middleware.ts bảo vệ các route riêng tư (/admin/*, /dashboard/*, /profile) theo Role
 
-Tuần 7:
-  🔲 FR-JOB-001 — Hangfire background job tự động gửi email chào mừng qua MailHog
+Tuần 7 (Lab 7 - Hangfire Background Job Email):
+  🔲 FR-JOB-001 — Hangfire background job gửi email chào mừng (Welcome Email) qua MailKit + Docker MailHog
+  🔲 Thiết kế Template Email HTML thương hiệu Culinary Blog
 
-Tuần 8:
-  🔲 Triển khai Production, Tinh chỉnh bảo mật luồng Auth, Guard Route Next.js, Hoàn thiện báo cáo
+Tuần 8 (Lab 8 - Kiểm thử tự động E2E & Nghiệm thu):
+  🔲 Xây dựng bộ kịch bản kiểm thử tích hợp tự động E2E bằng Postman Collection / Newman
+  🔲 Kiểm thử bảo mật: tấn công tái sử dụng token cũ, kiểm tra thu hồi phiên (Reuse Detection)
+  🔲 Cùng nhóm hoàn thiện báo cáo và slide bảo vệ đồ án
 ```
 
 ---
@@ -175,7 +185,7 @@ git checkout -b 2314299-LamVanDuc-buoi4
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
      git add .
-     git commit -m "feat/auth: cai dat endpoint POST auth logout thu hoi refresh token"
+     git commit -m "feat/FR-AUTH-005: cai dat endpoint POST auth logout thu hoi refresh token"
      ```
 
 ---
@@ -193,7 +203,7 @@ git checkout -b 2314299-LamVanDuc-buoi4
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
      git add .
-     git commit -m "feat/auth: cai dat endpoint POST auth refresh token rotation kem reuse detection"
+     git commit -m "feat/FR-AUTH-004: cai dat endpoint POST auth refresh token rotation kem reuse detection"
      ```
 
 ---
@@ -210,7 +220,7 @@ git checkout -b 2314299-LamVanDuc-buoi4
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
      git add .
-     git commit -m "feat/auth: cai dat endpoint POST google login va PATCH publish unpublish kiem tra D11"
+     git commit -m "feat/FR-AUTH-003-RCP-005: cai dat endpoint POST google login va PATCH publish unpublish kiem tra D11"
      git push -u origin 2314299-LamVanDuc-buoi4
      ```
   5. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để trưởng nhóm Tiến review & gộp code*.

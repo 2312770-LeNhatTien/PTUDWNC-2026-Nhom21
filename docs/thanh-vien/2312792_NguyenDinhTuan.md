@@ -37,21 +37,30 @@ Tuần 2 (Đã hoàn thành & merge main):
 Tuần 3 (Đã hoàn thành & merge main):
   ✅ FR-RCP-010 — Quản lý các bước nấu (Tuân thủ quyết định D9: server tự sinh stepNumber liên tục)
 
-Tuần 4 (Tuần tới):
-  🔲 FR-RCP-009 — Quản lý nguyên liệu công thức (Tuân thủ quyết định D10: cho phép null unit nêm gia vị)
-  🔲 FR-AUTH-006 — Xem thông tin hồ sơ cá nhân (Query Profile /auth/me & UI Profile)
+Tuần 4 (Lab 4 - Hoàn thành 100% Backend API Endpoints):
+  🔲 FR-RCP-009 — POST/PUT/DELETE /recipes/{id}/ingredients (CRUD nguyên liệu hỗ trợ null unit theo D10)
+  🔲 FR-AUTH-006 — GET /auth/me (Xem thông tin hồ sơ cá nhân bảo mật không lộ hash mật khẩu)
+  🔲 FR-AUTH-007 — PATCH /auth/me (Cập nhật hồ sơ DisplayName, Bio, AvatarUrl liên kết MinIO)
 
-Tuần 5:
-  🔲 FR-AUTH-007 — Cập nhật hồ sơ & đổi Avatar (Tích hợp MinIO Avatar và cập nhật DisplayName, Bio)
+Tuần 5 (Lab 5 - Frontend Integration & Profile / Editor UI):
+  🔲 Giao diện Hồ sơ cá nhân /profile (Avatar lớn, Tên, Bio, Role, form chỉnh sửa)
+  🔲 Tính năng đổi Avatar: upload trực tiếp MinIO qua Presigned URL
+  🔲 Component IngredientListEditor.tsx (nhập liên tục bằng phím Enter, null unit D10)
+  🔲 Hoàn thiện component StepListEditor.tsx phục vụ trang tạo/sửa món ăn
 
-Tuần 6:
-  🔲 FR-JOB-002 — Hangfire background job tự động nén & tạo thumbnail cho ảnh MinIO ($300x300)
+Tuần 6 (Lab 6 - Tối ưu hóa Media MinIO & Xử lý ảnh):
+  🔲 Sinh Presigned URL an toàn không lộ secret key từ Client
+  🔲 Xử lý Preview ảnh trực tiếp bằng Blob URL trước khi upload, Fallback ảnh lỗi
+  🔲 Kiểm thử tải đa định dạng file ảnh (JPG, PNG, WebP <= 5MB) có thanh tiến trình upload
 
-Tuần 7:
-  🔲 Tối ưu hóa toàn diện Media MinIO, xử lý ảnh lỗi, tối ưu tốc độ tải ảnh S3
+Tuần 7 (Lab 7 - Hangfire Background Job nén ảnh Thumbnail):
+  🔲 FR-JOB-002 — Hangfire background job tự động nén & resize ảnh thumbnail 300x300 (ImageSharp)
+  🔲 Lưu ảnh thumbnail vào bucket recipe-thumbnails trên MinIO, giảm >70% dung lượng
 
-Tuần 8:
-  🔲 Triển khai Production, Tối ưu hóa hiệu năng lưu trữ ảnh MinIO, Hoàn thiện báo cáo đồ án
+Tuần 8 (Lab 8 - SEO Schema.org, Lighthouse Audit & Nghiệm thu):
+  🔲 Tích hợp cấu trúc dữ liệu JSON-LD theo chuẩn Schema.org Recipe (Rich Snippets Google)
+  🔲 Chạy Google Lighthouse Audit trên Chrome, tối ưu Core Web Vitals đạt Performance >= 90
+  🔲 Cùng nhóm hoàn thiện hồ sơ nghiệm thu đồ án
 ```
 
 ---
@@ -205,7 +214,7 @@ git checkout -b 2312792-NguyenDinhTuan-buoi4
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
      git add .
-     git commit -m "feat/recipe: cai dat day du cac endpoints CRUD nguyen lieu ho tro null unit D10"
+     git commit -m "feat/FR-RCP-009: cai dat day du cac endpoints CRUD nguyen lieu ho tro null unit D10"
      ```
 
 ---
@@ -227,7 +236,7 @@ git checkout -b 2312792-NguyenDinhTuan-buoi4
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
      git add .
-     git commit -m "feat/auth: cai dat endpoints GET va PATCH auth me xem va cap nhat ho so"
+     git commit -m "feat/FR-AUTH-006-007: cai dat endpoints GET va PATCH auth me xem va cap nhat ho so"
      git push -u origin 2312792-NguyenDinhTuan-buoi4
      ```
   6. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để trưởng nhóm Tiến review & gộp code*.
