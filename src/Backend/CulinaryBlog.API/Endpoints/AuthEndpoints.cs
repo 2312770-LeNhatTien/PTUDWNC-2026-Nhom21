@@ -1,5 +1,6 @@
 using CulinaryBlog.Application.Common.Models;
 using CulinaryBlog.Application.Features.Auth.Commands.Login;
+using CulinaryBlog.Application.Features.Auth.Commands.Logout;
 using CulinaryBlog.Application.Features.Auth.Commands.Register;
 using MediatR;
 
@@ -57,6 +58,20 @@ public static class AuthEndpoints
         .WithName("LoginUser")
         .WithSummary("Đăng nhập bằng Email và Mật khẩu (FR-AUTH-002)");
 
+        group.MapPost("/logout", async (
+            LogoutRequest request,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var command = new LogoutCommand(request.RefreshToken);
+            await mediator.Send(command, cancellationToken);
+            return Results.NoContent();
+        })
+        .RequireAuthorization()
+        .WithName("LogoutUser")
+        .WithSummary("Đăng xuất và thu hồi Refresh Token (FR-AUTH-005)")
+        .Produces(StatusCodes.Status204NoContent);
+
         return app;
     }
 
@@ -69,4 +84,7 @@ public static class AuthEndpoints
     public sealed record LoginRequest(
         string Email,
         string Password);
+
+    public sealed record LogoutRequest(
+        string RefreshToken);
 }
