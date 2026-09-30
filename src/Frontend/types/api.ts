@@ -39,6 +39,12 @@ export interface AuthTokensDto {
   expiresIn: number;
 }
 
+export interface AuthResponseDto {
+  accessToken: string;
+  refreshToken: string;
+  user: UserDto;
+}
+
 export interface CategoryDto {
   id: string;
   name: string;
