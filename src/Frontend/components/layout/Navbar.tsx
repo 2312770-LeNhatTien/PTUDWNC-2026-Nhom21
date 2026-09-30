@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { authApi } from "@/lib/api/auth";
 
 interface UserProfile {
   id: string;
@@ -44,15 +45,24 @@ export default function Navbar() {
     };
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
-    localStorage.removeItem("user");
-    setCurrentUser(null);
-    setIsUserMenuOpen(false);
-    setIsMobileMenuOpen(false);
-    window.dispatchEvent(new Event("auth-changed"));
-    router.push("/login");
+  const handleLogout = async () => {
+    const refreshToken = localStorage.getItem("refreshToken");
+    try {
+      if (refreshToken) {
+        await authApi.logout(refreshToken);
+      }
+    } catch (err) {
+      console.warn("Không thể thu hồi token từ server:", err);
+    } finally {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+      setCurrentUser(null);
+      setIsUserMenuOpen(false);
+      setIsMobileMenuOpen(false);
+      window.dispatchEvent(new Event("auth-changed"));
+      router.push("/login");
+    }
   };
 
   const handleSearch = (e: React.FormEvent) => {
