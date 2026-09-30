@@ -10,6 +10,10 @@ public static class DependencyInjection
         this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOpenApi();
+        services.ConfigureHttpJsonOptions(options =>
+        {
+            options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+        });
 
         // CONS-005: mọi lỗi trả về theo RFC 7807.
         services.AddExceptionHandler<GlobalExceptionMiddleware>();

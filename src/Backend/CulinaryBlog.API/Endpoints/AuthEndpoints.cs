@@ -1,4 +1,5 @@
 using CulinaryBlog.Application.Common.Models;
+using CulinaryBlog.Application.Features.Auth.Commands.GoogleLogin;
 using CulinaryBlog.Application.Features.Auth.Commands.Login;
 using CulinaryBlog.Application.Features.Auth.Commands.Logout;
 using CulinaryBlog.Application.Features.Auth.Commands.RefreshToken;
@@ -95,6 +96,28 @@ public static class AuthEndpoints
         .WithName("RefreshToken")
         .WithSummary("Làm mới Access Token qua Refresh Token Rotation (FR-AUTH-004)");
 
+        group.MapPost("/google", async (
+            GoogleLoginRequest request,
+            HttpContext httpContext,
+            IMediator mediator,
+            CancellationToken cancellationToken) =>
+        {
+            var clientIp = httpContext.Connection.RemoteIpAddress?.ToString();
+            var command = new GoogleLoginCommand(
+                IdToken: request.IdToken,
+                ClientIp: clientIp);
+
+            var result = await mediator.Send(command, cancellationToken);
+            return Results.Ok(ApiResponse.Ok(new
+            {
+                result.AccessToken,
+                result.RefreshToken,
+                result.User
+            }));
+        })
+        .WithName("GoogleLogin")
+        .WithSummary("Đăng nhập bằng Google OAuth 2.0 (FR-AUTH-003)");
+
         return app;
     }
 
@@ -113,4 +136,7 @@ public static class AuthEndpoints
 
     public sealed record RefreshTokenRequest(
         string RefreshToken);
+
+    public sealed record GoogleLoginRequest(
+        string IdToken);
 }

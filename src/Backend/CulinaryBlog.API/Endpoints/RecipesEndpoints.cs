@@ -110,6 +110,31 @@ public static class RecipesEndpoints
         .WithName("DeleteRecipeStep")
         .WithSummary("Xóa bước nấu khỏi công thức và tự động renumber (FR-RCP-010)");
 
+        // ====================================================================
+        // FR-RCP-005: XUẤT BẢN / HỦY XUẤT BẢN CÔNG THỨC (LÂM VĂN ĐỨC - 2314299)
+        // TUÂN THỦ QUYẾT ĐỊNH KIẾN TRÚC D11: Kiểm tra >= 1 nguyên liệu và >= 1 bước nấu
+        // ====================================================================
+
+        // 5. PATCH /api/v1/recipes/{id}/publish - Xuất bản công thức (kiểm tra D11)
+        group.MapPatch("/{id:guid}/publish", async (Guid id, ISender sender, CancellationToken ct) =>
+        {
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.PublishRecipe.PublishRecipeCommand(id), ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("PublishRecipe")
+        .WithSummary("Xuất bản công thức nấu ăn (FR-RCP-005, kiểm tra D11)")
+        .RequireAuthorization();
+
+        // 6. PATCH /api/v1/recipes/{id}/unpublish - Hủy xuất bản công thức về Draft
+        group.MapPatch("/{id:guid}/unpublish", async (Guid id, ISender sender, CancellationToken ct) =>
+        {
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.PublishRecipe.UnpublishRecipeCommand(id), ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("UnpublishRecipe")
+        .WithSummary("Hủy xuất bản công thức nấu ăn về trạng thái Draft (FR-RCP-005)")
+        .RequireAuthorization();
+
         return app;
     }
 }
