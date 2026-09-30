@@ -32,6 +32,15 @@ public static class RecipesEndpoints
         .WithSummary("Tạo công thức mới (trạng thái Draft)")
         .RequireAuthorization("AuthorOrAdmin");
 
+        // FR-RCP-002: Lấy chi tiết công thức nấu ăn theo Slug (Lê Nhật Tiến - 2312770)
+        group.MapGet("/{slug}", async (string slug, ISender sender, CancellationToken ct) =>
+        {
+            var recipe = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipeBySlug.GetRecipeBySlugQuery(slug), ct);
+            return Results.Ok(ApiResponse.Ok(recipe));
+        })
+        .WithName("GetRecipeBySlug")
+        .WithSummary("Xem chi tiết công thức nấu ăn theo slug kèm đầy đủ nguyên liệu, bước nấu và ảnh (FR-RCP-002)");
+
         // ====================================================================
         // FR-RCP-010: QUẢN LÝ CÁC BƯỚC NẤU (NGUYỄN ĐÌNH TUẤN - 2312792)
         // TUÂN THỦ QUYẾT ĐỊNH KIẾN TRÚC D9: Tự sinh StepNumber nếu không truyền
