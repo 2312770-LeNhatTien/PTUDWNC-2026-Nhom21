@@ -119,9 +119,73 @@ public static class RecipesEndpoints
         .WithName("DeleteRecipeStep")
         .WithSummary("Xóa bước nấu khỏi công thức và tự động renumber (FR-RCP-010)");
 
+        // ====================================================================
+        // FR-RCP-008: QUẢN LÝ GALLERY ẢNH CÔNG THỨC (LÊ NHẬT TIẾN - 2312770)
+        // ====================================================================
+
+        // 1. POST /api/v1/recipes/{id}/images - Thêm ảnh vào gallery
+        group.MapPost("/{id:guid}/images", async (
+            Guid id,
+            AddRecipeImageRequest request,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var command = new CulinaryBlog.Application.Features.Recipes.Commands.ManageImages.AddRecipeImageCommand(
+                RecipeId: id,
+                OriginalUrl: request.OriginalUrl,
+                AltText: request.AltText,
+                IsPrimary: request.IsPrimary,
+                OrderIndex: request.OrderIndex
+            );
+
+            var result = await sender.Send(command, ct);
+            return Results.Created($"/api/v1/recipes/{id}/images/{result.Id}", ApiResponse.Ok(result));
+        })
+        .WithName("AddRecipeImage")
+        .WithSummary("Thêm ảnh mới vào bộ sưu tập công thức (FR-RCP-008)")
+        .RequireAuthorization("AuthorOrAdmin");
+
+        // 2. DELETE /api/v1/recipes/{id}/images/{imageId} - Xóa ảnh khỏi gallery
+        group.MapDelete("/{id:guid}/images/{imageId:guid}", async (
+            Guid id,
+            Guid imageId,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.ManageImages.DeleteRecipeImageCommand(id, imageId), ct);
+            return Results.Ok(ApiResponse.Ok("Đã xóa ảnh khỏi công thức thành công."));
+        })
+        .WithName("DeleteRecipeImage")
+        .WithSummary("Xóa ảnh khỏi bộ sưu tập công thức (FR-RCP-008)")
+        .RequireAuthorization("AuthorOrAdmin");
+
+        // 3. PATCH /api/v1/recipes/{id}/images/{imageId}/primary - Đặt làm ảnh đại diện chính
+        group.MapPatch("/{id:guid}/images/{imageId:guid}/primary", async (
+            Guid id,
+            Guid imageId,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.ManageImages.SetPrimaryImageCommand(id, imageId), ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("SetPrimaryRecipeImage")
+        .WithSummary("Đặt ảnh làm ảnh đại diện chính của công thức (FR-RCP-008)")
+        .RequireAuthorization("AuthorOrAdmin");
+
         return app;
     }
 }
+
+/// <summary>
+/// Model nhận dữ liệu từ request body khi thêm ảnh vào gallery.
+/// </summary>
+public record AddRecipeImageRequest(
+    string OriginalUrl,
+    string? AltText = null,
+    bool IsPrimary = false,
+    int? OrderIndex = null
+);
 
 /// <summary>
 /// Model nhận dữ liệu từ request body khi thêm bước nấu mới (D9: StepNumber tùy chọn).
