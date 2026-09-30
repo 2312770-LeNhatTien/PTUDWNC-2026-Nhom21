@@ -3,6 +3,7 @@
 using CulinaryBlog.Application.Common.Models;
 using CulinaryBlog.Application.DTOs;
 using CulinaryBlog.Application.Features.Recipes.Commands.CreateRecipe;
+using CulinaryBlog.Domain.Enums;
 using MediatR;
 
 namespace CulinaryBlog.API.Endpoints;
@@ -40,6 +41,59 @@ public static class RecipesEndpoints
         })
         .WithName("GetRecipeBySlug")
         .WithSummary("Xem chi tiết công thức nấu ăn theo slug kèm đầy đủ nguyên liệu, bước nấu và ảnh (FR-RCP-002)");
+
+        // FR-RCP-004: Cập nhật công thức nấu ăn kèm Optimistic Concurrency D8 (Lê Nhật Tiến - 2312770)
+        group.MapPut("/{id:guid}", async (
+            Guid id,
+            UpdateRecipeRequest request,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var command = new CulinaryBlog.Application.Features.Recipes.Commands.UpdateRecipe.UpdateRecipeCommand(
+                Id: id,
+                Title: request.Title,
+                Description: request.Description,
+                Instructions: request.Instructions,
+                CategoryId: request.CategoryId,
+                PrepTime: request.PrepTime,
+                CookTime: request.CookTime,
+                Servings: request.Servings,
+                Difficulty: request.Difficulty,
+                Nutrition: request.Nutrition,
+                RowVersion: request.RowVersion);
+
+            var result = await sender.Send(command, ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("UpdateRecipe")
+        .WithSummary("Cập nhật thông tin công thức nấu ăn kèm Optimistic Concurrency D8 (FR-RCP-004)")
+        .RequireAuthorization("AuthorOrAdmin");
+
+        // FR-RCP-006: Lưu trữ công thức nấu ăn (Lê Nhật Tiến - 2312770)
+        group.MapPatch("/{id:guid}/archive", async (
+            Guid id,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.ArchiveRecipe.ArchiveRecipeCommand(id), ct);
+            return Results.NoContent();
+        })
+        .WithName("ArchiveRecipe")
+        .WithSummary("Lưu trữ công thức nấu ăn (FR-RCP-006)")
+        .RequireAuthorization("AuthorOrAdmin");
+
+        // FR-RCP-007: Xóa mềm công thức nấu ăn theo Quyết định D1 (Lê Nhật Tiến - 2312770)
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.DeleteRecipe.DeleteRecipeCommand(id), ct);
+            return Results.NoContent();
+        })
+        .WithName("DeleteRecipe")
+        .WithSummary("Xóa mềm công thức nấu ăn theo Quyết định D1 (FR-RCP-007)")
+        .RequireAuthorization("AuthorOrAdmin");
 
         // ====================================================================
         // FR-RCP-010: QUẢN LÝ CÁC BƯỚC NẤU (NGUYỄN ĐÌNH TUẤN - 2312792)
@@ -207,5 +261,21 @@ public record UpdateStepRequest(
     int? StepNumber = null,
     int? TimerMinutes = null,
     string? ImageUrl = null
+);
+
+/// <summary>
+/// Model nhận dữ liệu từ request body khi cập nhật công thức nấu ăn (FR-RCP-004).
+/// </summary>
+public record UpdateRecipeRequest(
+    string Title,
+    string Description,
+    string? Instructions,
+    Guid CategoryId,
+    int PrepTime,
+    int CookTime,
+    int Servings,
+    RecipeDifficulty Difficulty,
+    NutritionDto? Nutrition = null,
+    byte[]? RowVersion = null
 );
 
