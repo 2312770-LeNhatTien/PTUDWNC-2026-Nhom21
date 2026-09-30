@@ -190,44 +190,44 @@ git checkout -b 2312792-NguyenDinhTuan-buoi4
 
 ---
 
-### Task 1 (Giai đoạn 1 - Song song): Quản lý nguyên liệu (FR-RCP-009)
-* **Tiến trình trong nhóm**: Thực hiện ở nửa đầu buổi, làm độc lập song song.
+### Task 1 (Giai đoạn 1 - Song song): CRUD nguyên liệu công thức (FR-RCP-009)
+* **Tiến trình trong nhóm**: Thực hiện ở nửa đầu buổi, làm độc lập song song với các bạn khác.
 * **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Tạo Commands trong `ManageIngredients/*`: Khai báo `decimal? Quantity` và `string? Unit` (cho phép `null`)*:
-     - 👉 **Tại sao?**: **Tuân thủ Quyết định D10**. Trong văn hóa ẩm thực Việt, rất nhiều gia vị nêm nếm không thể cân đo chính xác bằng số (ví dụ: "tiêu xay: một chút", "nước mắm: vừa ăn"). Nếu bắt buộc nhập số sẽ khiến người dùng không thể viết công thức chuẩn vị.
-  2. *Thêm Validator kiểm tra tên nguyên liệu không được để trống và độ dài $\le 100$ ký tự*:
-     - 👉 **Tại sao?**: Tránh rác dữ liệu và chống tràn bố cục bảng nguyên liệu ngoài giao diện web.
-  3. *Đăng ký endpoints trong `RecipesEndpoints.cs`: `POST/PUT/DELETE /api/v1/recipes/{id}/ingredients`*:
-     - 👉 **Tại sao?**: Cung cấp đầy đủ các thao tác REST API để Client thêm, sửa định lượng và xóa nguyên liệu.
-  4. *Frontend tạo component `src/Frontend/components/recipes/IngredientListEditor.tsx` dạng bảng nhập liên tiếp*:
-     - 👉 **Tại sao?**: Tác giả có thể nhập một loạt 10–15 nguyên liệu nhanh chóng bằng phím Enter mà không bị load lại trang.
-  5. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
+  1. *Tạo Commands trong `Features/Recipes/Commands/ManageIngredients/`: `AddRecipeIngredientCommand`, `UpdateRecipeIngredientCommand`, `DeleteRecipeIngredientCommand`*:
+     - Khai báo `decimal? Quantity` và `string? Unit` (cho phép `null`).
+     - 👉 **Tại sao?**: **Tuân thủ Quyết định D10**. Trong văn hóa ẩm thực Việt Nam, rất nhiều gia vị nêm nếm không thể cân đo chính xác bằng số (ví dụ: "tiêu xay: một chút", "nước mắm: vừa ăn"). Nếu bắt buộc nhập số sẽ khiến người dùng không thể viết công thức chuẩn vị.
+  2. *Thêm FluentValidator kiểm tra tên nguyên liệu không được để trống và độ dài $\le 100$ ký tự*:
+     - 👉 **Tại sao?**: Tránh rác dữ liệu và chống tràn bố cục bảng nguyên liệu.
+  3. *Đăng ký endpoints trong `RecipesEndpoints.cs`: `POST/PUT/DELETE /api/v1/recipes/{id}/ingredients` (`RequireAuthorization`)*:
+     - Kiểm tra quyền: chỉ tác giả của công thức hoặc Admin mới được phép thêm/sửa/xóa nguyên liệu.
+     - 👉 **Tại sao?**: Cung cấp đầy đủ các thao tác REST API để quản lý danh sách nguyên liệu và phục vụ điều kiện xuất bản D11.
+  4. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
-     cd src/Frontend; npx tsc --noEmit; cd ../..
      git add .
-     git commit -m "feat/recipe: hien thuc FR-RCP-009 quan ly nguyen lieu cong thuc ho tro gia vi null unit D10"
+     git commit -m "feat/recipe: cai dat day du cac endpoints CRUD nguyen lieu ho tro null unit D10"
      ```
 
 ---
 
-### Task 2 (Giai đoạn 2 - Sau Task 1): Xem thông tin hồ sơ cá nhân (FR-AUTH-006)
-* **Tiến trình trong nhóm**: Thực hiện ở nửa sau buổi, sau khi hoàn thành Task 1.
+### Task 2 (Giai đoạn 2 - Sau Task 1): Xem & Cập nhật hồ sơ cá nhân (FR-AUTH-006 & FR-AUTH-007)
+* **Tiến trình trong nhóm**: Thực hiện ở nửa sau buổi, hoàn thiện bộ API quản lý Profile người dùng.
 * **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Backend viết `GetProfileQueryHandler.cs`, lấy UserId từ `ICurrentUser`*:
+  1. *Hiện thực `GetProfileQuery` và `GetProfileQueryHandler` trong `Features/Auth/Queries/GetProfile/`*:
+     - Lấy UserId từ `ICurrentUser` được phân giải từ JWT Claim `sub`.
      - 👉 **Tại sao?**: Lấy UserId trực tiếp từ Token đã xác thực của người dùng đang gửi request, tuyệt đối không nhận `userId` từ query string để chống lộ thông tin riêng tư của người khác.
   2. *Chỉ chọn các trường an toàn `{ id, email, displayName, bio, avatarUrl, roles }`, không map `PasswordHash`*:
      - 👉 **Tại sao?**: Nguyên tắc bảo mật thông tin tài khoản (NFR-SEC). Không bao giờ trả chuỗi băm mật khẩu về client dưới mọi hình thức.
-  3. *Đăng ký endpoint `GET /api/v1/auth/me` trong `AuthEndpoints.cs` (`RequireAuthorization`)*:
-     - 👉 **Tại sao?**: Đảm bảo bắt buộc phải đăng nhập thì mới gọi được API lấy hồ sơ chính mình.
-  4. *Frontend tạo trang `/profile` hiển thị Avatar lớn, Tên, Tiểu sử và Roles*:
-     - 👉 **Tại sao?**: Cung cấp giao diện trung tâm để người dùng kiểm tra thông tin tài khoản trước khi thực hiện đổi avatar và bio ở Tuần 5.
-  5. *Kiểm tra biên dịch, Commit & Đẩy nhánh lên GitHub*:
+  3. *Hiện thực `UpdateProfileCommand` và `UpdateProfileCommandHandler` trong `Features/Auth/Commands/UpdateProfile/`*:
+     - Cho phép cập nhật `DisplayName`, `Bio`, `AvatarUrl` (URL ảnh upload từ MinIO).
+     - Kiểm tra độ dài `DisplayName` $\le 50$, `Bio` $\le 500$ ký tự.
+     - 👉 **Tại sao?**: Cung cấp API cập nhật hồ sơ cá nhân hoàn chỉnh, liên kết với hệ thống lưu trữ ảnh MinIO đã hoàn thiện ở Tuần 3.
+  4. *Đăng ký route `GET /api/v1/auth/me` và `PATCH /api/v1/auth/me` trong `AuthEndpoints.cs` (`RequireAuthorization`)*:
+  5. *Kiểm tra biên dịch toàn hệ thống, Commit & Đẩy nhánh lên GitHub*:
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
-     cd src/Frontend; npx tsc --noEmit; cd ../..
      git add .
-     git commit -m "feat/auth: hien thuc FR-AUTH-006 xem thong tin ho so ca nhan tai auth me va UI profile"
+     git commit -m "feat/auth: cai dat endpoints GET va PATCH auth me xem va cap nhat ho so"
      git push -u origin 2312792-NguyenDinhTuan-buoi4
      ```
   6. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để trưởng nhóm Tiến review & gộp code*.
@@ -235,7 +235,56 @@ git checkout -b 2312792-NguyenDinhTuan-buoi4
 ---
 
 ## 7. Tiêu Chí Nghiệm Thu (Definition of Done)
-- [ ] Upload & Xóa ảnh MinIO hoạt động trơn tru.
-- [ ] Quản lý các bước nấu và nguyên liệu hoạt động đúng theo D9 và D10.
-- [ ] Xem hồ sơ cá nhân `/profile` trả về đúng thông tin user hiện tại.
+- [ ] 100% các API endpoints được phân công đã được đăng ký và hoạt động chính xác trên Scalar (`http://localhost:5000/scalar/v1`):
+  - `POST /api/v1/recipes/{id}/ingredients`
+  - `PUT /api/v1/recipes/{id}/ingredients/{ingredientId}`
+  - `DELETE /api/v1/recipes/{id}/ingredients/{ingredientId}`
+  - `GET /api/v1/auth/me`
+  - `PATCH /api/v1/auth/me`
+- [ ] Backend biên dịch đạt 0 lỗi (`dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj`).
+- [ ] Thêm và sửa nguyên liệu hỗ trợ `Quantity` và `Unit` dạng `null` theo chuẩn D10.
+- [ ] Xem hồ sơ `GET /api/v1/auth/me` bảo mật tuyệt đối không lộ mật khẩu; cập nhật `PATCH /api/v1/auth/me` lưu thành công vào CSDL.
 - [ ] Nhánh buổi 4 `2312792-NguyenDinhTuan-buoi4` đã được đẩy lên GitHub và tạo PR gộp vào `main`.
+
+---
+
+## 8. LỘ TRÌNH CHI TIẾT CÁC TUẦN TIẾP THEO (TUẦN 5 → TUẦN 8)
+
+### 📅 Tuần 5 (Lab 5): Giao diện Hồ sơ cá nhân & Editors Nguyên liệu / Bước nấu
+* **Nhánh làm việc**: `2312792-NguyenDinhTuan-buoi5`
+* **Nhiệm vụ trọng tâm**:
+  1. Xây dựng trang Hồ sơ cá nhân `/profile` trên Next.js 15:
+     - Hiển thị Avatar lớn, Tên hiển thị, Tiểu sử và Vai trò tài khoản.
+     - Form chỉnh sửa thông tin cá nhân (đổi tên hiển thị, cập nhật bio giới thiệu).
+     - Tích hợp tính năng đổi Avatar: chọn ảnh từ máy tính -> xin Presigned URL từ MinIO -> upload trực tiếp từ trình duyệt -> lưu link ảnh vào hồ sơ.
+  2. Hoàn thiện bộ components soạn thảo công thức:
+     - `IngredientListEditor.tsx`: Bảng nhập danh sách nguyên liệu liên tục bằng phím Enter, hỗ trợ định lượng không bắt buộc (null unit theo **Quyết định D10**).
+     - `StepListEditor.tsx`: Giao diện thêm các bước thực hiện có số thứ tự tự động tăng, nút xóa, nút sắp xếp lại và khung upload ảnh từng bước.
+
+### 📅 Tuần 6 (Lab 6): Tối ưu hóa Media MinIO & Xử lý ảnh nâng cao
+* **Nhánh làm việc**: `2312792-NguyenDinhTuan-buoi6`
+* **Nhiệm vụ trọng tâm**:
+  1. Nâng cấp và bảo mật luồng tải ảnh với MinIO Storage:
+     - Sinh Presigned URL với thời hạn sống ngắn (15 phút), chống rò rỉ Access Key/Secret Key ra client.
+     - Xử lý Preview ảnh trực tiếp bằng Blob URL trước khi upload.
+     - Xử lý ảnh lỗi (Fallback Image) ngoài giao diện khi đường dẫn ảnh bị hỏng.
+  2. Kiểm thử tải file với nhiều định dạng hình ảnh (JPEG, PNG, WebP) và chặn các file vượt quá giới hạn $\le 5$MB kèm thanh tiến trình upload trực quan.
+
+### 📅 Tuần 7 (Lab 7): Hangfire Background Job nén và resize ảnh Thumbnail
+* **Nhánh làm việc**: `2312792-NguyenDinhTuan-buoi7`
+* **Nhiệm vụ trọng tâm**:
+  1. Hiện thực `FR-JOB-002`: Hangfire Background Job tự động nén & resize ảnh đại diện:
+     - Sử dụng thư viện `SixLabors.ImageSharp` để resize ảnh gốc xuống kích thước $300 \times 300$ pixel chuẩn WebP.
+     - Tự động kích hoạt job ngay sau khi ảnh đại diện chính của công thức được lưu.
+     - Lưu ảnh thumbnail vào bucket `recipe-thumbnails` trên MinIO.
+  2. Đo lường kích thước ảnh thumbnail giảm hơn 70% so với ảnh gốc, giúp trang chủ Next.js tải siêu mượt.
+
+### 📅 Tuần 8 (Lab 8): Tối ưu hóa SEO Frontend (Schema.org) & Kiểm thử hiệu năng
+* **Nhánh làm việc**: `2312792-NguyenDinhTuan-buoi8`
+* **Nhiệm vụ trọng tâm**:
+  1. Cấu hình thẻ Meta SEO toàn diện cho từng bài viết: OpenGraph, Twitter Cards, Canonical URL.
+  2. Tích hợp cấu trúc dữ liệu JSON-LD theo chuẩn **Schema.org Recipe**:
+     - Cung cấp dữ liệu vi mô (Microdata) cho Google Search hiển thị Rich Snippets (ảnh món ăn, thời gian nấu, calo, đánh giá sao) trên trang kết quả tìm kiếm.
+  3. Chạy công cụ Google Lighthouse Audit trên trình duyệt Chrome, tối ưu hóa các chỉ số Core Web Vitals (LCP, FID, CLS) đạt điểm Performance $\ge 90$.
+  4. Cùng cả nhóm hoàn thiện hồ sơ nghiệm thu đồ án.
+

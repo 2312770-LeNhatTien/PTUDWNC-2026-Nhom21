@@ -161,8 +161,8 @@ git checkout -b 2314299-LamVanDuc-buoi4
 
 ---
 
-### Task 1 (Giai đoạn 1 - Song song): Đăng xuất & Thu hồi phiên làm việc (FR-AUTH-005)
-* **Tiến trình trong nhóm**: Thực hiện ở nửa đầu buổi, làm độc lập song song.
+### Task 1 (Giai đoạn 1 - Song song): Đăng xuất `POST /api/v1/auth/logout` (FR-AUTH-005)
+* **Tiến trình trong nhóm**: Thực hiện ở đầu buổi, làm độc lập song song với các bạn khác.
 * **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
   1. *Tạo `LogoutCommand(string RefreshToken)` và `LogoutCommandHandler` trong `Features/Auth/Commands/Logout/`*:
   2. *Băm SHA-256 chuỗi refresh token nhận từ Client trước khi tìm kiếm trong bảng `RefreshTokens`*:
@@ -171,20 +171,17 @@ git checkout -b 2314299-LamVanDuc-buoi4
      - 👉 **Tại sao?**: Khi người dùng đăng xuất, refresh token phải bị hủy ngay lập tức trong database để nếu kẻ xấu nhặt được token cũng không thể dùng lại được.
   4. *Đăng ký endpoint `POST /api/v1/auth/logout` trong `AuthEndpoints.cs` (`RequireAuthorization`)*:
      - 👉 **Tại sao?**: Đảm bảo chỉ những ai có Access Token hợp lệ mới được thực hiện quyền thu hồi phiên của chính mình.
-  5. *Frontend thêm nút "Đăng xuất" trên dropdown `Navbar.tsx`, xóa `accessToken` trong localStorage/Cookie*:
-     - 👉 **Tại sao?**: Để giao diện lập tức chuyển về trạng thái Guest, không lưu vết phiên đăng nhập cũ trên trình duyệt.
-  6. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
+  5. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
-     cd src/Frontend; npx tsc --noEmit; cd ../..
      git add .
-     git commit -m "feat/auth: hien thuc FR-AUTH-005 dang xuat va thu hoi refresh token trong csdl"
+     git commit -m "feat/auth: cai dat endpoint POST auth logout thu hoi refresh token"
      ```
 
 ---
 
-### Task 2 (Giai đoạn 2 - Phụ thuộc Task 1): Refresh Token Rotation & Silent Refresh (FR-AUTH-004)
-* **Tiến trình trong nhóm**: Thực hiện ở nửa sau buổi, sau khi Task 1 đã hoàn thành logic thu hồi token.
+### Task 2 (Giai đoạn 2 - Phụ thuộc Task 1): Refresh Token Rotation `POST /api/v1/auth/refresh` (FR-AUTH-004)
+* **Tiến trình trong nhóm**: Thực hiện tiếp theo sau Task 1.
 * **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
   1. *Viết `RefreshTokenCommandHandler.cs`, băm SHA-256 token và tìm trong CSDL*:
   2. *Kiểm tra: Nếu token gửi lên đã có `IsRevoked == true` thì lập tức thu hồi toàn bộ token family của user đó và ném `UnauthorizedException`*:
@@ -192,23 +189,84 @@ git checkout -b 2314299-LamVanDuc-buoi4
   3. *Nếu hợp lệ: Đánh dấu thu hồi token cũ `Revoke(newTokenHash)`, cấp cặp token mới và lưu vào DB*:
      - 👉 **Tại sao?**: Đây là nguyên tắc **Rotation (Xoay vòng token)**: Mỗi refresh token chỉ được dùng đúng 1 lần. Cấp mới liên tục giúp hạn chế tối đa nguy cơ lộ token.
   4. *Đăng ký endpoint `POST /api/v1/auth/refresh` trong `AuthEndpoints.cs`*:
-  5. *Frontend viết Axios Interceptor trong `client.ts` bắt mã 401*:
-     - 👉 **Tại sao?**: Khi access token 15 phút hết hạn, interceptor sẽ tự động gọi refresh token ngầm và gửi lại request cũ giúp người dùng không bị văng ra trang login khi đang xem dở công thức.
-  6. *Kiểm tra biên dịch, Commit & Đẩy nhánh lên GitHub*:
+  5. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
-     cd src/Frontend; npx tsc --noEmit; cd ../..
      git add .
-     git commit -m "feat/auth: hien thuc FR-AUTH-004 refresh token rotation kem reuse detection"
+     git commit -m "feat/auth: cai dat endpoint POST auth refresh token rotation kem reuse detection"
+     ```
+
+---
+
+### Task 3 (Giai đoạn 3 - Sau Task 1 & 2): Google Login & Xuất bản công thức D11 (FR-AUTH-003 & FR-RCP-005)
+* **Tiến trình trong nhóm**: Hoàn thiện đăng nhập Google và quản lý trạng thái xuất bản bài viết.
+* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
+  1. *Hiện thực `GoogleLoginCommand(string IdToken)` và `GoogleLoginCommandHandler`*:
+     - 👉 **Tại sao?**: Sử dụng thư viện `Google.Apis.Auth` để giải mã và xác thực token JWT do Google cấp. Nếu email chưa tồn tại trong hệ thống, tự động tạo mới tài khoản với Role `Author`.
+  2. *Hiện thực `PublishRecipeCommand` và `UnpublishRecipeCommand` trong `Features/Recipes/Commands/PublishRecipe/`*:
+     - 👉 **Tại sao?**: Tuân thủ nghiêm ngặt **Quyết định D11**. Khi xuất bản, hệ thống kiểm tra công thức phải có ít nhất 1 nguyên liệu (`Ingredients.Count >= 1`) và ít nhất 1 bước hướng dẫn (`Steps.Count >= 1`). Nếu không đủ điều kiện, ném `ValidationException("RECIPE_PUBLISH_INCOMPLETE")`.
+  3. *Đăng ký route `POST /api/v1/auth/google`, `PATCH /api/v1/recipes/{id}/publish` và `PATCH /api/v1/recipes/{id}/unpublish`*:
+  4. *Kiểm tra biên dịch toàn hệ thống, Commit & Đẩy nhánh lên GitHub*:
+     ```powershell
+     dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
+     git add .
+     git commit -m "feat/auth: cai dat endpoint POST google login va PATCH publish unpublish kiem tra D11"
      git push -u origin 2314299-LamVanDuc-buoi4
      ```
-  7. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để trưởng nhóm Tiến review & gộp code*.
+  5. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để trưởng nhóm Tiến review & gộp code*.
 
 ---
 
 ## 7. Tiêu Chí Nghiệm Thu (Definition of Done)
-- [ ] Đăng ký tài khoản mới thành công (thử trên Scalar `http://localhost:5000/scalar/v1` hoặc giao diện web).
-- [ ] Đăng nhập đúng mật khẩu trả về Access Token + Refresh Token; sai mật khẩu trả về lỗi 401 rõ ràng.
-- [ ] Đăng xuất thu hồi token trong DB thành công.
-- [ ] Axios Interceptor tự động refresh token khi gặp 401.
+- [ ] 100% các API endpoints được phân công đã được đăng ký và hoạt động chính xác trên Scalar (`http://localhost:5000/scalar/v1`):
+  - `POST /api/v1/auth/logout`
+  - `POST /api/v1/auth/refresh`
+  - `POST /api/v1/auth/google`
+  - `PATCH /api/v1/recipes/{id}/publish`
+  - `PATCH /api/v1/recipes/{id}/unpublish`
+- [ ] Backend biên dịch đạt 0 lỗi (`dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj`).
+- [ ] Đăng xuất thu hồi token trong DB thành công; Reuse Detection phát hiện token cũ và hủy toàn bộ phiên.
+- [ ] Kiểm tra điều kiện D11: chặn xuất bản nếu công thức thiếu bước nấu hoặc nguyên liệu.
 - [ ] Nhánh buổi 4 `2314299-LamVanDuc-buoi4` đã được đẩy lên GitHub và tạo PR gộp vào `main`.
+
+---
+
+## 8. LỘ TRÌNH CHI TIẾT CÁC TUẦN TIẾP THEO (TUẦN 5 → TUẦN 8)
+
+### 📅 Tuần 5 (Lab 5): Giao diện Xác thực, Google OAuth 2.0 & Silent Refresh
+* **Nhánh làm việc**: `2314299-LamVanDuc-buoi5`
+* **Nhiệm vụ trọng tâm**:
+  1. Xây dựng giao diện Đăng nhập và Đăng ký trên Next.js 15:
+     - Form đăng nhập chuẩn UX, validation email và mật khẩu với thông báo lỗi rõ ràng.
+     - Nút đăng nhập một chạm Google OAuth 2.0 tích hợp Google Identity Services SDK.
+  2. Cấu hình Axios Interceptor trong `src/Frontend/lib/api/client.ts`:
+     - Bắt mã lỗi HTTP 401 khi Access Token hết hạn, tự động gọi endpoint `POST /api/v1/auth/refresh` ngầm để lấy token mới mà không làm gián đoạn trải nghiệm người dùng.
+  3. Hoàn thiện dropdown Menu cá nhân trên Navbar kèm nút Đăng xuất (xóa token và chuyển trạng thái về Guest).
+
+### 📅 Tuần 6 (Lab 6): Luồng Xuất bản công thức & Phân quyền Middleware Next.js
+* **Nhánh làm việc**: `2314299-LamVanDuc-buoi6`
+* **Nhiệm vụ trọng tâm**:
+  1. Xây dựng UI thao tác Xuất bản / Gỡ xuất bản (Publish / Unpublish):
+     - Công tắc (toggle switch) Publish trên trang soạn thảo công thức.
+     - Kiểm tra điều kiện **Quyết định D11**: nếu chưa có đủ $\ge 1$ bước nấu và $\ge 1$ nguyên liệu thì hiển thị Modal cảnh báo chi tiết và không cho xuất bản.
+  2. Thiết lập Next.js `middleware.ts`:
+     - Phân quyền truy cập các đường dẫn bảo mật (`/admin/*`, `/dashboard/*`, `/profile`) theo Role JWT.
+     - Chuyển hướng người dùng về trang `/login` nếu chưa đăng nhập hoặc hiển thị trang `403 Forbidden` nếu không đủ quyền.
+
+### 📅 Tuần 7 (Lab 7): Hangfire Background Job gửi Email Chào mừng thành viên
+* **Nhánh làm việc**: `2314299-LamVanDuc-buoi7`
+* **Nhiệm vụ trọng tâm**:
+  1. Hiện thực `FR-JOB-001`: Tích hợp thư viện `MailKit` gửi email qua container Docker `MailHog` (SMTP cổng 1025).
+  2. Thiết lập Hangfire Background Job `SendWelcomeEmailJob`:
+     - Kích hoạt bất đồng bộ ngay sau khi người dùng đăng ký tài khoản thành công (`RegisterCommandHandler` hoặc `GoogleLoginCommandHandler`).
+     - Tự động thử lại (retry) tối đa 3 lần nếu gặp sự cố mạng.
+  3. Thiết kế Template Email HTML chào mừng chuyên nghiệp với thương hiệu Culinary Blog.
+
+### 📅 Tuần 8 (Lab 8): Kiểm thử tự động E2E toàn bộ luồng Auth & Nghiệm thu
+* **Nhánh làm việc**: `2314299-LamVanDuc-buoi8`
+* **Nhiệm vụ trọng tâm**:
+  1. Xây dựng bộ kịch bản kiểm thử tích hợp tự động E2E (End-to-End Testing) bằng Postman Collection / Newman:
+     - Luồng 1: Đăng ký -> Đăng nhập -> Lấy Me -> Refresh Token -> Đăng xuất.
+     - Luồng 2: Tấn công tái sử dụng Refresh Token cũ và kiểm tra xem hệ thống có tự động thu hồi toàn bộ token family (Reuse Detection) hay không.
+  2. Cùng cả nhóm rà soát toàn bộ chức năng, kiểm thử chéo và chuẩn bị tài liệu báo cáo nghiệm thu.
+

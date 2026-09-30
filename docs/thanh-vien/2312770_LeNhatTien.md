@@ -160,51 +160,111 @@ git checkout -b 2312770-LeNhatTien-buoi4
 
 ---
 
-### Task 1 (Giai đoạn 1 - Song song): Xem chi tiết công thức nấu ăn (FR-RCP-002)
-* **Tiến trình trong nhóm**: Thực hiện ở nửa đầu buổi, làm song song độc lập với các bạn khác.
+### Task 1 (Giai đoạn 1 - Song song): Chi tiết công thức `GET /api/v1/recipes/{slug}` (FR-RCP-002)
+* **Tiến trình trong nhóm**: Thực hiện đầu tiên trong buổi, cung cấp endpoint xem chi tiết bài viết hoàn chỉnh.
 * **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Mở `GetRecipeBySlugQueryHandler.cs`, dùng EF Core `.Include()` nạp Category, Author, Steps, Ingredients, Images, Nutrition*:
-     - 👉 **Tại sao?**: Nếu không dùng `.Include()`, EF Core sẽ sinh ra lỗi N+1 Query hoặc dữ liệu liên kết trả về `null`, khiến trang chi tiết công thức bị thiếu nguyên liệu, các bước và hình ảnh.
-  2. *Kiểm tra trạng thái Draft/Archived, nếu không phải tác giả (`AuthorId != currentUser.UserId`) và không phải Admin thì ném `ForbiddenException`*:
+  1. *Cập nhật `GetRecipeBySlugQueryHandler.cs`, sử dụng EF Core `.Include()` nạp Category, Author, Steps (sắp theo StepNumber), Ingredients, Images, Nutrition*:
+     - 👉 **Tại sao?**: Nếu không dùng `.Include()`, EF Core sẽ sinh ra lỗi N+1 Query hoặc dữ liệu liên kết trả về `null`, khiến thông tin chi tiết công thức bị thiếu nguyên liệu, các bước nấu và thư viện hình ảnh.
+  2. *Kiểm tra trạng thái bài viết: nếu là Draft hoặc Archived và người gọi không phải tác giả (`AuthorId != currentUser.UserId`) cũng không phải Admin thì ném `ForbiddenException`*:
      - 👉 **Tại sao?**: Đảm bảo an toàn thông tin và quyền riêng tư (SRS 3.3). Công thức đang viết nháp chưa được xuất bản thì người ngoài không được phép xem trộm.
-  3. *Đăng ký route `GET /api/v1/recipes/{slug}` trong `RecipesEndpoints.cs`*:
-     - 👉 **Tại sao?**: Cung cấp RESTful API endpoint chuẩn cho Frontend gọi dữ liệu.
-  4. *Frontend tạo trang `src/Frontend/app/(public)/recipes/[slug]/page.tsx` (Hero Banner, tác giả, bảng Calories/Protein/Carb/Fat, checklist nguyên liệu, timeline các bước nấu)*:
-     - 👉 **Tại sao?**: Hiển thị bảng dinh dưỡng để người đọc tính calo; checklist nguyên liệu có thể tick chọn để thuận tiện khi vào bếp; timeline các bước kèm ảnh trực quan.
-  5. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
+  3. *Ánh xạ route `GET /api/v1/recipes/{slug}` trong `RecipesEndpoints.cs` trả về `RecipeDetailDto`*:
+     - 👉 **Tại sao?**: Cung cấp RESTful API endpoint chuẩn mực theo slug thân thiện SEO.
+  4. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
-     cd src/Frontend; npx tsc --noEmit; cd ../..
      git add .
-     git commit -m "feat/recipe: hien thuc FR-RCP-002 xem chi tiet cong thuc kem dinh duong va nguyen lieu"
+     git commit -m "feat/recipe: cai dat endpoint GET recipes slug chi tiet cong thuc"
      ```
 
 ---
 
-### Task 2 (Giai đoạn 2 - Sau Task 1): Quản lý gallery ảnh công thức (FR-RCP-008)
-* **Tiến trình trong nhóm**: Thực hiện ở nửa sau buổi, sau khi hoàn thành Task 1.
+### Task 2 (Giai đoạn 2 - Song song): Quản lý Gallery ảnh `POST / PATCH / DELETE /api/v1/recipes/{id}/images` (FR-RCP-008)
+* **Tiến trình trong nhóm**: Thực hiện tiếp theo, cho phép quản lý thư viện ảnh và thiết lập ảnh bìa chính.
 * **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Tạo các Command `AddRecipeImageCommand`, `DeleteRecipeImageCommand`, `SetPrimaryImageCommand` trong `Features/Recipes/Commands/ManageImages/`*:
-     - 👉 **Tại sao?**: Tách nhỏ từng thao tác theo mô hình CQRS giúp code rõ ràng, dễ bảo trì và phân quyền chính xác.
-  2. *Trong `SetPrimaryImageCommandHandler`: Tìm ảnh cũ có `IsPrimary == true` đổi thành `false`, rồi mới gán ảnh mới được chọn thành `true`*:
-     - 👉 **Tại sao?**: Mỗi món ăn chỉ được có **duy nhất 1 ảnh đại diện chính** hiển thị ngoài trang chủ và thẻ `RecipeCard`. Nếu không bỏ cờ ảnh cũ thì database sẽ bị mâu thuẫn dữ liệu.
-  3. *Đăng ký endpoints trong `RecipesEndpoints.cs`: `POST/DELETE/PUT /api/v1/recipes/{id}/images`*:
-     - 👉 **Tại sao?**: Tạo API giao tiếp chuẩn cho Frontend thao tác bộ sưu tập ảnh.
-  4. *Frontend xây dựng component `RecipeGalleryEditor.tsx` dạng thumbnail grid kèm nút gắn sao ⭐ ảnh đại diện*:
-     - 👉 **Tại sao?**: Giúp tác giả nhìn thấy trực quan tất cả ảnh đã tải lên và dễ dàng chọn ảnh đẹp nhất làm ảnh bìa.
-  5. *Kiểm tra biên dịch, Commit & Đẩy nhánh lên GitHub*:
+  1. *Tạo các Command `AddRecipeImageCommand`, `DeleteRecipeImageCommand`, `SetPrimaryImageCommand` trong thư mục `Features/Recipes/Commands/ManageImages/`*:
+     - 👉 **Tại sao?**: Tách nhỏ từng thao tác theo mô hình CQRS giúp mã nguồn rõ ràng, dễ bảo trì và phân quyền chính xác cho từng hành động.
+  2. *Trong `SetPrimaryImageCommandHandler`: Tìm ảnh cũ đang có `IsPrimary == true` chuyển thành `false`, sau đó mới gán ảnh được chọn thành `true`*:
+     - 👉 **Tại sao?**: Mỗi món ăn chỉ được có **duy nhất 1 ảnh đại diện chính** hiển thị ngoài trang chủ và thẻ danh sách. Nếu không bỏ cờ ảnh cũ thì cơ sở dữ liệu sẽ bị xung đột logic.
+  3. *Đăng ký endpoints trong `RecipesEndpoints.cs`: `POST/DELETE /api/v1/recipes/{id}/images` và `PATCH /api/v1/recipes/{id}/images/{imageId}/primary` (`RequireAuthorization`)*:
+     - 👉 **Tại sao?**: Chuẩn hóa REST API cho phép tác giả tải nhiều ảnh phụ và chọn ảnh bìa đẹp nhất.
+  4. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
-     cd src/Frontend; npx tsc --noEmit; cd ../..
      git add .
-     git commit -m "feat/recipe: hien thuc FR-RCP-008 quan ly gallery anh va chon anh dai dien chinh"
+     git commit -m "feat/recipe: cai dat cac endpoints quan ly gallery anh recipe images"
+     ```
+
+---
+
+### Task 3 (Giai đoạn 3 - Sau Task 1 & 2): Cập nhật, Lưu trữ & Xóa mềm công thức (FR-RCP-004, 006, 007)
+* **Tiến trình trong nhóm**: Hoàn thiện các endpoint quản lý vòng đời công thức, khép lại 100% API công thức của Tiến.
+* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
+  1. *Hiện thực `UpdateRecipeCommand` nhận `byte[] RowVersion` để kiểm soát tương tranh lạc quan (Optimistic Concurrency Control)*:
+     - 👉 **Tại sao?**: Nếu hai người cùng mở một công thức và sửa đồng thời, EF Core sẽ ném `DbUpdateConcurrencyException`, API trả về mã lỗi `409 Conflict` kèm thông báo dữ liệu đã bị thay đổi bởi người khác, ngăn chặn việc ghi đè mất mát dữ liệu.
+  2. *Hiện thực `ArchiveRecipeCommand` (`PATCH /api/v1/recipes/{id}/archive`)*:
+     - 👉 **Tại sao?**: Chuyển trạng thái công thức sang `Archived`, bài viết sẽ không còn hiển thị công khai trên trang chủ nhưng tác giả vẫn giữ lại được dữ liệu trong kho lưu trữ cá nhân.
+  3. *Hiện thực `DeleteRecipeCommand` (`DELETE /api/v1/recipes/{id}`) tuân thủ **Quyết định D1** (Soft Delete)*:
+     - 👉 **Tại sao?**: Không bao giờ thực hiện `DELETE` vật lý khỏi PostgreSQL. Chỉ đánh dấu `IsDeleted = true` và `DeletedAt = DateTime.UtcNow`. Điều này giúp bảo toàn tính toàn vẹn dữ liệu, các liên kết lịch sử và có thể phục hồi nếu xóa nhầm.
+  4. *Đăng ký các route tương ứng trong `RecipesEndpoints.cs`*:
+  5. *Kiểm tra biên dịch toàn hệ thống, Commit & Đẩy nhánh lên GitHub*:
+     ```powershell
+     dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
+     git add .
+     git commit -m "feat/recipe: cai dat PUT recipes id kem concurrency va PATCH archive DELETE soft delete"
      git push -u origin 2312770-LeNhatTien-buoi4
      ```
+  6. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để review và gộp code*.
 
 ---
 
 ## 7. Tiêu Chí Nghiệm Thu (Definition of Done)
-- [ ] Backend biên dịch không lỗi (`dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj`).
-- [ ] Frontend không lỗi TypeScript (`npx tsc --noEmit`).
-- [ ] Test trực tiếp API trên Scalar: `http://localhost:5000/scalar/v1` hoạt động chính xác.
+- [ ] 100% các API endpoints được phân công đã được đăng ký và hoạt động chính xác trên Scalar (`http://localhost:5000/scalar/v1`):
+  - `GET /api/v1/recipes/{slug}`
+  - `POST /api/v1/recipes/{id}/images`
+  - `DELETE /api/v1/recipes/{id}/images/{imageId}`
+  - `PATCH /api/v1/recipes/{id}/images/{imageId}/primary`
+  - `PUT /api/v1/recipes/{id}`
+  - `PATCH /api/v1/recipes/{id}/archive`
+  - `DELETE /api/v1/recipes/{id}`
+- [ ] Backend biên dịch đạt 0 lỗi (`dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj`).
+- [ ] Kiểm tra phân quyền: chỉ tác giả hoặc Admin mới có quyền cập nhật, lưu trữ, xóa hoặc xem bản nháp.
 - [ ] Nhánh buổi 4 `2312770-LeNhatTien-buoi4` đã được đẩy lên GitHub và tạo PR gộp vào `main`.
+
+---
+
+## 8. LỘ TRÌNH CHI TIẾT CÁC TUẦN TIẾP THEO (TUẦN 5 → TUẦN 8)
+
+### 📅 Tuần 5 (Lab 5): Tích hợp giao diện Chi tiết công thức nấu ăn
+* **Nhánh làm việc**: `2312770-LeNhatTien-buoi5`
+* **Nhiệm vụ trọng tâm**:
+  1. Xây dựng trang Next.js `src/Frontend/app/(public)/recipes/[slug]/page.tsx`:
+     - Hero banner hiển thị tiêu đề, tác giả, ngày đăng, thời gian nấu, độ khó và ảnh đại diện chính.
+     - Bảng Nutritional Facts hiển thị trực quan thông số dinh dưỡng (Calories, Fat, Carb, Protein).
+     - Checklist nguyên liệu tương tác: cho phép người dùng click tick chọn nguyên liệu khi chuẩn bị nấu ăn.
+     - Timeline các bước thực hiện có số thứ tự, thời gian đếm ngược và ảnh minh họa từng bước.
+  2. Xây dựng component `RecipeGalleryEditor.tsx` cho phép tác giả xem bộ sưu tập ảnh và chọn ảnh đại diện chính (Primary image).
+
+### 📅 Tuần 6 (Lab 6): Quản trị bài viết cá nhân & Xử lý xung đột tương tranh
+* **Nhánh làm việc**: `2312770-LeNhatTien-buoi6`
+* **Nhiệm vụ trọng tâm**:
+  1. Xây dựng trang Quản trị bài viết cá nhân của Tác giả `/dashboard/recipes`:
+     - Bảng danh sách bài viết theo các trạng thái: Draft, Published, Archived.
+     - Nút thao tác nhanh: Xem trước, Sửa, Lưu trữ (Archive) và Xóa mềm (Soft delete).
+  2. Xử lý UI xung đột tương tranh lạc quan (Optimistic Concurrency Control):
+     - Khi nhận mã lỗi HTTP 409 Conflict từ API cập nhật công thức, hiển thị Modal cảnh báo dữ liệu đã bị sửa đổi bởi phiên khác kèm tùy chọn "Tải lại dữ liệu mới nhất".
+
+### 📅 Tuần 7 (Lab 7): Cấu hình Hangfire Dashboard & Tự động sinh Sitemap SEO
+* **Nhánh làm việc**: `2312770-LeNhatTien-buoi7`
+* **Nhiệm vụ trọng tâm**:
+  1. Cấu hình bảo mật Hangfire Dashboard tại route `/hangfire` với bộ lọc ủy quyền `HangfireAuthorizationFilter` (chỉ tài khoản có quyền Admin mới được truy cập).
+  2. Hiện thực `FR-JOB-003`: Hangfire Recurring Job chạy định kỳ lúc 2:00 sáng mỗi ngày:
+     - Quét toàn bộ công thức và danh mục đang hoạt động (`IsDeleted == false` và `Status == Published`).
+     - Tự động sinh file `sitemap.xml` và `robots.txt` chuẩn SEO vào thư mục public của hệ thống.
+
+### 📅 Tuần 8 (Lab 8): Đóng gói Docker Production, Nginx SSL & Tổng kết đồ án
+* **Nhánh làm việc**: `2312770-LeNhatTien-buoi8`
+* **Nhiệm vụ trọng tâm**:
+  1. Viết `Dockerfile` đa tầng (multi-stage build) tối ưu kích thước image cho Backend .NET API và Frontend Next.js.
+  2. Cấu hình `docker-compose.prod.yml` chạy hoàn chỉnh 5 dịch vụ hạ tầng Docker + Backend + Frontend + Nginx Reverse Proxy (kèm cấu hình chứng chỉ HTTPS SSL).
+  3. Cùng cả nhóm tổng hợp báo cáo đồ án, rà soát slide trình chiếu vấn đáp với Hội đồng Giảng viên.
+

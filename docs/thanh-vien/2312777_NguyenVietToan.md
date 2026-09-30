@@ -138,54 +138,107 @@ git checkout -b 2312777-NguyenVietToan-buoi4
 
 ---
 
-### Task 1 (Giai đoạn 1 - Song song): Tự tay hiện thực `RedisCacheService.cs`
-* **Tiến trình trong nhóm**: Thực hiện ở nửa đầu buổi, làm độc lập song song.
+### Task 1 (Giai đoạn 1 - Song song): Cập nhật & Xóa mềm danh mục (FR-CAT-004 & FR-CAT-005)
+* **Tiến trình trong nhóm**: Thực hiện ở nửa đầu buổi, làm độc lập song song với các thành viên khác.
 * **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Mở file `src/Backend/CulinaryBlog.Infrastructure/Caching/RedisCacheService.cs` (đã được để sẵn khung Stub)*:
-  2. *Trong `SetAsync`: Dùng `JsonSerializer.SerializeToUtf8Bytes(value)` thay vì `Serialize` chuỗi string thông thường*:
-     - 👉 **Tại sao?**: Lưu trực tiếp dạng mảng `byte[]` UTF-8 giúp tối ưu bộ nhớ đệm Redis và tiết kiệm CPU khi không phải encode/decode chuỗi trung gian qua lại.
-  3. *Cấu hình `DistributedCacheEntryOptions` với `AbsoluteExpirationRelativeToNow = ttl` (30 phút)*:
-     - 👉 **Tại sao?**: Tránh rác bộ nhớ Redis. Dữ liệu danh mục sau 30 phút tự động hết hạn và giải phóng RAM cho server.
-  4. *Hiện thực hàm `RemoveByPrefixAsync("categories:")`*:
-     - 👉 **Tại sao?**: `IDistributedCache` mặc định không hỗ trợ xóa theo ký tự đại diện (wildcard). Cần hàm này để xóa sạch các cache danh mục liên quan khi Admin thay đổi dữ liệu.
-  5. *Inject `ICacheService` vào `GetCategoriesQueryHandler.cs` để cache kết quả truy vấn*:
-     - 👉 **Tại sao?**: Giảm 80% tải CSDL PostgreSQL và giúp tốc độ phản hồi API danh mục $\le 5$ms.
-  6. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
+  1. *Hiện thực `UpdateCategoryCommand` và `UpdateCategoryCommandHandler` trong `Features/Categories/Commands/UpdateCategory/`*:
+     - Cho phép cập nhật `Name`, `Description`, `ImageUrl`, `DisplayOrder`.
+     - 👉 **Tại sao?**: **Tuân thủ tuyệt đối Quyết định D12 (Bảo toàn Slug)**. Khi đổi tên danh mục, hệ thống giữ nguyên slug cũ để không làm gãy các liên kết URL mà người dùng đã bookmark hoặc Google đã đánh chỉ mục SEO.
+  2. *Hiện thực `DeleteCategoryCommand` và `DeleteCategoryCommandHandler` trong `Features/Categories/Commands/DeleteCategory/`*:
+     - Kiểm tra nếu danh mục còn công thức liên kết (`await _context.Recipes.AnyAsync(r => r.CategoryId == id && !r.IsDeleted)`) thì ném `ConflictException("CATEGORY_NOT_EMPTY")`.
+     - Nếu không còn công thức, đánh dấu `category.IsDeleted = true` theo **Quyết định D1 (Soft Delete)**.
+     - 👉 **Tại sao?**: Ngăn chặn mồ côi dữ liệu bài viết và bảo toàn dữ liệu bằng kỹ thuật xóa mềm.
+  3. *Đăng ký route `PUT /api/v1/categories/{id}` và `DELETE /api/v1/categories/{id}` trong `CategoriesEndpoints.cs` (`RequireAuthorization("AdminOnly")`)*:
+     - 👉 **Tại sao?**: Phân quyền nghiêm ngặt, chỉ có quản trị viên hệ thống mới có quyền sửa đổi và xóa danh mục.
+  4. *Kiểm tra biên dịch & Commit trên nhánh buổi 4*:
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
-     cd src/Frontend; npx tsc --noEmit; cd ../..
      git add .
-     git commit -m "feat/cache: tu tay hien thuc RedisCacheService voi IDistributedCache va TTL 30 phut"
+     git commit -m "feat/category: cai dat endpoints PUT va DELETE categories kiem tra D12 va D1"
      ```
 
 ---
 
-### Task 2 (Giai đoạn 2 - Phụ thuộc Task 1): Admin cập nhật danh mục & Invalidation (FR-CAT-004)
-* **Tiến trình trong nhóm**: Thực hiện ở nửa sau buổi, sau khi Task 1 đã hoàn thành `RedisCacheService`.
+### Task 2 (Giai đoạn 2 - Sau Task 1): Tìm kiếm unaccent & Nâng cấp bộ lọc D8 (FR-SRCH-001..004)
+* **Tiến trình trong nhóm**: Thực hiện ở nửa sau buổi, hoàn thiện module tìm kiếm và lọc danh sách món ăn.
 * **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Viết `UpdateCategoryCommandHandler.cs`: Cập nhật Tên, Mô tả, Ảnh, Thứ tự nhưng **GIỮ NGUYÊN SLUG** ban đầu*:
-     - 👉 **Tại sao?**: **Tuân thủ tuyệt đối Quyết định D12**. Nếu đổi tên danh mục mà đổi luôn Slug thì toàn bộ các liên kết URL cũ đã được Google lập chỉ mục SEO hoặc người dùng lưu bookmark sẽ bị lỗi 404 Not Found.
-  2. *Sau khi lưu DB thành công, gọi `await _cacheService.RemoveAsync("categories:all", ct)`*:
-     - 👉 **Tại sao?**: Kỹ thuật **Cache Invalidation**. Nếu không xóa cache cũ, người dùng truy cập trang chủ vẫn sẽ thấy dữ liệu cũ trong suốt 30 phút TTL tiếp theo.
-  3. *Đăng ký endpoint `PUT /api/v1/categories/{id}` trong `CategoriesEndpoints.cs` (`RequireAuthorization("AdminOnly")`)*:
-     - 👉 **Tại sao?**: Phân quyền nghiêm ngặt, chỉ có quản trị viên hệ thống mới có quyền sửa danh mục.
-  4. *Frontend tạo Modal Sửa trong trang quản trị `/admin/categories`*:
-     - 👉 **Tại sao?**: Giúp Admin sửa nhanh thông tin danh mục ngay trên giao diện bảng mà không phải chuyển trang.
-  5. *Kiểm tra biên dịch, Commit & Đẩy nhánh lên GitHub*:
+  1. *Hiện thực `SearchRecipesQuery` và `SearchRecipesQueryHandler` trong `Features/Recipes/Queries/SearchRecipes/`*:
+     - Sử dụng hàm PostgreSQL `to_tsvector('simple', unaccent(Title))` và `plainto_tsquery('simple', unaccent(@query))` kết hợp extension `unaccent`.
+     - 👉 **Tại sao?**: Cho phép người dùng tìm kiếm món ăn bằng tiếng Việt không dấu (ví dụ: gõ "pho bo" vẫn tìm ra "Phở bò"), tốc độ truy vấn cực nhanh nhờ chỉ mục Full-Text Search.
+  2. *Nâng cấp `GetRecipesQueryHandler.cs` theo chuẩn **Quyết định D8 (Dual-syntax sorting & filtering)**:
+     - Bổ sung bộ lọc: `categoryId`, `maxCookTime` (thời gian nấu tối đa), `difficulty`.
+     - Hỗ trợ sắp xếp đa cú pháp: `sortBy=createdAt&sortOrder=desc` hoặc `sort=-createdAt`.
+     - 👉 **Tại sao?**: Tuân thủ chuẩn D8 giúp linh hoạt cho Frontend gọi API và đáp ứng các kịch bản lọc món ăn theo thời gian rảnh rỗi của người nấu.
+  3. *Đăng ký route `GET /api/v1/recipes/search` trong `RecipesEndpoints.cs`*:
+  4. *Kiểm tra biên dịch toàn hệ thống, Commit & Đẩy nhánh lên GitHub*:
      ```powershell
      dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj
-     cd src/Frontend; npx tsc --noEmit; cd ../..
      git add .
-     git commit -m "feat/category: hien thuc FR-CAT-004 cap nhat danh muc bao toan slug D12 va xoa cache"
+     git commit -m "feat/search: cai dat endpoint search unaccent tsvector va nang cap bo loc D8"
      git push -u origin 2312777-NguyenVietToan-buoi4
      ```
-  6. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để trưởng nhóm Tiến review & gộp code*.
+  5. *Tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để trưởng nhóm Tiến review & gộp code*.
 
 ---
 
 ## 7. Tiêu Chí Nghiệm Thu (Definition of Done)
-- [ ] Endpoint `GET /api/v1/categories` trả về đúng danh sách và cache Redis hoạt động mượt mà.
-- [ ] Endpoint `POST /api/v1/categories` tạo được danh mục mới kèm slug tự động chuẩn SEO.
-- [ ] Endpoint `PUT /api/v1/categories/{id}` cập nhật thông tin thành công và bảo toàn slug D12.
-- [ ] Trang `/categories` và `/admin/categories` hiển thị trực quan và hoạt động chính xác.
+- [ ] 100% các API endpoints được phân công đã được đăng ký và hoạt động chính xác trên Scalar (`http://localhost:5000/scalar/v1`):
+  - `PUT /api/v1/categories/{id}`
+  - `DELETE /api/v1/categories/{id}`
+  - `GET /api/v1/recipes/search`
+  - `GET /api/v1/recipes` (phiên bản nâng cấp bộ lọc và sắp xếp D8)
+- [ ] Backend biên dịch đạt 0 lỗi (`dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj`).
+- [ ] Endpoint `PUT /api/v1/categories/{id}` bảo toàn slug D12 thành công.
+- [ ] Endpoint `DELETE /api/v1/categories/{id}` chặn xóa khi danh mục còn bài viết, và áp dụng xóa mềm D1 khi danh mục rỗng.
+- [ ] Tìm kiếm không dấu tiếng Việt hoạt động chính xác với unaccent tsvector.
 - [ ] Nhánh buổi 4 `2312777-NguyenVietToan-buoi4` đã được đẩy lên GitHub và tạo PR gộp vào `main`.
+
+---
+
+## 8. LỘ TRÌNH CHI TIẾT CÁC TUẦN TIẾP THEO (TUẦN 5 → TUẦN 8)
+
+### 📅 Tuần 5 (Lab 5): Giao diện Khám phá Danh mục, Tìm kiếm Live & Bộ lọc D8
+* **Nhánh làm việc**: `2312777-NguyenVietToan-buoi5`
+* **Nhiệm vụ trọng tâm**:
+  1. Xây dựng giao diện Khám phá Danh mục ẩm thực trên Next.js 15:
+     - Trang `/categories` hiển thị dạng lưới các danh mục kèm số lượng món ăn và ảnh minh họa.
+     - Trang chi tiết danh mục `/categories/[slug]` hiển thị danh sách bài viết thuộc danh mục đó.
+  2. Xây dựng Modal quản trị danh mục trong trang `/admin/categories`:
+     - Modal thêm/sửa danh mục nhanh chóng ngay trên giao diện bảng quản trị.
+     - Đảm bảo khi Admin sửa tên, hệ thống không tự động thay đổi Slug đã sinh (tuân thủ **Quyết định D12**).
+  3. Xây dựng giao diện Thanh tìm kiếm và Bộ lọc nâng cao:
+     - Ô tìm kiếm live-search có debounce 300ms gọi endpoint `GET /recipes/search`.
+     - Drawer/Dropdown lọc theo thời gian nấu tối đa (`maxCookTime`), mức độ khó và tùy chọn sắp xếp đa tiêu chí theo **Quyết định D8**.
+
+### 📅 Tuần 6 (Lab 6): Tích hợp Redis Caching & Tối ưu thời gian phản hồi
+* **Nhánh làm việc**: `2312777-NguyenVietToan-buoi6`
+* **Nhiệm vụ trọng tâm**:
+  1. Hoàn thiện dịch vụ `RedisCacheService.cs` trong `CulinaryBlog.Infrastructure`:
+     - Cài đặt `IDistributedCache` với `System.Text.Json` chuyển đổi trực tiếp sang mảng byte UTF-8 để tiết kiệm CPU và bộ nhớ RAM.
+     - Cấu hình thời gian sống bộ nhớ đệm (TTL 30 phút).
+     - Hiện thực cơ chế xóa cache theo tiền tố `RemoveByPrefixAsync("categories:*")`.
+  2. Tích hợp bộ nhớ đệm vào `GetCategoriesQueryHandler`:
+     - Kiểm tra cache Redis trước khi truy vấn PostgreSQL.
+     - Gọi cơ chế Invalidate Cache khi có bất kỳ thay đổi nào từ phía Admin (thêm mới, cập nhật, xóa danh mục).
+  3. Đo lường benchmark thời gian phản hồi của API danh mục khi có cache đạt $\le 5$ms.
+
+### 📅 Tuần 7 (Lab 7): Đánh giá công thức (Rating 1-5 sao) & Bình luận ẩm thực
+* **Nhánh làm việc**: `2312777-NguyenVietToan-buoi7`
+* **Nhiệm vụ trọng tâm**:
+  1. Hiện thực `FR-INT-001`: Tính năng Đánh giá sao công thức và Bình luận:
+     - Backend: Tạo entity `RecipeReview`, các lệnh `AddRecipeReviewCommand` và truy vấn `GetRecipeReviewsQuery`.
+     - Tính điểm đánh giá trung bình (Average Rating) và tổng số lượt đánh giá của từng công thức.
+  2. Frontend:
+     - Component tương tác gắn sao ⭐ từ 1 đến 5 sao tại trang chi tiết món ăn.
+     - Khu vực bình luận, cảm nhận và chia sẻ mẹo nấu nướng của độc giả.
+     - Hiển thị huy hiệu số sao trung bình trên các thẻ `RecipeCard` ngoài trang chủ.
+
+### 📅 Tuần 8 (Lab 8): Tối ưu hóa Database Indexing, Security Header & Nghiệm thu
+* **Nhánh làm việc**: `2312777-NguyenVietToan-buoi8`
+* **Nhiệm vụ trọng tâm**:
+  1. Tối ưu hóa hiệu năng cơ sở dữ liệu PostgreSQL:
+     - Chạy lệnh `EXPLAIN ANALYZE` trên các truy vấn tìm kiếm phức tạp và danh sách phân trang.
+     - Đảm bảo các chỉ mục GIN trên cột `tsvector` và B-Tree trên các khóa ngoại hoạt động với chi phí thấp nhất.
+  2. Rà soát chuẩn RFC 7807 ProblemDetails toàn diện cho tất cả các mã lỗi (400, 401, 403, 404, 409, 500).
+  3. Kiểm tra các tiêu chuẩn bảo mật Security Headers (CORS, CSP, HSTS, X-Frame-Options) và cùng nhóm chuẩn bị nghiệm thu đồ án.
+

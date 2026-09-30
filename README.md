@@ -11,22 +11,29 @@ Web chia sẻ công thức nấu ăn chuẩn vị Việt Nam. Backend .NET 10 (C
 | Hạng mục Kỹ thuật | Lê Nhật Tiến (Trưởng nhóm - 2312770) | Lâm Văn Đức (2314299) | Nguyễn Viết Toàn (2312777) | Nguyễn Đình Tuấn (2312792) |
 | :--- | :--- | :--- | :--- | :--- |
 | **CSDL (PostgreSQL 16)** | • Bảng `Recipes`, `RecipeNutrition` (Owned Entity)<br>• Cấu hình Concurrency `RowVersion` / `xmin`<br>• Viết Seeder 23 danh mục, 100 recipes mẫu | • Cấu hình `AspNetUsers`, `RefreshTokens`<br>• Khóa ngoại User ↔ RefreshToken, Cascade delete<br>• Seeder 2 tài khoản mẫu (Admin, Author) | • Bảng `Categories`, Unique Index Slug<br>• Cấu hình `SearchVector` (`tsvector`)<br>• Kích hoạt PostgreSQL `unaccent` & `GIN Index` | • Bảng `RecipeSteps`, `RecipeIngredients`, `RecipeImages`<br>• CHECK Constraints định lượng số dương<br>• Cấu hình bảng lưu trữ Hangfire |
-| **Backend (.NET 10 API)** | • Dựng Clean Architecture + CQRS MediatR Base<br>• Recipe Core Commands/Queries (`FR-RCP-002..008`)<br>• Global Exception Middleware RFC 7807 | • Auth Commands/Queries (`FR-AUTH-001..005`)<br>• Xác thực Google OAuth 2.0 Token<br>• Cấu hình Rate Limiting 5 req/phút | • Category Endpoints (`FR-CAT-001..005`)<br>• Full-Text Search unaccent Query<br>• Tự viết `RedisCacheService` & Cache Invalidation | • Steps & Ingredients CRUD (`FR-RCP-009/010`)<br>• Profile Endpoints (`FR-AUTH-006/007`)<br>• Thuật toán Renumber bước nấu liên tục (D9) |
+| **Backend (.NET 10 API)** | • Dựng Clean Architecture + CQRS MediatR Base<br>• Recipe Core Endpoints (`FR-RCP-002..008`)<br>• Global Exception Middleware RFC 7807 | • Auth & Publish Endpoints (`FR-AUTH-001..005`, `FR-RCP-005`)<br>• Google OAuth 2.0 Token Validation<br>• ASP.NET Core Rate Limiting | • Category & Search Endpoints (`FR-CAT-001..005`, `FR-SRCH-001..004`)<br>• Full-Text Search unaccent Query<br>• Tự viết `RedisCacheService` & Invalidation | • Steps & Ingredients Endpoints (`FR-RCP-009/010`)<br>• Profile Endpoints (`FR-AUTH-006/007`)<br>• Thuật toán Renumber bước nấu liên tục (D9) |
 | **Frontend (Next.js 15)** | • Trang Chi tiết công thức `/recipes/[slug]`<br>• Component `RecipeGalleryEditor.tsx`<br>• Lưới hiển thị `RecipeCard` dùng chung | • Trang Đăng ký `/register` & Đăng nhập `/login`<br>• Tích hợp Google Sign-In SDK<br>• Axios Interceptor Silent Refresh 401 | • Trang Danh mục `/categories` & Chi tiết `/categories/[slug]`<br>• Giao diện Tìm kiếm & Bộ lọc đa tiêu chí<br>• Quản trị danh mục `/admin/categories` | • Component `StepListEditor.tsx` (có hẹn giờ)<br>• Component `IngredientListEditor.tsx`<br>• Trang cá nhân `/profile` & Upload Avatar |
 | **DevOps & Integration** | • Thiết lập Docker Compose 5 container<br>• Nginx Reverse Proxy & HTTPS SSL Production<br>• Hangfire Job tự động sinh `sitemap.xml` | • Cấu hình MailHog SMTP (:1025)<br>• Hangfire Job gửi Email chào mừng<br>• Kiểm thử bảo mật Brute-Force Rate Limit | • Khởi tạo Redis Container (:6379)<br>• Đo đạc thời gian Cache Hit / Miss qua Seq<br>• Tối ưu Slow Query Postgres | • Cấu hình MinIO S3 Bucket (:9000)<br>• Hangfire Job nén & resize ảnh thumbnail<br>• Kiểm tra dung lượng & tải Media S3 |
 
 ---
 
-## 📌 LỘ TRÌNH TỔNG THỂ 8 TUẦN (CÂN BẰNG KHỐI LƯỢNG — 7 CHỨC NĂNG / THÀNH VIÊN)
+## 📌 LỘ TRÌNH TỔNG THỂ 8 TUẦN (BACKEND-FIRST CHO LAB 4 — ĐẠT 100% TIÊU CHÍ)
+
+> 🎯 **Chiến lược trọng tâm**:
+> - **Tuần 2 & 3 (Lab 2 & 3)**: Đã hoàn thành nền tảng hạ tầng, Exception Domain, Repository/UoW, ProblemDetails Middleware và các API đầu tiên.
+> - **Tuần 4 (Lab 4 - BACKEND COMPLETE)**: **Tập trung hoàn thành 100% TẤT CẢ các REST API Endpoints còn lại của hệ thống**. Khi nộp Lab 4, Scalar API Docs (`http://localhost:5000/scalar/v1`) sẽ chạy đầy đủ 100% chức năng.
+> - **Tuần 5 & 6 (Lab 5 & 6 - FRONTEND INTEGRATION)**: Tích hợp toàn diện giao diện Next.js 15, kết nối trọn vẹn vào các API đã hoàn tất từ Tuần 4.
+> - **Tuần 7 (Lab 7 - CACHE & BACKGROUND JOBS)**: Tối ưu Redis Cache, cấu hình Hangfire background jobs (Email chào mừng, resize thumbnail, sitemap SEO).
+> - **Tuần 8 (Triển khai & Bảo vệ)**: Docker Compose Production, Nginx SSL HTTPS, kiểm thử E2E và hoàn thiện báo cáo đồ án.
 
 | Tuần | Trọng tâm công việc | Lê Nhật Tiến (2312770) | Lâm Văn Đức (2314299) | Nguyễn Viết Toàn (2312777) | Nguyễn Đình Tuấn (2312792) |
 | :---: | :--- | :--- | :--- | :--- | :--- |
 | **Tuần 2** | Khởi tạo hạ tầng, Base & Core | Hạ tầng Docker & Seeder, `FR-RCP-003` (Tạo món Draft) | `FR-AUTH-001` (Đăng ký tài khoản) | `FR-CAT-001` (Danh sách danh mục) | `FR-FILE-001`, `FR-FILE-002` (Upload & Xóa ảnh MinIO) |
 | **Tuần 3** | Xác thực, Chi tiết Danh mục & Steps | `FR-CAT-002` (Chi tiết danh mục + recipes) | `FR-AUTH-002` (Đăng nhập Email + Rate Limiter) | `FR-CAT-003` (Admin tạo danh mục mới) | `FR-RCP-010` (Quản lý các bước nấu D9) |
-| **Tuần 4** | Core Recipe Detail, Media, Auth & Ingredients | `FR-RCP-002` (Chi tiết công thức), `FR-RCP-008` (Gallery ảnh) | `FR-AUTH-005` (Đăng xuất), `FR-AUTH-004` (Refresh token rotation) | Tự viết `RedisCacheService`, `FR-CAT-004` (Sửa danh mục D12) | `FR-RCP-009` (Quản lý nguyên liệu D10), `FR-AUTH-006` (Xem Profile) |
-| **Tuần 5** | Cập nhật, Lưu trữ món, Google OAuth & Avatar | `FR-RCP-004` (Sửa công thức), `FR-RCP-006` (Lưu trữ Archive) | `FR-AUTH-003` (Đăng nhập Google OAuth 2.0) | `FR-CAT-005` (Xóa mềm danh mục D1) | `FR-AUTH-007` (Sửa hồ sơ & đổi Avatar MinIO) |
-| **Tuần 6** | Tìm kiếm unaccent, Bộ lọc D8 & Thumbnail Job | `FR-RCP-007` (Xóa mềm công thức D1) | `FR-RCP-005` (Xuất bản công thức - điều kiện D11) | `FR-SRCH-001` (Full-Text Search unaccent), `FR-SRCH-002..004` (Lọc & Sắp xếp D8) | `FR-JOB-002` (Hangfire job resize ảnh thumbnail) |
-| **Tuần 7** | Đánh giá sao, Background Jobs (Email & Sitemap) | `FR-JOB-003` (Hangfire sinh Sitemap XML SEO) | `FR-JOB-001` (Hangfire gửi Email chào mừng) | `FR-INT-001` (Đánh giá sao công thức 1-5 sao) | Tối ưu hóa toàn diện Media MinIO & Kiểm thử tải |
+| **Tuần 4 (Lab 4)** | **HOÀN THÀNH 100% TẤT CẢ REST API ENDPOINTS** | API Recipe Core: Chi tiết món, Gallery ảnh, Sửa RowVersion, Archive, Xóa mềm D1 | API Auth & Publish: Logout thu hồi, Refresh token rotation, Google Login, Publish/Unpublish D11 | API Category & Search: Sửa/Xóa danh mục D12/D1, Search unaccent `tsvector`, Lọc & Sắp xếp D8 | API Ingredients & Profile: CRUD nguyên liệu null unit D10, Get & Update Profile cá nhân |
+| **Tuần 5** | Frontend Phase 1: Auth & Core Views | Giao diện Chi tiết món ăn `/recipes/[slug]` & Component Gallery Editor | Giao diện Đăng nhập `/login`, Đăng ký `/register` & Google SDK | Giao diện Quản trị danh mục `/admin/categories` & Trang `/categories` | Component `IngredientListEditor.tsx` & Trang cá nhân `/profile` |
+| **Tuần 6** | Frontend Phase 2: Form & Search UI | Giao diện Sửa công thức `/dashboard/recipes/[id]/edit` | Giao diện Quản lý bài viết của tôi & Nút Publish | Giao diện Tìm kiếm toàn văn `/recipes?q=...` & Sidebar Bộ lọc | Component `StepListEditor.tsx` & Upload Avatar |
+| **Tuần 7** | Cache, Background Jobs & Ratings | Hangfire Job sinh `sitemap.xml` SEO | Hangfire Job gửi Email chào mừng MailHog | Tự viết `RedisCacheService` TTL 30p & Đánh giá sao 1-5 | Hangfire Job nén ảnh Thumbnail & Tối ưu Media MinIO |
 | **Tuần 8** | Triển khai Production & Nghiệm thu | Cấu hình Docker Production, Nginx SSL HTTPS, Kiểm thử tích hợp E2E, Tổng kết báo cáo & Slide vấn đáp |
 
 ---
@@ -36,7 +43,7 @@ Web chia sẻ công thức nấu ăn chuẩn vị Việt Nam. Backend .NET 10 (C
 > ⚠️ **QUY ƯỚC QUAN TRỌNG TỪ TUẦN 4**:
 > 1. **Tạo nhánh theo buổi**: Thành viên **không tạo nhánh theo từng chức năng con nữa**, mà tạo **1 nhánh duy nhất cho cả buổi làm việc** theo chuẩn:
 >    👉 `<MSSV>-<HoTenKhongDau>-buoi<SoTuan>` (Ví dụ: `2312770-LeNhatTien-buoi4`, `2314299-LamVanDuc-buoi4`, `2312777-NguyenVietToan-buoi4`, `2312792-NguyenDinhTuan-buoi4`).
-> 2. **Commit trên nhánh của mình**: Mỗi khi xong một chức năng, commit ngay trên nhánh buổi đó với tiền tố:
+> 2. **Commit trên nhánh của mình**: Mỗi khi hoàn thành một API endpoint/chức năng, commit ngay trên nhánh buổi đó với tiền tố:
 >    👉 `git commit -m "feat/<module>: <mô tả chi tiết>"`
 > 3. **Tạo Pull Request (PR) theo từng chức năng vào `main`**: Khi cần gộp code vào `main`, thành viên tạo Pull Request trên GitHub ứng với từng chức năng để trưởng nhóm **Lê Nhật Tiến (2312770)** review code, kiểm tra xung đột và bấm merge vào `main`.
 
@@ -98,213 +105,228 @@ Web chia sẻ công thức nấu ăn chuẩn vị Việt Nam. Backend .NET 10 (C
 
 ---
 
-### 3. HƯỚNG DẪN CHI TIẾT TUẦN 4: TIẾN TRÌNH PHỐI HỢP NHÓM & GIẢI TRÌNH KỸ THUẬT
+### 3. HƯỚNG DẪN CHI TIẾT TUẦN 4 (LAB 4): HOÀN THÀNH 100% TẤT CẢ API ENDPOINTS
 
-#### 🚦 MA TRẬN TIẾN TRÌNH CHUNG TUẦN 4 (AI LÀM TRƯỚC / AI LÀM SAU ĐỂ TRÁNH XUNG ĐỘT)
+> 🎯 **Mục tiêu tối thiểu Lab 4**: Cài đặt hoàn chỉnh 100% tất cả API Endpoints trong SRS Chương 8.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ GIAI ĐOẠN 1: CÁC TASK ĐỘC LẬP (LÀM SONG SONG ĐẦU BUỔI - KHÔNG XUNG ĐỘT)               │
+│ TIẾN TRÌNH THỰC HIỆN LAB 4 TRONG NHÓM (BACKEND FOCUS)                                  │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
-│ • TIẾN (nhánh 2312770-LeNhatTien-buoi4): FR-RCP-002 (Xem chi tiết công thức nấu ăn)   │
-│ • ĐỨC  (nhánh 2314299-LamVanDuc-buoi4):  FR-AUTH-005 (Đăng xuất & Thu hồi token DB)    │
-│ • TOÀN (nhánh 2312777-NguyenVietToan-buoi4): Viết hạ tầng RedisCacheService.cs         │
-│ • TUẤN (nhánh 2312792-NguyenDinhTuan-buoi4): FR-RCP-009 (Quản lý nguyên liệu null D10)│
-└──────────────────────────────────────────┬─────────────────────────────────────────────┘
-                                           ▼ (Tạo PR theo chức năng -> Tiến review & merge)
-┌────────────────────────────────────────────────────────────────────────────────────────┐
-│ GIAI ĐOẠN 2: CÁC TASK PHỤ THUỘC (LÀM SAU KHI GIAI ĐOẠN 1 XONG)                        │
+│ • TIẾN (nhánh 2312770-LeNhatTien-buoi4):                                               │
+│   1. GET /api/v1/recipes/{slug} (Chi tiết món ăn FR-RCP-002)                           │
+│   2. POST/PATCH/DELETE /api/v1/recipes/{id}/images (Gallery ảnh FR-RCP-008)            │
+│   3. PUT /api/v1/recipes/{id} (Cập nhật món kiểm tra RowVersion FR-RCP-004)            │
+│   4. PATCH /api/v1/recipes/{id}/archive & DELETE /recipes/{id} (Archive & Xóa mềm D1)  │
 ├────────────────────────────────────────────────────────────────────────────────────────┤
-│ • TIẾN: FR-RCP-008 (Quản lý Gallery ảnh - gắn sao ảnh chính IsPrimary)                 │
-│ • ĐỨC:  FR-AUTH-004 (Làm mới token: Gọi Logout thu hồi cũ -> cấp mới + Interceptor)    │
-│         👉 Phụ thuộc: Cần logic thu hồi token ở Task 1 để xử lý Reuse Detection.      │
-│ • TOÀN: FR-CAT-004 (Sửa danh mục D12 & Invalidation xóa cache Redis)                  │
-│         👉 Phụ thuộc: Cần RedisCacheService ở Task 1 viết xong mới gọi xóa cache được. │
-│ • TUẤN: FR-AUTH-006 (Xem thông tin hồ sơ cá nhân /auth/me & UI Profile)                │
+│ • ĐỨC  (nhánh 2314299-LamVanDuc-buoi4):                                                │
+│   1. POST /api/v1/auth/logout (Đăng xuất thu hồi token FR-AUTH-005)                    │
+│   2. POST /api/v1/auth/refresh (Làm mới token rotation & reuse detection FR-AUTH-004)  │
+│   3. POST /api/v1/auth/google (Đăng nhập Google OAuth 2.0 FR-AUTH-003)                 │
+│   4. PATCH /api/v1/recipes/{id}/publish & /unpublish (Xuất bản kiểm tra D11)           │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ • TOÀN (nhánh 2312777-NguyenVietToan-buoi4):                                           │
+│   1. PUT /api/v1/categories/{id} (Sửa danh mục giữ slug D12 FR-CAT-004)               │
+│   2. DELETE /api/v1/categories/{id} (Xóa mềm danh mục kiểm tra D1 FR-CAT-005)          │
+│   3. GET /api/v1/recipes/search (Tìm kiếm toàn văn unaccent tsvector FR-SRCH-001)      │
+│   4. Nâng cấp GET /api/v1/recipes (Lọc đa tiêu chí & Sắp xếp D8 FR-SRCH-002..004)      │
+├────────────────────────────────────────────────────────────────────────────────────────┤
+│ • TUẤN (nhánh 2312792-NguyenDinhTuan-buoi4):                                           │
+│   1. POST/PUT/DELETE /api/v1/recipes/{id}/ingredients (CRUD nguyên liệu D10)           │
+│   2. GET /api/v1/auth/me (Xem hồ sơ cá nhân FR-AUTH-006)                               │
+│   3. PATCH /api/v1/auth/me (Cập nhật hồ sơ & đổi Avatar MinIO FR-AUTH-007)             │
 └────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-#### 3.1. Lê Nhật Tiến (MSSV: 2312770) — Trưởng nhóm
+#### 3.1. Lê Nhật Tiến (MSSV: 2312770) — Recipe Core Endpoints
 * **Tên nhánh duy nhất của buổi 4**:
   ```powershell
   git checkout main; git pull origin main
   git checkout -b 2312770-LeNhatTien-buoi4
   ```
 
-##### Task 1 (Giai đoạn 1 - Song song): Xem chi tiết công thức nấu ăn (FR-RCP-002)
-* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Mở `GetRecipeBySlugQueryHandler.cs`, dùng EF Core `.Include()` nạp Category, Author, Steps, Ingredients, Images, Nutrition*:
-     - 👉 **Tại sao?**: Nếu không dùng `.Include()`, EF Core sẽ bị lỗi N+1 Query hoặc dữ liệu liên kết trả về `null`, khiến trang chi tiết công thức bị thiếu nguyên liệu và các bước.
-  2. *Kiểm tra trạng thái Draft/Archived, nếu không phải tác giả (`AuthorId != currentUser.UserId`) và không phải Admin thì ném `ForbiddenException`*:
-     - 👉 **Tại sao?**: Bảo vệ tính bảo mật và quyền riêng tư (SRS 3.3). Công thức đang viết nháp chưa được xuất bản thì người ngoài không được phép xem trộm.
-  3. *Frontend: Tạo trang `src/Frontend/app/(public)/recipes/[slug]/page.tsx`*:
-     - 👉 **Tại sao?**: Hiển thị bảng dinh dưỡng để người đọc tính calo; checklist nguyên liệu có thể tick chọn khi chuẩn bị nấu; timeline các bước kèm ảnh trực quan.
-* **Thông điệp Commit**:
-  ```powershell
-  git add .
-  git commit -m "feat/recipe: hien thuc FR-RCP-002 xem chi tiet cong thuc kem dinh duong va nguyen lieu"
-  ```
+##### 1. GET `/api/v1/recipes/{slug}` (FR-RCP-002)
+* **Cách làm**: Mở `GetRecipeBySlugQueryHandler.cs`, dùng EF Core `.Include()` nạp Category, Author, Steps, Ingredients, Images, Nutrition. Kiểm tra Draft/Archived ném `ForbiddenException` nếu không phải tác giả/Admin.
+* **Tại sao?**: Tránh N+1 query và bảo mật công thức nháp (SRS 3.3).
+* **Commit**: `git commit -m "feat/recipe: cai dat endpoint GET recipes slug chi tiet cong thuc"`
 
-##### Task 2 (Giai đoạn 2 - Sau Task 1): Quản lý gallery ảnh công thức (FR-RCP-008)
-* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Tạo các Command `AddRecipeImageCommand`, `DeleteRecipeImageCommand`, `SetPrimaryImageCommand` trong `Features/Recipes/Commands/ManageImages/`*:
-  2. *Trong `SetPrimaryImageCommandHandler`: Tìm ảnh cũ có `IsPrimary == true` đổi thành `false`, rồi mới gán ảnh mới được chọn thành `true`*:
-     - 👉 **Tại sao?**: Mỗi món ăn chỉ được có **duy nhất 1 ảnh đại diện chính** hiển thị ngoài trang chủ và thẻ `RecipeCard`. Nếu không bỏ cờ ảnh cũ thì database sẽ bị mâu thuẫn dữ liệu.
-  3. *Frontend: Tạo component `RecipeGalleryEditor.tsx` dạng thumbnail grid kèm nút gắn sao ⭐*:
-     - 👉 **Tại sao?**: Giúp tác giả nhìn thấy trực quan tất cả ảnh đã tải lên và dễ dàng chọn ảnh đẹp nhất làm ảnh bìa.
-* **Thông điệp Commit**:
-  ```powershell
-  git add .
-  git commit -m "feat/recipe: hien thuc FR-RCP-008 quan ly gallery anh va chon anh dai dien chinh"
-  git push -u origin 2312770-LeNhatTien-buoi4
-  ```
+##### 2. POST / PATCH / DELETE `/api/v1/recipes/{id}/images` (FR-RCP-008)
+* **Cách làm**: Tạo `AddRecipeImageCommand`, `DeleteRecipeImageCommand`, `SetPrimaryImageCommand`. Trong `SetPrimaryImageCommandHandler`: đổi ảnh cũ `IsPrimary = false` rồi mới gán ảnh mới `IsPrimary = true`.
+* **Tại sao?**: Đảm bảo mỗi công thức chỉ có duy nhất 1 ảnh đại diện chính.
+* **Commit**: `git commit -m "feat/recipe: cai dat cac endpoints quan ly gallery anh recipe images"`
+
+##### 3. PUT `/api/v1/recipes/{id}` (FR-RCP-004) & Archive / Delete (FR-RCP-006 & FR-RCP-007)
+* **Cách làm**:
+  - Tạo `UpdateRecipeCommand` nhận `RowVersion`. Nếu xảy ra xung đột đồng thời, EF Core bắt `DbUpdateConcurrencyException` trả về HTTP 409 Conflict.
+  - Tạo `ArchiveRecipeCommand` đổi status sang `Archived`.
+  - Tạo `DeleteRecipeCommand` đánh dấu `IsDeleted = true` theo **Quyết định D1**.
+* **Tại sao?**: Bảo vệ tính toàn vẹn dữ liệu khi 2 tác giả cùng sửa, và bảo tồn dữ liệu bằng Soft Delete.
+* **Commit**: `git commit -m "feat/recipe: cai dat PUT recipes id kem concurrency va PATCH archive DELETE soft delete"`
 
 ---
 
-#### 3.2. Lâm Văn Đức (MSSV: 2314299) — Security & Auth
+#### 3.2. Lâm Văn Đức (MSSV: 2314299) — Auth & Publish Endpoints
 * **Tên nhánh duy nhất của buổi 4**:
   ```powershell
   git checkout main; git pull origin main
   git checkout -b 2314299-LamVanDuc-buoi4
   ```
 
-##### Task 1 (Giai đoạn 1 - Song song): Đăng xuất & Thu hồi phiên làm việc (FR-AUTH-005)
-* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Băm SHA-256 chuỗi refresh token nhận từ Client trước khi tìm kiếm trong bảng `RefreshTokens`*:
-     - 👉 **Tại sao?**: Database chỉ lưu `TokenHash` chứ không bao giờ lưu token gốc (SRS 7.8). Bắt buộc phải hash trước thì mới so khớp được với CSDL.
-  2. *Gọi `refreshToken.Revoke()` và `SaveChangesAsync(ct)`*:
-     - 👉 **Tại sao?**: Khi người dùng đăng xuất, refresh token phải bị hủy ngay lập tức trong database để nếu kẻ xấu nhặt được token cũng không thể dùng lại được.
-  3. *Frontend: Xóa `accessToken` trong localStorage/Cookie và cập nhật Navbar*:
-     - 👉 **Tại sao?**: Để giao diện lập tức chuyển về trạng thái Guest, không lưu vết phiên đăng nhập cũ trên trình duyệt.
-* **Thông điệp Commit**:
-  ```powershell
-  git add .
-  git commit -m "feat/auth: hien thuc FR-AUTH-005 dang xuat va thu hoi refresh token trong csdl"
-  ```
+##### 1. POST `/api/v1/auth/logout` (FR-AUTH-005)
+* **Cách làm**: Băm SHA-256 chuỗi token nhận được, tìm trong bảng `RefreshTokens`, gọi `refreshToken.Revoke()` và `SaveChangesAsync`. Endpoint yêu cầu `RequireAuthorization`.
+* **Tại sao?**: Database chỉ lưu token hash. Thu hồi ngay trong DB để vô hiệu hóa token cũ.
+* **Commit**: `git commit -m "feat/auth: cai dat endpoint POST auth logout thu hoi refresh token"`
 
-##### Task 2 (Giai đoạn 2 - Phụ thuộc Task 1): Refresh Token Rotation & Silent Refresh (FR-AUTH-004)
-* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Kiểm tra: Nếu token gửi lên đã có `IsRevoked == true` thì lập tức thu hồi toàn bộ token family của user đó và ném lỗi*:
-     - 👉 **Tại sao?**: Đây là kỹ thuật **Reuse Detection (Phát hiện tấn công)**. Một token đã thu hồi mà lại được gửi lên chứng tỏ token đó đã bị kẻ gian đánh cắp. Việc thu hồi toàn bộ phiên buộc user phải đăng nhập lại để bảo vệ tài khoản.
-  2. *Nếu hợp lệ: Đánh dấu thu hồi token cũ `Revoke(newTokenHash)`, cấp cặp token mới và lưu vào DB*:
-     - 👉 **Tại sao?**: Đây là nguyên tắc **Rotation (Xoay vòng token)**: Mỗi refresh token chỉ được dùng đúng 1 lần. Cấp mới liên tục giúp hạn chế tối đa nguy cơ lộ token.
-  3. *Frontend: Viết Axios Interceptor trong `client.ts` bắt mã 401*:
-     - 👉 **Tại sao?**: Khi access token 15 phút hết hạn, interceptor sẽ tự động gọi refresh token ngầm và gửi lại request cũ giúp người dùng không bị văng ra trang login khi đang xem dở công thức.
-* **Thông điệp Commit**:
-  ```powershell
-  git add .
-  git commit -m "feat/auth: hien thuc FR-AUTH-004 refresh token rotation kem reuse detection"
-  git push -u origin 2314299-LamVanDuc-buoi4
-  ```
-  *(Sau đó tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để Tiến review & gộp code)*.
+##### 2. POST `/api/v1/auth/refresh` (FR-AUTH-004)
+* **Cách làm**: Tạo `RefreshTokenCommand`. Nếu token đã bị `IsRevoked`, phát hiện tấn công tái sử dụng (Reuse Detection) ➜ thu hồi cả token family. Nếu hợp lệ, cấp cặp token mới (Rotation).
+* **Tại sao?**: Xoay vòng token giúp bảo mật tối đa và tự động cấp lại token ngầm cho client.
+* **Commit**: `git commit -m "feat/auth: cai dat endpoint POST auth refresh token rotation kem reuse detection"`
+
+##### 3. POST `/api/v1/auth/google` (FR-AUTH-003) & PATCH Publish/Unpublish (FR-RCP-005)
+* **Cách làm**:
+  - Tạo `GoogleLoginCommand`: xác thực Google JWT ID Token qua Google API Client. Nếu chưa có user thì tự động tạo tài khoản mới.
+  - Tạo `PublishRecipeCommand`: Kiểm tra điều kiện **Quyết định D11** (`Ingredients.Count >= 1 && Steps.Count >= 1`). Nếu thiếu ném `ValidationException("RECIPE_PUBLISH_INCOMPLETE")`.
+* **Tại sao?**: Hỗ trợ đăng nhập tiện lợi một chạm và đảm bảo chất lượng bài viết khi xuất bản.
+* **Commit**: `git commit -m "feat/auth: cai dat endpoint POST google login va PATCH publish unpublish kiem tra D11"`
 
 ---
 
-#### 3.3. Nguyễn Viết Toàn (MSSV: 2312777) — Cache & Category
+#### 3.3. Nguyễn Viết Toàn (MSSV: 2312777) — Category & Search Endpoints
 * **Tên nhánh duy nhất của buổi 4**:
   ```powershell
   git checkout main; git pull origin main
   git checkout -b 2312777-NguyenVietToan-buoi4
   ```
 
-##### Task 1 (Giai đoạn 1 - Song song): Tự tay hiện thực `RedisCacheService.cs`
-* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Mở file `src/Backend/CulinaryBlog.Infrastructure/Caching/RedisCacheService.cs`*:
-  2. *Trong `SetAsync`: Dùng `JsonSerializer.SerializeToUtf8Bytes(value)` thay vì `Serialize` chuỗi string thông thường*:
-     - 👉 **Tại sao?**: Lưu trực tiếp dạng mảng `byte[]` UTF-8 giúp tối ưu bộ nhớ đệm Redis và tiết kiệm CPU khi không phải encode/decode chuỗi trung gian qua lại.
-  3. *Cấu hình `DistributedCacheEntryOptions` với `AbsoluteExpirationRelativeToNow = ttl` (30 phút)*:
-     - 👉 **Tại sao?**: Tránh rác bộ nhớ Redis. Dữ liệu sau 30 phút tự động hết hạn và giải phóng RAM cho server.
-  4. *Hiện thực hàm `RemoveByPrefixAsync("categories:")`*:
-     - 👉 **Tại sao?**: `IDistributedCache` mặc định không hỗ trợ xóa theo ký tự đại diện (wildcard). Cần hàm này để xóa sạch các cache danh mục liên quan khi Admin thay đổi dữ liệu.
-* **Thông điệp Commit**:
-  ```powershell
-  git add .
-  git commit -m "feat/cache: tu tay hien thuc RedisCacheService voi IDistributedCache va TTL 30 phut"
-  ```
+##### 1. PUT `/api/v1/categories/{id}` & DELETE `/api/v1/categories/{id}` (FR-CAT-004 & FR-CAT-005)
+* **Cách làm**:
+  - `UpdateCategoryCommand`: Cho phép sửa Name, Description, ImageUrl nhưng **bảo toàn nguyên vẹn Slug theo Quyết định D12**.
+  - `DeleteCategoryCommand`: Kiểm tra nếu danh mục còn recipes chưa xóa thì ném `ConflictException`. Nếu rỗng, đánh dấu `IsDeleted = true` theo **D1**.
+* **Tại sao?**: Giữ nguyên URL SEO của Google và chống mồ côi dữ liệu khi xóa danh mục.
+* **Commit**: `git commit -m "feat/category: cai dat endpoints PUT va DELETE categories kiem tra D12 va D1"`
 
-##### Task 2 (Giai đoạn 2 - Phụ thuộc Task 1): Admin cập nhật danh mục & Invalidation (FR-CAT-004)
-* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Viết `UpdateCategoryCommandHandler.cs`: Cập nhật Tên, Mô tả, Ảnh, Thứ tự nhưng **GIỮ NGUYÊN SLUG** ban đầu*:
-     - 👉 **Tại sao?**: **Tuân thủ tuyệt đối Quyết định D12**. Nếu đổi tên danh mục mà đổi luôn Slug thì toàn bộ các liên kết URL cũ đã được Google lập chỉ mục SEO hoặc người dùng lưu bookmark sẽ bị lỗi 404 Not Found.
-  2. *Sau khi lưu DB thành công, gọi `await _cacheService.RemoveAsync("categories:all", ct)`*:
-     - 👉 **Tại sao?**: Kỹ thuật **Cache Invalidation**. Nếu không xóa cache cũ, người dùng truy cập trang chủ vẫn sẽ thấy dữ liệu cũ trong suốt 30 phút TTL tiếp theo.
-  3. *Frontend: Tạo Modal Sửa trong trang quản trị `/admin/categories`*:
-     - 👉 **Tại sao?**: Giúp Admin sửa nhanh thông tin danh mục ngay trên giao diện bảng mà không phải chuyển trang.
-* **Thông điệp Commit**:
-  ```powershell
-  git add .
-  git commit -m "feat/category: hien thuc FR-CAT-004 cap nhat danh muc bao toan slug D12 va xoa cache"
-  git push -u origin 2312777-NguyenVietToan-buoi4
-  ```
-  *(Sau đó tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để Tiến review & gộp code)*.
+##### 2. GET `/api/v1/recipes/search` (FR-SRCH-001) & Nâng cấp GET `/api/v1/recipes` (FR-SRCH-002..004)
+* **Cách làm**:
+  - Tạo `SearchRecipesQuery`: Dùng PostgreSQL Full-Text Search `to_tsvector('simple', unaccent(title))` để tìm kiếm không dấu tiếng Việt cực nhanh.
+  - Cập nhật `GetRecipesQueryHandler`: Bổ sung lọc theo `maxCookTime`, lọc theo danh mục, và sắp xếp linh hoạt theo chuẩn **Quyết định D8** (`sortBy` & `sortOrder`).
+* **Tại sao?**: Cho phép người dùng tìm kiếm món ăn chính xác dù gõ có dấu hay không dấu và lọc theo thời gian rảnh.
+* **Commit**: `git commit -m "feat/search: cai dat endpoint search unaccent tsvector va nang cap bo loc D8"`
 
 ---
 
-#### 3.4. Nguyễn Đình Tuấn (MSSV: 2312792) — Storage & Recipe Details
+#### 3.4. Nguyễn Đình Tuấn (MSSV: 2312792) — Ingredients & Profile Endpoints
 * **Tên nhánh duy nhất của buổi 4**:
   ```powershell
   git checkout main; git pull origin main
   git checkout -b 2312792-NguyenDinhTuan-buoi4
   ```
 
-##### Task 1 (Giai đoạn 1 - Song song): Quản lý nguyên liệu công thức (FR-RCP-009)
-* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Tạo Commands trong `ManageIngredients/*`: Khai báo `decimal? Quantity` và `string? Unit` (cho phép `null`)*:
-     - 👉 **Tại sao?**: **Tuân thủ Quyết định D10**. Trong ẩm thực Việt, rất nhiều gia vị nêm nếm không thể cân đo chính xác bằng số (ví dụ: "tiêu xay: một chút", "nước mắm: vừa ăn"). Nếu bắt buộc nhập số sẽ khiến người dùng không thể viết công thức chuẩn vị.
-  2. *Thêm Validator kiểm tra tên nguyên liệu không được để trống và độ dài $\le 100$ ký tự*:
-     - 👉 **Tại sao?**: Tránh rác dữ liệu và chống tràn bố cục bảng nguyên liệu ngoài giao diện.
-  3. *Frontend: Tạo component `IngredientListEditor.tsx` dạng bảng nhập liên tiếp*:
-     - 👉 **Tại sao?**: Tác giả có thể nhập một loạt 10–15 nguyên liệu nhanh chóng bằng phím Enter mà không bị load lại trang.
-* **Thông điệp Commit**:
-  ```powershell
-  git add .
-  git commit -m "feat/recipe: hien thuc FR-RCP-009 quan ly nguyen lieu cong thuc ho tro gia vi null unit D10"
-  ```
+##### 1. POST / PUT / DELETE `/api/v1/recipes/{id}/ingredients` (FR-RCP-009)
+* **Cách làm**: Tạo `AddRecipeIngredientCommand`, `UpdateRecipeIngredientCommand`, `DeleteRecipeIngredientCommand`. Tuân thủ **Quyết định D10**: Cho phép `Quantity` và `Unit` nhận giá trị `null` (gia vị nêm nếm).
+* **Tại sao?**: Hỗ trợ đúng thực tế nấu ăn Việt Nam và phục vụ điều kiện xuất bản D11.
+* **Commit**: `git commit -m "feat/recipe: cai dat day du cac endpoints CRUD nguyen lieu ho tro null unit D10"`
 
-##### Task 2 (Giai đoạn 2 - Sau Task 1): Xem thông tin hồ sơ cá nhân (FR-AUTH-006)
-* **Cách làm chi tiết & Tại sao bước đó lại làm như vậy**:
-  1. *Backend: Viết `GetProfileQueryHandler.cs`, lấy UserId từ `ICurrentUser`*:
-     - 👉 **Tại sao?**: Lấy UserId trực tiếp từ Token đã xác thực của người dùng đang gửi request, tuyệt đối không nhận `userId` từ query string để chống lộ thông tin riêng tư của người khác.
-  2. *Chỉ chọn các trường an toàn `{ id, email, displayName, bio, avatarUrl, roles }`, không map `PasswordHash`*:
-     - 👉 **Tại sao?**: Nguyên tắc bảo mật thông tin tài khoản (NFR-SEC). Không bao giờ trả chuỗi băm mật khẩu về client dưới mọi hình thức.
-  3. *Frontend: Tạo trang `/profile` hiển thị Avatar lớn, Tên, Tiểu sử và Roles*:
-     - 👉 **Tại sao?**: Cung cấp giao diện trung tâm để người dùng kiểm tra thông tin tài khoản trước khi thực hiện đổi avatar và bio ở Tuần 5.
-* **Thông điệp Commit**:
-  ```powershell
-  git add .
-  git commit -m "feat/auth: hien thuc FR-AUTH-006 xem thong tin ho so ca nhan tai auth me va UI profile"
-  git push -u origin 2312792-NguyenDinhTuan-buoi4
-  ```
-  *(Sau đó tạo Pull Request trên GitHub ứng với từng chức năng vào `main` để Tiến review & gộp code)*.
+##### 2. GET `/api/v1/auth/me` (FR-AUTH-006) & PATCH `/api/v1/auth/me` (FR-AUTH-007)
+* **Cách làm**:
+  - `GetProfileQuery`: Lấy UserId từ `ICurrentUser`, truy vấn thông tin user, không trả về hash mật khẩu.
+  - `UpdateProfileCommand`: Cho phép cập nhật `DisplayName`, `Bio`, `AvatarUrl` (URL ảnh upload từ MinIO).
+* **Tại sao?**: Cung cấp API quản lý hồ sơ cá nhân an toàn cho tác giả.
+* **Commit**: `git commit -m "feat/auth: cai dat endpoints GET va PATCH auth me xem va cap nhat ho so"`
 
 ---
 
-### 4. KẾ HOẠCH TỔNG QUAN CÁC TUẦN TIẾP THEO (TUẦN 5 → TUẦN 8)
+## 7. TIÊU CHÍ NGHIỆM THU LAB 4 (DEFINITION OF DONE)
+- [ ] **100% API Endpoints trong SRS Chương 8 đã được cài đặt và ánh xạ trong API Router**.
+- [ ] Truy cập giao diện tài liệu API Scalar `http://localhost:5000/scalar/v1` hiển thị đầy đủ và gửi request thành công.
+- [ ] Backend biên dịch đạt 0 lỗi (`dotnet build src/Backend/CulinaryBlog.API/CulinaryBlog.API.csproj`).
+- [ ] Tất cả các nhánh buổi 4 của 4 thành viên đã được tạo PR và merge vào `main`.
 
-* **Tuần 5 (Cập nhật, Lưu trữ món, Google OAuth & Avatar)**:
-  - **Tiến**: `FR-RCP-004` (Sửa công thức kiểm tra Concurrency RowVersion) & `FR-RCP-006` (Lưu trữ công thức Archive).
-  - **Đức**: `FR-AUTH-003` (Đăng nhập Google OAuth 2.0).
-  - **Toàn**: `FR-CAT-005` (Admin xóa mềm danh mục - kiểm tra không có recipes mới cho xóa theo D1).
-  - **Tuấn**: `FR-AUTH-007` (Cập nhật hồ sơ cá nhân, đổi DisplayName, Bio và upload Avatar MinIO).
+---
 
-* **Tuần 6 (Tìm kiếm unaccent, Bộ lọc D8 & Thumbnail Job)**:
-  - **Tiến**: `FR-RCP-007` (Xóa mềm công thức theo D1 Soft Delete).
-  - **Đức**: `FR-RCP-005` (Xuất bản công thức - tuân thủ điều kiện D11: $\ge 1$ bước và $\ge 1$ nguyên liệu).
-  - **Toàn**: `FR-SRCH-001` (Full-Text Search PostgreSQL `tsvector` + `unaccent`) & `FR-SRCH-002..004` (Lọc đa tiêu chí, sắp xếp dual-syntax D8).
-  - **Tuấn**: `FR-JOB-002` (Hangfire background job nén & resize ảnh thumbnail $300 \times 300$).
+## 8. LỘ TRÌNH CHI TIẾT CÁC TUẦN TIẾP THEO (TUẦN 5 → TUẦN 8)
 
-* **Tuần 7 (Đánh giá sao, Background Jobs Email & Sitemap)**:
-  - **Tiến**: `FR-JOB-003` (Hangfire recurring job tự động sinh `sitemap.xml` SEO lúc 2h sáng).
-  - **Đức**: `FR-JOB-001` (Hangfire gửi Email chào mừng thành viên mới qua MailKit & MailHog).
-  - **Toàn**: `FR-INT-001` (Đánh giá sao công thức 1-5 sao, tính rating trung bình).
-  - **Tuấn**: Tối ưu hóa toàn diện Media MinIO, xử lý ảnh lỗi và kiểm thử tải S3.
+Sau khi hoàn thành **100% API Endpoints ở Tuần 4 (Backend-First)**, nhóm chuyển sang giai đoạn tích hợp giao diện người dùng, bộ nhớ đệm, tiến trình nền và triển khai Production theo tiến trình chuẩn:
 
-* **Tuần 8 (Triển khai Production & Nghiệm thu đồ án)**:
-  - Cấu hình môi trường Production hoàn chỉnh (Docker Compose + Nginx Reverse Proxy, cấu hình chứng chỉ HTTPS SSL).
-  - Kiểm thử tích hợp toàn diện người dùng E2E (End-to-End Testing).
-  - Đóng gói tài liệu báo cáo đồ án, thiết kế Slide trình chiếu vấn đáp với Hội đồng giảng viên.
+### 📅 TUẦN 5 (LAB 5): TÍCH HỢP GIAO DIỆN FRONTEND & TRẢI NGHIỆM NGƯỜI DÙNG CỐT LÕI
+*Mục tiêu*: Kết nối toàn bộ giao diện Next.js 15 với hệ thống API đã hoàn thiện ở Tuần 4.
+
+* **Lê Nhật Tiến**: 
+  - Xây dựng trang chi tiết công thức `src/Frontend/app/(public)/recipes/[slug]/page.tsx`.
+  - Hiển thị Hero banner, bảng Nutritional Facts (Calories/Carb/Protein/Fat), Checklist nguyên liệu có thể tick chọn khi nấu ăn, và Timeline các bước nấu trực quan kèm ảnh minh họa.
+  - Component hiển thị thư viện ảnh `RecipeGalleryEditor.tsx` cho phép xem phóng to và chọn ảnh đại diện.
+* **Lâm Văn Đức**:
+  - Xây dựng giao diện Đăng nhập và Đăng ký (Modal & Trang chuyên biệt).
+  - Tích hợp nút Đăng nhập một chạm Google OAuth 2.0 bằng Google Identity Services SDK.
+  - Cấu hình Axios Interceptor trong `src/Frontend/lib/api/client.ts` bắt mã lỗi HTTP 401 để tự động gọi `POST /api/v1/auth/refresh` ngầm (Silent Refresh).
+  - Hoàn thiện dropdown Menu tài khoản trên Navbar với nút Đăng xuất an toàn.
+* **Nguyễn Viết Toàn**:
+  - Xây dựng trang duyệt danh mục `/categories` và trang bài viết theo danh mục `/categories/[slug]`.
+  - Xây dựng Modal quản trị danh mục trong trang `/admin/categories` (sửa tên danh mục bảo toàn slug D12, xóa mềm D1).
+  - Xây dựng thanh tìm kiếm trực tiếp (Live-search với kỹ thuật debounce 300ms) kết hợp Drawer bộ lọc đa tiêu chí theo **Quyết định D8** (`maxCookTime`, `difficulty`, `sortBy`).
+* **Nguyễn Đình Tuấn**:
+  - Xây dựng trang Hồ sơ cá nhân `/profile` hiển thị Avatar lớn, Tên hiển thị, Tiểu sử và Vai trò tài khoản.
+  - Chức năng chỉnh sửa thông tin cá nhân và upload thay đổi Avatar trực tiếp lên MinIO qua Presigned URL.
+  - Hoàn thiện component bảng nhập liệu nguyên liệu `IngredientListEditor.tsx` (nhập liên tục bằng phím Enter, hỗ trợ định lượng null theo D10) phục vụ trang tạo và sửa món ăn.
+
+---
+
+### 📅 TUẦN 6 (LAB 6): REDIS CACHING, QUẢN TRỊ TÁC GIẢ & TỐI ƯU HÓA HIỆU NĂNG
+*Mục tiêu*: Tối ưu hóa tốc độ tải trang, hoàn thiện nghiệp vụ Tác giả/Admin và quản lý ảnh nâng cao.
+
+* **Lê Nhật Tiến**:
+  - Xây dựng trang Quản trị bài viết cá nhân của Tác giả (`/dashboard/recipes`).
+  - Tích hợp tính năng Lưu trữ (Archive) và Xóa mềm (Soft Delete D1).
+  - Xử lý giao diện cảnh báo xung đột dữ liệu Optimistic Concurrency Control (bắt lỗi HTTP 409 Conflict khi có hai người cùng chỉnh sửa một công thức).
+* **Lâm Văn Đức**:
+  - Xây dựng luồng Xuất bản công thức (Publish / Unpublish): Nút toggle xuất bản với kiểm tra điều kiện **Quyết định D11** ($\ge 1$ bước nấu, $\ge 1$ nguyên liệu).
+  - Thiết lập Next.js `middleware.ts` bảo vệ các route riêng tư (`/admin/*`, `/dashboard/*`, `/profile`) dựa theo Roles của người dùng.
+* **Nguyễn Viết Toàn**:
+  - Tích hợp Redis Caching: Hoàn thiện `RedisCacheService.cs` dựa trên `IDistributedCache`, serialize UTF-8 byte[].
+  - Áp dụng cache cho danh sách danh mục (TTL 30 phút), cơ chế Cache Invalidation tự động xóa sạch cache khi danh mục bị thay đổi (`RemoveByPrefixAsync`).
+  - Đo lường benchmark thời gian phản hồi API đạt $\le 5$ms.
+* **Nguyễn Đình Tuấn**:
+  - Tối ưu hóa toàn diện MinIO Storage: Sinh Presigned URL an toàn không lộ secret key từ Client.
+  - Xử lý Preview ảnh trực tiếp trước khi upload, hiển thị ảnh fallback mặc định khi link ảnh hỏng.
+  - Kiểm thử tải các định dạng file ảnh (JPG, PNG, WebP kích thước $\le 5$MB) với thanh tiến trình tải lên (Upload Progress Bar).
+
+---
+
+### 📅 TUẦN 7 (LAB 7): HANGFIRE BACKGROUND JOBS & TƯƠNG TÁC NGƯỜI DÙNG
+*Mục tiêu*: Cài đặt các tác vụ nền phi đồng bộ và hoàn thiện tính năng cộng đồng ẩm thực.
+
+* **Lê Nhật Tiến**:
+  - Cấu hình Hangfire Dashboard bảo mật tại `/hangfire` với bộ lọc phân quyền Admin Authorization.
+  - Hiện thực `FR-JOB-003`: Hangfire Recurring Job tự động quét CSDL và sinh `sitemap.xml` và `robots.txt` chuẩn SEO lúc 2:00 sáng mỗi ngày.
+* **Lâm Văn Đức**:
+  - Hiện thực `FR-JOB-001`: Hangfire Background Job gửi email chào mừng (Welcome Email) qua SMTP MailKit + Docker MailHog khi có người dùng mới đăng ký.
+  - Thiết kế template email HTML đẹp mắt và chuyên nghiệp.
+* **Nguyễn Viết Toàn**:
+  - Hiện thực `FR-INT-001`: Tính năng Đánh giá sao công thức (1–5 sao) và Bình luận (`POST/GET /api/v1/recipes/{id}/reviews`).
+  - Tính điểm đánh giá trung bình và hiển thị dạng sao ⭐ trên thẻ công thức `RecipeCard` ngoài giao diện.
+* **Nguyễn Đình Tuấn**:
+  - Hiện thực `FR-JOB-002`: Hangfire Background Job tự động nén và resize ảnh đại diện thumbnail $300 \times 300$ bằng thư viện `SixLabors.ImageSharp` để tăng tốc độ tải trang.
+  - Lưu thumbnail riêng biệt trên MinIO bucket `recipe-thumbnails`.
+
+---
+
+### 📅 TUẦN 8 (LAB 8): TRIỂN KHAI PRODUCTION DOCKER, KIỂM THỬ E2E & NGHIỆM THU ĐỒ ÁN
+*Mục tiêu*: Đóng gói hoàn chỉnh hệ thống triển khai môi trường thực tế và bảo vệ đồ án.
+
+* **Lê Nhật Tiến**:
+  - Viết `Dockerfile` đa tầng (multi-stage build) tối ưu dung lượng cho Backend .NET API và Frontend Next.js 15.
+  - Cấu hình file `docker-compose.prod.yml` chạy trọn bộ 5 dịch vụ hạ tầng + 2 service ứng dụng cùng Nginx Reverse Proxy và chứng chỉ SSL/TLS.
+* **Lâm Văn Đức**:
+  - Xây dựng kịch bản kiểm thử tích hợp tự động E2E (End-to-End Testing) bằng Postman Collection / Newman cho trọn vẹn luồng Auth -> Viết bài -> Xuất bản -> Tìm kiếm -> Đánh giá.
+* **Nguyễn Viết Toàn**:
+  - Tối ưu hóa chỉ mục cơ sở dữ liệu PostgreSQL (`EXPLAIN ANALYZE`), rà soát toàn bộ các lỗi bảo mật RFC 7807, CORS, cấu hình bảo mật Security Headers (CSP, HSTS).
+* **Nguyễn Đình Tuấn**:
+  - Tối ưu hóa SEO Frontend (OpenGraph meta tags, Twitter card, Schema.org Recipe JSON-LD), đo điểm Google Lighthouse Performance $\ge 90$ điểm.
+* **Cả nhóm**:
+  - Đóng gói báo cáo tổng kết đồ án môn học hoàn chỉnh.
+  - Cập nhật toàn bộ tài liệu kỹ thuật, sơ đồ kiến trúc, tài liệu API.
+  - Thiết kế Slide thuyết trình demo chuyên nghiệp phục vụ vấn đáp với Hội đồng Giảng viên.
 
 ---
 
