@@ -14,8 +14,9 @@ export default async function CategoryDetailPage({ params }: CategoryDetailPageP
   let categoryData;
   try {
     categoryData = await categoriesApi.getBySlug(slug);
-  } catch (err: any) {
-    if (err?.response?.status === 404) {
+  } catch (err: unknown) {
+    const error = err as { response?: { status?: number } };
+    if (error?.response?.status === 404) {
       notFound();
     }
     // Trường hợp server lỗi hoặc không kết nối được
@@ -38,7 +39,7 @@ export default async function CategoryDetailPage({ params }: CategoryDetailPageP
     );
   }
 
-  const { name, description, imageUrl, recipeCount, recipes } = categoryData;
+  const { name, description, imageUrl, recipes } = categoryData;
 
   return (
     <div className="min-h-screen bg-neutral-50/50 pb-24">
