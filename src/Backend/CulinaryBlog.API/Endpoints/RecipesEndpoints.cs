@@ -22,6 +22,15 @@ public static class RecipesEndpoints
         .WithName("GetRecipes")
         .WithSummary("Lấy danh sách công thức nấu ăn (FR-RCP-001)");
 
+        // FR-SRCH-001: Tìm kiếm toàn văn unaccent tsvector
+        group.MapGet("/search", async (string q, [AsParameters] PagingParams paging, ISender sender, CancellationToken ct) =>
+        {
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.SearchRecipes.SearchRecipesQuery(q, paging), ct);
+            return Results.Ok(ApiResponse.FromPaged(result));
+        })
+        .WithName("SearchRecipes")
+        .WithSummary("Tìm kiếm toàn văn không dấu (FR-SRCH-001)");
+
         // FR-RCP-003: Tạo công thức mới (Đã hoàn thành bởi Lê Nhật Tiến)
         group.MapPost("/", async (CreateRecipeCommand command, ISender sender, CancellationToken ct) =>
         {

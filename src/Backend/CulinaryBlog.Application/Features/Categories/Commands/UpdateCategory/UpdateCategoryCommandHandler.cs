@@ -29,7 +29,7 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
 
         category.Update(request.Name, request.Description, request.ImageUrl, request.OrderIndex);
 
-        await _categoryRepository.UpdateAsync(category, ct);
+        _categoryRepository.Update(category);
         await _categoryRepository.SaveChangesAsync(ct);
 
         return new CategoryDto(
