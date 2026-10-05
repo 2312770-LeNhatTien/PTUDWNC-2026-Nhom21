@@ -85,4 +85,21 @@ export const recipesApi = {
     await apiClient.delete(`/api/v1/recipes/${recipeId}/steps/${stepId}`);
     return true;
   },
+
+  // ==========================================================================
+  // FR-RCP-005: XUẤT BẢN / HỦY XUẤT BẢN CÔNG THỨC (LÂM VĂN ĐỨC - 2314299)
+  // ==========================================================================
+
+  // 5. Xuất bản công thức (kiểm tra điều kiện D11)
+  publish: async (recipeId: string): Promise<RecipeDetailDto> => {
+    const res = await apiClient.patch<ApiResponse<RecipeDetailDto>>(`/api/v1/recipes/${recipeId}/publish`);
+    return res.data?.data;
+  },
+
+  // 6. Hủy xuất bản công thức về Draft
+  unpublish: async (recipeId: string): Promise<RecipeDetailDto> => {
+    const res = await apiClient.patch<ApiResponse<RecipeDetailDto>>(`/api/v1/recipes/${recipeId}/unpublish`);
+    return res.data?.data;
+  },
 };
+

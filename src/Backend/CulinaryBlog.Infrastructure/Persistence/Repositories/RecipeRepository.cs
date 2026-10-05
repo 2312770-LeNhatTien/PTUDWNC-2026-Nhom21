@@ -41,8 +41,32 @@ public class RecipeRepository : Repository<Recipe>, IRecipeRepository
     //             .OrderByDescending(r => r.SearchVector.Rank(tsQuery))
     //   4. Chỉ tìm trong recipe Status = Published.
     //   5. Trả về cả danh sách lẫn tổng số kết quả để phục vụ phân trang.
-    public Task<(IReadOnlyList<Recipe> Items, int Total)> SearchAsync(
+    public async Task<(IReadOnlyList<Recipe> Items, int Total)> SearchAsync(
         string keyword, int page, int pageSize, CancellationToken ct = default)
-        => throw new NotImplementedException(
-            "FR-SRCH-001 (Full-Text Search) chưa được hiện thực trong RecipeRepository.");
+    {
+        var query = Db.Recipes
+            .AsNoTracking()
+            .Include(r => r.Category)
+            .Include(r => r.Author)
+            .Include(r => r.Images)
+            .Where(r => r.Status == Domain.Enums.RecipeStatus.Published && !r.IsDeleted)
+            .AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            var tsQuery = EF.Functions.PlainToTsQuery("simple", EF.Functions.Unaccent(keyword));
+            query = query
+                .Where(r => EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title)).Matches(tsQuery));
+        }
+
+        var total = await query.CountAsync(ct);
+
+        var items = await query
+            .OrderByDescending(r => r.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync(ct);
+
+        return (items, total);
+    }
 }

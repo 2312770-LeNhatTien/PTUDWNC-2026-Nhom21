@@ -1,8 +1,9 @@
-﻿// SRS mục 8.3 đến 8.6 - Recipes Module (/api/v1/recipes)
+// SRS mục 8.3 đến 8.6 - Recipes Module (/api/v1/recipes)
 
 using CulinaryBlog.Application.Common.Models;
 using CulinaryBlog.Application.DTOs;
 using CulinaryBlog.Application.Features.Recipes.Commands.CreateRecipe;
+using CulinaryBlog.Domain.Enums;
 using MediatR;
 
 namespace CulinaryBlog.API.Endpoints;
@@ -11,35 +12,97 @@ public static class RecipesEndpoints
 {
     public static IEndpointRouteBuilder MapRecipesEndpoints(this IEndpointRouteBuilder app)
     {
-        var group = app.MapGroup(/api/v1/recipes).WithTags(Recipes);
+        var group = app.MapGroup("/api/v1/recipes").WithTags("Recipes");
 
         // FR-RCP-001: Lấy danh sách công thức (hỗ trợ phân trang)
-        group.MapGet(/, async ([AsParameters] PagingParams paging, ISender sender, CancellationToken ct) =>
+        group.MapGet("/", async ([AsParameters] PagingParams paging, ISender sender, CancellationToken ct) =>
         {
             var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipes.GetRecipesQuery(paging), ct);
             return Results.Ok(ApiResponse.FromPaged(result));
         })
-        .WithName(GetRecipes)
-        .WithSummary(Lấy danh sách công thức nấu ăn (FR-RCP-001));
+        .WithName("GetRecipes")
+        .WithSummary("Lấy danh sách công thức nấu ăn (FR-RCP-001)");
+
+        // FR-SRCH-001: Tìm kiếm toàn văn unaccent tsvector
+        group.MapGet("/search", async (string q, [AsParameters] PagingParams paging, ISender sender, CancellationToken ct) =>
+        {
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.SearchRecipes.SearchRecipesQuery(q, paging), ct);
+            return Results.Ok(ApiResponse.FromPaged(result));
+        })
+        .WithName("SearchRecipes")
+        .WithSummary("Tìm kiếm toàn văn không dấu (FR-SRCH-001)");
 
         // FR-RCP-003: Tạo công thức mới (Đã hoàn thành bởi Lê Nhật Tiến)
-        group.MapPost(/, async (CreateRecipeCommand command, ISender sender, CancellationToken ct) =>
+        group.MapPost("/", async (CreateRecipeCommand command, ISender sender, CancellationToken ct) =>
         {
             var result = await sender.Send(command, ct);
-            return Results.Created($/api/v1/recipes/{result.Slug}, ApiResponse.Ok(result));
+            return Results.Created($"/api/v1/recipes/{result.Slug}", ApiResponse.Ok(result));
         })
-        .WithName(CreateRecipe)
-        .WithSummary(Tạo công thức mới (trạng thái Draft))
-        .RequireAuthorization(AuthorOrAdmin);
+        .WithName("CreateRecipe")
+        .WithSummary("Tạo công thức mới (trạng thái Draft)")
+        .RequireAuthorization("AuthorOrAdmin");
 
         // FR-RCP-002: Lấy chi tiết công thức nấu ăn theo Slug (Lê Nhật Tiến - 2312770)
-        group.MapGet(/{slug}, async (string slug, ISender sender, CancellationToken ct) =>
+        group.MapGet("/{slug}", async (string slug, ISender sender, CancellationToken ct) =>
         {
             var recipe = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipeBySlug.GetRecipeBySlugQuery(slug), ct);
             return Results.Ok(ApiResponse.Ok(recipe));
         })
-        .WithName(GetRecipeBySlug)
-        .WithSummary(Xem chi tiết công thức nấu ăn theo slug kèm đầy đủ nguyên liệu, bước nấu và ảnh (FR-RCP-002));
+        .WithName("GetRecipeBySlug")
+        .WithSummary("Xem chi tiết công thức nấu ăn theo slug kèm đầy đủ nguyên liệu, bước nấu và ảnh (FR-RCP-002)");
+
+        // FR-RCP-004: Cập nhật công thức nấu ăn kèm Optimistic Concurrency D8 (Lê Nhật Tiến - 2312770)
+        group.MapPut("/{id:guid}", async (
+            Guid id,
+            UpdateRecipeRequest request,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var command = new CulinaryBlog.Application.Features.Recipes.Commands.UpdateRecipe.UpdateRecipeCommand(
+                Id: id,
+                Title: request.Title,
+                Description: request.Description,
+                Instructions: request.Instructions,
+                CategoryId: request.CategoryId,
+                PrepTime: request.PrepTime,
+                CookTime: request.CookTime,
+                Servings: request.Servings,
+                Difficulty: request.Difficulty,
+                Nutrition: request.Nutrition,
+                RowVersion: request.RowVersion);
+
+            var result = await sender.Send(command, ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("UpdateRecipe")
+        .WithSummary("Cập nhật thông tin công thức nấu ăn kèm Optimistic Concurrency D8 (FR-RCP-004)")
+        .RequireAuthorization("AuthorOrAdmin");
+
+        // FR-RCP-006: Lưu trữ công thức nấu ăn (Lê Nhật Tiến - 2312770)
+        group.MapPatch("/{id:guid}/archive", async (
+            Guid id,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.ArchiveRecipe.ArchiveRecipeCommand(id), ct);
+            return Results.NoContent();
+        })
+        .WithName("ArchiveRecipe")
+        .WithSummary("Lưu trữ công thức nấu ăn (FR-RCP-006)")
+        .RequireAuthorization("AuthorOrAdmin");
+
+        // FR-RCP-007: Xóa mềm công thức nấu ăn theo Quyết định D1 (Lê Nhật Tiến - 2312770)
+        group.MapDelete("/{id:guid}", async (
+            Guid id,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.DeleteRecipe.DeleteRecipeCommand(id), ct);
+            return Results.NoContent();
+        })
+        .WithName("DeleteRecipe")
+        .WithSummary("Xóa mềm công thức nấu ăn theo Quyết định D1 (FR-RCP-007)")
+        .RequireAuthorization("AuthorOrAdmin");
 
         // ====================================================================
         // FR-RCP-010: QUẢN LÝ CÁC BƯỚC NẤU (NGUYỄN ĐÌNH TUẤN - 2312792)
@@ -47,17 +110,17 @@ public static class RecipesEndpoints
         // ====================================================================
 
         // 1. GET /api/v1/recipes/{id}/steps - Lấy danh sách toàn bộ các bước nấu
-        group.MapGet(/{id:guid}/steps, async (Guid id, ISender sender, CancellationToken ct) =>
+        group.MapGet("/{id:guid}/steps", async (Guid id, ISender sender, CancellationToken ct) =>
         {
             // Gửi Query qua MediatR lấy danh sách bước nấu đã sắp xếp theo StepNumber tăng dần
             var steps = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipeSteps.GetRecipeStepsQuery(id), ct);
             return Results.Ok(ApiResponse.Ok(steps));
         })
-        .WithName(GetRecipeSteps)
-        .WithSummary(Lấy danh sách các bước nấu của công thức (FR-RCP-010));
+        .WithName("GetRecipeSteps")
+        .WithSummary("Lấy danh sách các bước nấu của công thức (FR-RCP-010)");
 
         // 2. POST /api/v1/recipes/{id}/steps - Thêm bước nấu mới
-        group.MapPost(/{id:guid}/steps, async (
+        group.MapPost("/{id:guid}/steps", async (
             Guid id,
             AddStepRequest request,
             ISender sender,
@@ -74,13 +137,13 @@ public static class RecipesEndpoints
             );
 
             var result = await sender.Send(command, ct);
-            return Results.Created($/api/v1/recipes/{id}/steps/{result.Id}, ApiResponse.Ok(result));
+            return Results.Created($"/api/v1/recipes/{id}/steps/{result.Id}", ApiResponse.Ok(result));
         })
-        .WithName(AddRecipeStep)
-        .WithSummary(Thêm bước nấu mới vào công thức (FR-RCP-010));
+        .WithName("AddRecipeStep")
+        .WithSummary("Thêm bước nấu mới vào công thức (FR-RCP-010)");
 
         // 3. PUT /api/v1/recipes/{id}/steps/{stepId} - Cập nhật bước nấu đã có
-        group.MapPut(/{id:guid}/steps/{stepId:guid}, async (
+        group.MapPut("/{id:guid}/steps/{stepId:guid}", async (
             Guid id,
             Guid stepId,
             UpdateStepRequest request,
@@ -101,11 +164,11 @@ public static class RecipesEndpoints
             var result = await sender.Send(command, ct);
             return Results.Ok(ApiResponse.Ok(result));
         })
-        .WithName(UpdateRecipeStep)
-        .WithSummary(Cập nhật thông tin bước nấu của công thức (FR-RCP-010));
+        .WithName("UpdateRecipeStep")
+        .WithSummary("Cập nhật thông tin bước nấu của công thức (FR-RCP-010)");
 
         // 4. DELETE /api/v1/recipes/{id}/steps/{stepId} - Xóa bước nấu và tự động renumber
-        group.MapDelete(/{id:guid}/steps/{stepId:guid}, async (
+        group.MapDelete("/{id:guid}/steps/{stepId:guid}", async (
             Guid id,
             Guid stepId,
             ISender sender,
@@ -114,10 +177,90 @@ public static class RecipesEndpoints
             // Gửi DeleteRecipeStepCommand để xóa và renumber liên tục các bước còn lại
             var command = new CulinaryBlog.Application.Features.Recipes.Commands.ManageSteps.DeleteRecipeStepCommand(id, stepId);
             await sender.Send(command, ct);
-            return Results.Ok(ApiResponse.Ok(Đã xóa bước nấu thành công.));
+            return Results.Ok(ApiResponse.Ok("Đã xóa bước nấu thành công."));
         })
-        .WithName(DeleteRecipeStep)
-        .WithSummary(Xóa bước nấu khỏi công thức và tự động renumber (FR-RCP-010));
+        .WithName("DeleteRecipeStep")
+        .WithSummary("Xóa bước nấu khỏi công thức và tự động renumber (FR-RCP-010)");
+
+        // ====================================================================
+        // FR-RCP-005: XUẤT BẢN / HỦY XUẤT BẢN CÔNG THỨC (LÂM VĂN ĐỨC - 2314299)
+        // TUÂN THỦ QUYẾT ĐỊNH KIẾN TRÚC D11: Kiểm tra >= 1 nguyên liệu và >= 1 bước nấu
+        // ====================================================================
+
+        // 5. PATCH /api/v1/recipes/{id}/publish - Xuất bản công thức (kiểm tra D11)
+        group.MapPatch("/{id:guid}/publish", async (Guid id, ISender sender, CancellationToken ct) =>
+        {
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.PublishRecipe.PublishRecipeCommand(id), ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("PublishRecipe")
+        .WithSummary("Xuất bản công thức nấu ăn (FR-RCP-005, kiểm tra D11)")
+        .RequireAuthorization();
+
+        // 6. PATCH /api/v1/recipes/{id}/unpublish - Hủy xuất bản công thức về Draft
+        group.MapPatch("/{id:guid}/unpublish", async (Guid id, ISender sender, CancellationToken ct) =>
+        {
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.PublishRecipe.UnpublishRecipeCommand(id), ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("UnpublishRecipe")
+        .WithSummary("Hủy xuất bản công thức nấu ăn về trạng thái Draft (FR-RCP-005)")
+        .RequireAuthorization();
+
+        // ====================================================================
+        // FR-RCP-008: QUẢN LÝ GALLERY ẢNH CÔNG THỨC (LÊ NHẬT TIẾN - 2312770)
+        // ====================================================================
+
+        // 1. POST /api/v1/recipes/{id}/images - Thêm ảnh vào gallery
+        group.MapPost("/{id:guid}/images", async (
+            Guid id,
+            AddRecipeImageRequest request,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var command = new CulinaryBlog.Application.Features.Recipes.Commands.ManageImages.AddRecipeImageCommand(
+                RecipeId: id,
+                OriginalUrl: request.OriginalUrl,
+                AltText: request.AltText,
+                IsPrimary: request.IsPrimary,
+                OrderIndex: request.OrderIndex
+            );
+
+            var result = await sender.Send(command, ct);
+            return Results.Created($"/api/v1/recipes/{id}/images/{result.Id}", ApiResponse.Ok(result));
+        })
+        .WithName("AddRecipeImage")
+        .WithSummary("Thêm ảnh mới vào bộ sưu tập công thức (FR-RCP-008)")
+        .RequireAuthorization("AuthorOrAdmin");
+
+        // 2. DELETE /api/v1/recipes/{id}/images/{imageId} - Xóa ảnh khỏi gallery
+        group.MapDelete("/{id:guid}/images/{imageId:guid}", async (
+            Guid id,
+            Guid imageId,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.ManageImages.DeleteRecipeImageCommand(id, imageId), ct);
+            return Results.Ok(ApiResponse.Ok("Đã xóa ảnh khỏi công thức thành công."));
+        })
+        .WithName("DeleteRecipeImage")
+        .WithSummary("Xóa ảnh khỏi bộ sưu tập công thức (FR-RCP-008)")
+        .RequireAuthorization("AuthorOrAdmin");
+
+        // 3. PATCH /api/v1/recipes/{id}/images/{imageId}/primary - Đặt làm ảnh đại diện chính
+        group.MapPatch("/{id:guid}/images/{imageId:guid}/primary", async (
+            Guid id,
+            Guid imageId,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.ManageImages.SetPrimaryImageCommand(id, imageId), ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("SetPrimaryRecipeImage")
+        .WithSummary("Đặt ảnh làm ảnh đại diện chính của công thức (FR-RCP-008)")
+        .RequireAuthorization("AuthorOrAdmin");
+
 
         // ====================================================================
         // FR-RCP-009: QUẢN LÝ NGUYÊN LIỆU NẤU ĂN (TUÂN THỦ D10)
@@ -125,7 +268,7 @@ public static class RecipesEndpoints
         // ====================================================================
 
         // 1. GET /api/v1/recipes/{id}/ingredients - Lấy danh sách nguyên liệu
-        group.MapGet(/{id:guid}/ingredients, async (
+        group.MapGet("/{id:guid}/ingredients", async (
             Guid id,
             ISender sender,
             CancellationToken ct) =>
@@ -134,11 +277,11 @@ public static class RecipesEndpoints
             var result = await sender.Send(query, ct);
             return Results.Ok(ApiResponse.Ok(result));
         })
-        .WithName(GetRecipeIngredients)
-        .WithSummary(Lấy danh sách nguyên liệu của công thức (FR-RCP-009));
+        .WithName("GetRecipeIngredients")
+        .WithSummary("Lấy danh sách nguyên liệu của công thức (FR-RCP-009)");
 
         // 2. POST /api/v1/recipes/{id}/ingredients - Thêm nguyên liệu mới (D10: Quantity & Unit nullable)
-        group.MapPost(/{id:guid}/ingredients, async (
+        group.MapPost("/{id:guid}/ingredients", async (
             Guid id,
             AddIngredientRequest request,
             ISender sender,
@@ -154,14 +297,14 @@ public static class RecipesEndpoints
             );
 
             var result = await sender.Send(command, ct);
-            return Results.Created($/api/v1/recipes/{id}/ingredients/{result.Id}, ApiResponse.Ok(result));
+            return Results.Created($"/api/v1/recipes/{id}/ingredients/{result.Id}", ApiResponse.Ok(result));
         })
-        .WithName(AddRecipeIngredient)
-        .WithSummary(Thêm nguyên liệu mới vào công thức (FR-RCP-009 - Tuân thủ D10))
-        .RequireAuthorization(AuthorOrAdmin);
+        .WithName("AddRecipeIngredient")
+        .WithSummary("Thêm nguyên liệu mới vào công thức (FR-RCP-009 - Tuân thủ D10)")
+        .RequireAuthorization("AuthorOrAdmin");
 
         // 3. PUT /api/v1/recipes/{id}/ingredients/{ingredientId} - Cập nhật nguyên liệu
-        group.MapPut(/{id:guid}/ingredients/{ingredientId:guid}, async (
+        group.MapPut("/{id:guid}/ingredients/{ingredientId:guid}", async (
             Guid id,
             Guid ingredientId,
             UpdateIngredientRequest request,
@@ -181,12 +324,12 @@ public static class RecipesEndpoints
             var result = await sender.Send(command, ct);
             return Results.Ok(ApiResponse.Ok(result));
         })
-        .WithName(UpdateRecipeIngredient)
-        .WithSummary(Cập nhật thông tin nguyên liệu của công thức (FR-RCP-009 - Tuân thủ D10))
-        .RequireAuthorization(AuthorOrAdmin);
+        .WithName("UpdateRecipeIngredient")
+        .WithSummary("Cập nhật thông tin nguyên liệu của công thức (FR-RCP-009 - Tuân thủ D10)")
+        .RequireAuthorization("AuthorOrAdmin");
 
         // 4. DELETE /api/v1/recipes/{id}/ingredients/{ingredientId} - Xóa nguyên liệu
-        group.MapDelete(/{id:guid}/ingredients/{ingredientId:guid}, async (
+        group.MapDelete("/{id:guid}/ingredients/{ingredientId:guid}", async (
             Guid id,
             Guid ingredientId,
             ISender sender,
@@ -194,91 +337,15 @@ public static class RecipesEndpoints
         {
             var command = new CulinaryBlog.Application.Features.Recipes.Commands.ManageIngredients.DeleteRecipeIngredientCommand(id, ingredientId);
             await sender.Send(command, ct);
-            return Results.Ok(ApiResponse.Ok(Đã xóa nguyên liệu thành công.));
+            return Results.Ok(ApiResponse.Ok("Đã xóa nguyên liệu thành công."));
         })
-        .WithName(DeleteRecipeIngredient)
-        .WithSummary(Xóa nguyên liệu khỏi công thức và tự động renumber (FR-RCP-009))
-        .RequireAuthorization(AuthorOrAdmin);
-
-        // ====================================================================
-        // FR-RCP-008: QUẢN LÝ GALLERY ẢNH CÔNG THỨC (LÊ NHẬT TIẾN - 2312770)
-        // ====================================================================
-
-        // 1. POST /api/v1/recipes/{id}/images - Thêm ảnh vào gallery
-        group.MapPost(/{id:guid}/images, async (
-            Guid id,
-            AddRecipeImageRequest request,
-            ISender sender,
-            CancellationToken ct) =>
-        {
-            var command = new CulinaryBlog.Application.Features.Recipes.Commands.ManageImages.AddRecipeImageCommand(
-                RecipeId: id,
-                OriginalUrl: request.OriginalUrl,
-                AltText: request.AltText,
-                IsPrimary: request.IsPrimary,
-                OrderIndex: request.OrderIndex
-            );
-
-            var result = await sender.Send(command, ct);
-            return Results.Created($/api/v1/recipes/{id}/images/{result.Id}, ApiResponse.Ok(result));
-        })
-        .WithName(AddRecipeImage)
-        .WithSummary(Thêm ảnh mới vào bộ sưu tập công thức (FR-RCP-008))
-        .RequireAuthorization(AuthorOrAdmin);
-
-        // 2. DELETE /api/v1/recipes/{id}/images/{imageId} - Xóa ảnh khỏi gallery
-        group.MapDelete(/{id:guid}/images/{imageId:guid}, async (
-            Guid id,
-            Guid imageId,
-            ISender sender,
-            CancellationToken ct) =>
-        {
-            await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.ManageImages.DeleteRecipeImageCommand(id, imageId), ct);
-            return Results.Ok(ApiResponse.Ok(Đã xóa ảnh khỏi công thức thành công.));
-        })
-        .WithName(DeleteRecipeImage)
-        .WithSummary(Xóa ảnh khỏi bộ sưu tập công thức (FR-RCP-008))
-        .RequireAuthorization(AuthorOrAdmin);
-
-        // 3. PATCH /api/v1/recipes/{id}/images/{imageId}/primary - Đặt làm ảnh đại diện chính
-        group.MapPatch(/{id:guid}/images/{imageId:guid}/primary, async (
-            Guid id,
-            Guid imageId,
-            ISender sender,
-            CancellationToken ct) =>
-        {
-            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.ManageImages.SetPrimaryImageCommand(id, imageId), ct);
-            return Results.Ok(ApiResponse.Ok(result));
-        })
-        .WithName(SetPrimaryRecipeImage)
-        .WithSummary(Đặt ảnh làm ảnh đại diện chính của công thức (FR-RCP-008))
-        .RequireAuthorization(AuthorOrAdmin);
+        .WithName("DeleteRecipeIngredient")
+        .WithSummary("Xóa nguyên liệu khỏi công thức và tự động renumber (FR-RCP-009)")
+        .RequireAuthorization("AuthorOrAdmin");
 
         return app;
     }
 }
-
-/// <summary>
-/// Model nhận dữ liệu từ request body khi thêm nguyên liệu mới (D10: Quantity & Unit nullable).
-/// </summary>
-public record AddIngredientRequest(
-    string Name,
-    decimal? Quantity = null,
-    string? Unit = null,
-    string? Notes = null,
-    int? OrderIndex = null
-);
-
-/// <summary>
-/// Model nhận dữ liệu từ request body khi cập nhật nguyên liệu (D10: Quantity & Unit nullable).
-/// </summary>
-public record UpdateIngredientRequest(
-    string Name,
-    decimal? Quantity = null,
-    string? Unit = null,
-    string? Notes = null,
-    int? OrderIndex = null
-);
 
 /// <summary>
 /// Model nhận dữ liệu từ request body khi thêm ảnh vào gallery.
@@ -310,4 +377,44 @@ public record UpdateStepRequest(
     int? StepNumber = null,
     int? TimerMinutes = null,
     string? ImageUrl = null
+);
+
+/// <summary>
+/// Model nhận dữ liệu từ request body khi cập nhật công thức nấu ăn (FR-RCP-004).
+/// </summary>
+public record UpdateRecipeRequest(
+    string Title,
+    string Description,
+    string? Instructions,
+    Guid CategoryId,
+    int PrepTime,
+    int CookTime,
+    int Servings,
+    RecipeDifficulty Difficulty,
+    NutritionDto? Nutrition = null,
+    byte[]? RowVersion = null
+);
+
+
+
+/// <summary>
+/// Model nhận dữ liệu từ request body khi thêm nguyên liệu mới (D10: Quantity & Unit nullable).
+/// </summary>
+public record AddIngredientRequest(
+    string Name,
+    decimal? Quantity = null,
+    string? Unit = null,
+    string? Notes = null,
+    int? OrderIndex = null
+);
+
+/// <summary>
+/// Model nhận dữ liệu từ request body khi cập nhật nguyên liệu (D10: Quantity & Unit nullable).
+/// </summary>
+public record UpdateIngredientRequest(
+    string Name,
+    decimal? Quantity = null,
+    string? Unit = null,
+    string? Notes = null,
+    int? OrderIndex = null
 );
