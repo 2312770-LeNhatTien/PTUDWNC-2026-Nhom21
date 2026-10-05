@@ -41,6 +41,16 @@ public class GetRecipesQueryHandler : IRequestHandler<GetRecipesQuery, PagedResu
             query = query.Where(r => r.Difficulty == request.Difficulty.Value);
         }
 
+        if (request.MaxCookTime.HasValue)
+        {
+            query = query.Where(r => r.CookTime <= request.MaxCookTime.Value);
+        }
+        
+        if (request.MaxTotalTime.HasValue)
+        {
+            query = query.Where(r => (r.PrepTime + r.CookTime) <= request.MaxTotalTime.Value);
+        }
+
         // 4. Tính toán tổng số lượng bản ghi
         var total = await query.CountAsync(ct);
 
@@ -48,9 +58,17 @@ public class GetRecipesQueryHandler : IRequestHandler<GetRecipesQuery, PagedResu
         int page = request.Paging.Page is > 0 ? request.Paging.Page.Value : 1;
         int pageSize = request.Paging.PageSize is > 0 ? request.Paging.PageSize.Value : 10;
 
+        // 5.5. Sắp xếp đa cú pháp
+        query = request.Paging.SortBy?.ToLower() switch
+        {
+            "title" => request.Paging.IsDescending ? query.OrderByDescending(r => r.Title) : query.OrderBy(r => r.Title),
+            "cooktime" => request.Paging.IsDescending ? query.OrderByDescending(r => r.CookTime) : query.OrderBy(r => r.CookTime),
+            "difficulty" => request.Paging.IsDescending ? query.OrderByDescending(r => r.Difficulty) : query.OrderBy(r => r.Difficulty),
+            _ => request.Paging.IsDescending ? query.OrderByDescending(r => r.CreatedAt) : query.OrderBy(r => r.CreatedAt) // Mặc định createdAt
+        };
+
         // 6. Lấy dữ liệu theo trang và ánh xạ sang RecipeListItemDto
         var items = await query
-            .OrderByDescending(r => r.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .Select(r => new RecipeListItemDto(
