@@ -261,6 +261,88 @@ public static class RecipesEndpoints
         .WithSummary("Đặt ảnh làm ảnh đại diện chính của công thức (FR-RCP-008)")
         .RequireAuthorization("AuthorOrAdmin");
 
+
+        // ====================================================================
+        // FR-RCP-009: QUẢN LÝ NGUYÊN LIỆU NẤU ĂN (TUÂN THỦ D10)
+        // Thành viên: Nguyễn Đình Tuấn (MSSV: 2312792)
+        // ====================================================================
+
+        // 1. GET /api/v1/recipes/{id}/ingredients - Lấy danh sách nguyên liệu
+        group.MapGet("/{id:guid}/ingredients", async (
+            Guid id,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var query = new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipeIngredients.GetRecipeIngredientsQuery(id);
+            var result = await sender.Send(query, ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("GetRecipeIngredients")
+        .WithSummary("Lấy danh sách nguyên liệu của công thức (FR-RCP-009)");
+
+        // 2. POST /api/v1/recipes/{id}/ingredients - Thêm nguyên liệu mới (D10: Quantity & Unit nullable)
+        group.MapPost("/{id:guid}/ingredients", async (
+            Guid id,
+            AddIngredientRequest request,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var command = new CulinaryBlog.Application.Features.Recipes.Commands.ManageIngredients.AddRecipeIngredientCommand(
+                RecipeId: id,
+                Name: request.Name,
+                Quantity: request.Quantity,
+                Unit: request.Unit,
+                Notes: request.Notes,
+                OrderIndex: request.OrderIndex
+            );
+
+            var result = await sender.Send(command, ct);
+            return Results.Created($"/api/v1/recipes/{id}/ingredients/{result.Id}", ApiResponse.Ok(result));
+        })
+        .WithName("AddRecipeIngredient")
+        .WithSummary("Thêm nguyên liệu mới vào công thức (FR-RCP-009 - Tuân thủ D10)")
+        .RequireAuthorization("AuthorOrAdmin");
+
+        // 3. PUT /api/v1/recipes/{id}/ingredients/{ingredientId} - Cập nhật nguyên liệu
+        group.MapPut("/{id:guid}/ingredients/{ingredientId:guid}", async (
+            Guid id,
+            Guid ingredientId,
+            UpdateIngredientRequest request,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var command = new CulinaryBlog.Application.Features.Recipes.Commands.ManageIngredients.UpdateRecipeIngredientCommand(
+                RecipeId: id,
+                IngredientId: ingredientId,
+                Name: request.Name,
+                Quantity: request.Quantity,
+                Unit: request.Unit,
+                Notes: request.Notes,
+                OrderIndex: request.OrderIndex
+            );
+
+            var result = await sender.Send(command, ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("UpdateRecipeIngredient")
+        .WithSummary("Cập nhật thông tin nguyên liệu của công thức (FR-RCP-009 - Tuân thủ D10)")
+        .RequireAuthorization("AuthorOrAdmin");
+
+        // 4. DELETE /api/v1/recipes/{id}/ingredients/{ingredientId} - Xóa nguyên liệu
+        group.MapDelete("/{id:guid}/ingredients/{ingredientId:guid}", async (
+            Guid id,
+            Guid ingredientId,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var command = new CulinaryBlog.Application.Features.Recipes.Commands.ManageIngredients.DeleteRecipeIngredientCommand(id, ingredientId);
+            await sender.Send(command, ct);
+            return Results.Ok(ApiResponse.Ok("Đã xóa nguyên liệu thành công."));
+        })
+        .WithName("DeleteRecipeIngredient")
+        .WithSummary("Xóa nguyên liệu khỏi công thức và tự động renumber (FR-RCP-009)")
+        .RequireAuthorization("AuthorOrAdmin");
+
         return app;
     }
 }
@@ -313,3 +395,26 @@ public record UpdateRecipeRequest(
     byte[]? RowVersion = null
 );
 
+
+
+/// <summary>
+/// Model nhận dữ liệu từ request body khi thêm nguyên liệu mới (D10: Quantity & Unit nullable).
+/// </summary>
+public record AddIngredientRequest(
+    string Name,
+    decimal? Quantity = null,
+    string? Unit = null,
+    string? Notes = null,
+    int? OrderIndex = null
+);
+
+/// <summary>
+/// Model nhận dữ liệu từ request body khi cập nhật nguyên liệu (D10: Quantity & Unit nullable).
+/// </summary>
+public record UpdateIngredientRequest(
+    string Name,
+    decimal? Quantity = null,
+    string? Unit = null,
+    string? Notes = null,
+    int? OrderIndex = null
+);

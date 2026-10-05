@@ -1,3 +1,5 @@
+using CulinaryBlog.Application.Features.Auth.Queries.GetProfile;
+using CulinaryBlog.Application.Features.Auth.Commands.UpdateProfile;
 using CulinaryBlog.Application.Common.Models;
 using CulinaryBlog.Application.Features.Auth.Commands.GoogleLogin;
 using CulinaryBlog.Application.Features.Auth.Commands.Login;
@@ -118,6 +120,44 @@ public static class AuthEndpoints
         .WithName("GoogleLogin")
         .WithSummary("Đăng nhập bằng Google OAuth 2.0 (FR-AUTH-003)");
 
+
+        // ====================================================================
+        // FR-AUTH-006 & FR-AUTH-007: XEM VÀ CẬP NHẬT HỒ SƠ CÁ NHÂN
+        // Thành viên: Nguyễn Đình Tuấn (MSSV: 2312792)
+        // Bảo mật: Lấy UserId từ Token (claim sub), không lộ PasswordHash
+        // ====================================================================
+
+        // 3. GET /api/v1/auth/me - Xem thông tin hồ sơ cá nhân (FR-AUTH-006)
+        group.MapGet("/me", async (
+            ISender sender,
+            CancellationToken cancellationToken) =>
+        {
+            var query = new GetProfileQuery();
+            var result = await sender.Send(query, cancellationToken);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .RequireAuthorization()
+        .WithName("GetProfile")
+        .WithSummary("Xem thông tin hồ sơ người dùng hiện tại bảo mật không lộ mật khẩu (FR-AUTH-006)");
+
+        // 4. PATCH /api/v1/auth/me - Cập nhật hồ sơ cá nhân và ảnh đại diện (FR-AUTH-007)
+        group.MapPatch("/me", async (
+            UpdateProfileRequest request,
+            ISender sender,
+            CancellationToken cancellationToken) =>
+        {
+            var command = new UpdateProfileCommand(
+                DisplayName: request.DisplayName,
+                Bio: request.Bio,
+                AvatarUrl: request.AvatarUrl);
+
+            var result = await sender.Send(command, cancellationToken);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .RequireAuthorization()
+        .WithName("UpdateProfile")
+        .WithSummary("Cập nhật hồ sơ cá nhân và liên kết ảnh MinIO (FR-AUTH-007)");
+
         return app;
     }
 
@@ -139,4 +179,12 @@ public static class AuthEndpoints
 
     public sealed record GoogleLoginRequest(
         string IdToken);
+
+    /// <summary>
+    /// Model nhận dữ liệu từ request body khi cập nhật hồ sơ cá nhân (FR-AUTH-007).
+    /// </summary>
+    public sealed record UpdateProfileRequest(
+        string? DisplayName = null,
+        string? Bio = null,
+        string? AvatarUrl = null);
 }
