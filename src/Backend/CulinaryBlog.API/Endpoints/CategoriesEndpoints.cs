@@ -39,5 +39,26 @@ public static class CategoriesEndpoints
         .WithName("CreateCategory")
         .WithSummary("Admin tạo danh mục mới")
         .RequireAuthorization("AdminOnly");
+
+        // FR-CAT-004: Admin cập nhật danh mục
+        group.MapPut("/{id:guid}", async (Guid id, CulinaryBlog.Application.Features.Categories.Commands.UpdateCategory.UpdateCategoryCommand command, ISender sender, CancellationToken ct) =>
+        {
+            command.Id = id;
+            var result = await sender.Send(command, ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("UpdateCategory")
+        .WithSummary("Admin cập nhật danh mục")
+        .RequireAuthorization("AdminOnly");
+
+        // FR-CAT-005: Admin xóa mềm danh mục
+        group.MapDelete("/{id:guid}", async (Guid id, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(new CulinaryBlog.Application.Features.Categories.Commands.DeleteCategory.DeleteCategoryCommand(id), ct);
+            return Results.NoContent();
+        })
+        .WithName("DeleteCategory")
+        .WithSummary("Admin xóa mềm danh mục")
+        .RequireAuthorization("AdminOnly");
     }
 }
