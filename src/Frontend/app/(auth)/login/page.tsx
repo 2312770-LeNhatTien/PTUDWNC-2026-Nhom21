@@ -1,5 +1,11 @@
 "use client";
 
+// ============================================================================
+// CHỨC NĂNG: Giao diện Đăng nhập tài khoản (FR-AUTH-002 UI)
+// THÀNH VIÊN: Lâm Văn Đức (MSSV: 2314299)
+// TUẦN 5 (LAB 5): Hoàn thiện UI/UX, Client-side Validation & Phản hồi HTTP
+// ============================================================================
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
@@ -9,20 +15,34 @@ import { authApi } from "@/lib/api/auth";
 export default function LoginPage() {
   const router = useRouter();
 
+  // 1. Quản lý trạng thái dữ liệu form đăng nhập
   const [form, setForm] = useState({
     email: "",
     password: "",
     rememberMe: false,
   });
 
+  // 2. Quản lý lỗi validation theo từng field (field-level validation)
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+
+  // 3. Trạng thái hiển thị mật khẩu (Ẩn / Hiện)
   const [showPassword, setShowPassword] = useState(false);
+
+  // 4. Trạng thái gửi request lên server (loading spinner)
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 5. Quản lý thông báo lỗi phản hồi từ API (401, 423 Locked, 429 Rate Limiting, 500)
   const [alertError, setAlertError] = useState<{
     type: "auth" | "locked" | "ratelimit" | "general";
     message: string;
   } | null>(null);
 
+  /**
+   * Kiểm tra tính hợp lệ của từng trường nhập liệu (Client-side validation).
+   * @param field Tên trường cần kiểm tra ("email" hoặc "password")
+   * @param value Giá trị hiện tại của trường
+   * @returns boolean true nếu hợp lệ, false nếu có lỗi
+   */
   const validateField = (field: "email" | "password", value: string) => {
     const newErrors = { ...errors };
 
@@ -48,6 +68,9 @@ export default function LoginPage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Xử lý thay đổi dữ liệu trên ô input và validate tức thời (on-the-fly)
+   */
   const handleChange = (field: keyof typeof form, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     if (typeof value === "string") {
@@ -55,11 +78,14 @@ export default function LoginPage() {
     }
   };
 
+  /**
+   * Xử lý submit form đăng nhập và xử lý phản hồi từ Backend
+   */
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setAlertError(null);
 
-    // Validate toàn bộ trước khi gửi
+    // Bước 1: Xác thực toàn bộ các trường trước khi gửi request
     const emailValid = validateField("email", form.email);
     const passwordValid = validateField("password", form.password);
 
@@ -70,9 +96,10 @@ export default function LoginPage() {
     setIsSubmitting(true);
 
     try {
+      // Bước 2: Gọi API POST /api/v1/auth/login thông qua authApi
       const authData = await authApi.login(form.email.trim(), form.password);
 
-      // Lưu trữ phiên đăng nhập
+      // Bước 3: Lưu trữ token và thông tin người dùng vào LocalStorage
       if (authData.accessToken) {
         localStorage.setItem("accessToken", authData.accessToken);
       }
@@ -83,14 +110,16 @@ export default function LoginPage() {
         localStorage.setItem("user", JSON.stringify(authData.user));
       }
 
-      // Thông báo cho Navbar và các component khác
+      // Bước 4: Phát sự kiện 'auth-changed' để đồng bộ trạng thái Navbar toàn trang
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("auth-changed"));
       }
 
+      // Bước 5: Chuyển hướng người dùng về trang chủ
       router.push("/");
       router.refresh();
     } catch (error: unknown) {
+      // Bước 6: Xử lý và phân loại mã lỗi HTTP trả về theo chuẩn RFC 7807 Problem Details
       if (axios.isAxiosError(error)) {
         const status = error.response?.status;
         const data = error.response?.data as
@@ -98,6 +127,7 @@ export default function LoginPage() {
           | undefined;
 
         if (status === 423) {
+          // HTTP 423 Locked: Tài khoản bị khóa 15 phút do nhập sai 5 lần
           setAlertError({
             type: "locked",
             message:
@@ -105,6 +135,7 @@ export default function LoginPage() {
               "Tài khoản đã bị tạm khóa 15 phút do nhập sai mật khẩu quá 5 lần. Vui lòng thử lại sau.",
           });
         } else if (status === 429) {
+          // HTTP 429 Too Many Requests: Rate Limiting chống Brute-Force (5 req/phút)
           setAlertError({
             type: "ratelimit",
             message:
@@ -112,11 +143,13 @@ export default function LoginPage() {
               "Bạn đã gửi quá nhiều yêu cầu đăng nhập. Hệ thống đang bảo vệ tài khoản, vui lòng đợi 1 phút.",
           });
         } else if (status === 401) {
+          // HTTP 401 Unauthorized: Sai thông tin email hoặc password
           setAlertError({
             type: "auth",
             message: data?.detail || "Email hoặc mật khẩu không chính xác.",
           });
         } else {
+          // Các lỗi hệ thống khác
           setAlertError({
             type: "general",
             message:
@@ -140,9 +173,10 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-amber-50/60 via-orange-50/40 to-stone-100 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-md">
-        {/* Card Form */}
+        {/* Khung thẻ Card đăng nhập chính */}
         <div className="rounded-3xl border border-orange-100/80 bg-white/95 p-8 sm:p-10 shadow-xl shadow-orange-500/5 backdrop-blur-sm">
-          {/* Header */}
+          
+          {/* Header & Logo */}
           <div className="mb-8 text-center">
             <Link href="/" className="inline-flex items-center gap-2 group mb-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
@@ -158,7 +192,7 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Alert Banners */}
+          {/* Banner thông báo lỗi trực quan */}
           {alertError && (
             <div
               role="alert"
@@ -192,9 +226,10 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* Form */}
+          {/* Form nhập liệu */}
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
-            {/* Email Field */}
+            
+            {/* Ô nhập Email */}
             <div>
               <label
                 htmlFor="email"
@@ -226,7 +261,7 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Password Field */}
+            {/* Ô nhập Mật khẩu kèm nút Ẩn/Hiện */}
             <div>
               <div className="mb-1.5 flex items-center justify-between">
                 <label
@@ -265,7 +300,7 @@ export default function LoginPage() {
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
                 >
                   {showPassword ? (
-                    // Eye Slash Icon
+                    // Icon con mắt gạch chéo (Ẩn mật khẩu)
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
@@ -275,7 +310,7 @@ export default function LoginPage() {
                       />
                     </svg>
                   ) : (
-                    // Eye Icon
+                    // Icon con mắt mở (Hiện mật khẩu)
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
@@ -300,7 +335,7 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Remember Me */}
+            {/* Checkbox Ghi nhớ đăng nhập */}
             <div className="flex items-center gap-2 pt-0.5">
               <input
                 id="rememberMe"
@@ -314,7 +349,7 @@ export default function LoginPage() {
               </label>
             </div>
 
-            {/* Submit Button */}
+            {/* Nút Submit Đăng nhập */}
             <button
               type="submit"
               disabled={isSubmitting}
@@ -349,7 +384,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Footer Link */}
+          {/* Footer chuyển sang trang Đăng ký */}
           <div className="mt-8 border-t border-slate-100 pt-6 text-center">
             <p className="text-xs sm:text-sm text-slate-500">
               Chưa có tài khoản Culinary Blog?{" "}

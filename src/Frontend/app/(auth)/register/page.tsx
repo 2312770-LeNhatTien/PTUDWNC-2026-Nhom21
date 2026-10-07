@@ -1,5 +1,11 @@
 "use client";
 
+// ============================================================================
+// CHỨC NĂNG: Giao diện Đăng ký tài khoản mới (FR-AUTH-001 UI)
+// THÀNH VIÊN: Lâm Văn Đức (MSSV: 2314299)
+// TUẦN 5 (LAB 5): Hoàn thiện UI/UX, Password Strength Meter & Real-time Validation
+// ============================================================================
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
@@ -9,6 +15,7 @@ import { authApi } from "@/lib/api/auth";
 export default function RegisterPage() {
   const router = useRouter();
 
+  // 1. Quản lý trạng thái dữ liệu form đăng ký
   const [form, setForm] = useState({
     email: "",
     displayName: "",
@@ -18,6 +25,7 @@ export default function RegisterPage() {
     agreeTerms: false,
   });
 
+  // 2. Quản lý lỗi validation theo từng trường dữ liệu
   const [errors, setErrors] = useState<{
     email?: string;
     displayName?: string;
@@ -27,18 +35,26 @@ export default function RegisterPage() {
     agreeTerms?: string;
   }>({});
 
+  // 3. Trạng thái ẩn/hiện mật khẩu độc lập
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // 4. Trạng thái gửi request
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // 5. Quản lý thông báo lỗi phản hồi từ API (409 Conflict, 400 Bad Request, 500)
   const [alertError, setAlertError] = useState<{
     type: "conflict" | "validation" | "general";
     message: string;
   } | null>(null);
 
-  // Tính toán độ mạnh mật khẩu (0 -> 100)
+  /**
+   * Tính toán độ mạnh của mật khẩu theo thang điểm 0 - 100
+   * Tiêu chí: Độ dài (>= 8 ký tự), Chữ hoa, Chữ số, Ký tự đặc biệt.
+   */
   const passwordStrength = useMemo(() => {
     const pwd = form.password;
-    if (!pwd) return { score: 0, label: "", color: "bg-slate-200" };
+    if (!pwd) return { score: 0, label: "", color: "bg-slate-200", text: "text-slate-400" };
 
     let score = 0;
     if (pwd.length >= 8) score += 30;
@@ -51,9 +67,13 @@ export default function RegisterPage() {
     return { score: 100, label: "Mạnh", color: "bg-emerald-500", text: "text-emerald-500" };
   }, [form.password]);
 
+  /**
+   * Kiểm tra tính hợp lệ của từng trường nhập liệu (Client-side validation).
+   */
   const validateField = (field: keyof typeof form, value: string | boolean) => {
     const newErrors = { ...errors };
 
+    // 1. Kiểm tra Email
     if (field === "email" && typeof value === "string") {
       if (!value.trim()) {
         newErrors.email = "Vui lòng nhập địa chỉ email.";
@@ -64,6 +84,7 @@ export default function RegisterPage() {
       }
     }
 
+    // 2. Kiểm tra Tên hiển thị
     if (field === "displayName" && typeof value === "string") {
       if (!value.trim()) {
         newErrors.displayName = "Vui lòng nhập tên hiển thị.";
@@ -74,6 +95,7 @@ export default function RegisterPage() {
       }
     }
 
+    // 3. Kiểm tra Tên đăng nhập (tùy chọn)
     if (field === "userName" && typeof value === "string") {
       if (value.trim()) {
         if (!/^[a-zA-Z0-9_]{3,30}$/.test(value.trim())) {
@@ -86,6 +108,7 @@ export default function RegisterPage() {
       }
     }
 
+    // 4. Kiểm tra Mật khẩu
     if (field === "password" && typeof value === "string") {
       if (!value) {
         newErrors.password = "Vui lòng nhập mật khẩu.";
@@ -95,7 +118,7 @@ export default function RegisterPage() {
         delete newErrors.password;
       }
 
-      // Kiểm tra lại confirmPassword nếu đã nhập
+      // Kiểm tra lại confirmPassword nếu người dùng đã nhập trước
       if (form.confirmPassword && value !== form.confirmPassword) {
         newErrors.confirmPassword = "Mật khẩu xác nhận không khớp.";
       } else if (form.confirmPassword && value === form.confirmPassword) {
@@ -103,6 +126,7 @@ export default function RegisterPage() {
       }
     }
 
+    // 5. Kiểm tra Mật khẩu xác nhận
     if (field === "confirmPassword" && typeof value === "string") {
       if (!value) {
         newErrors.confirmPassword = "Vui lòng xác nhận lại mật khẩu.";
@@ -113,6 +137,7 @@ export default function RegisterPage() {
       }
     }
 
+    // 6. Kiểm tra Đồng ý điều khoản
     if (field === "agreeTerms" && typeof value === "boolean") {
       if (!value) {
         newErrors.agreeTerms = "Bạn cần đồng ý với Điều khoản dịch vụ để tiếp tục.";
@@ -125,16 +150,22 @@ export default function RegisterPage() {
     return Object.keys(newErrors).length === 0;
   };
 
+  /**
+   * Xử lý thay đổi dữ liệu trên ô input
+   */
   const handleChange = (field: keyof typeof form, value: string | boolean) => {
     setForm((prev) => ({ ...prev, [field]: value }));
     validateField(field, value);
   };
 
+  /**
+   * Xử lý submit form đăng ký tài khoản
+   */
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setAlertError(null);
 
-    // Validate toàn bộ các trường
+    // Bước 1: Xác thực toàn bộ các trường trước khi gửi request
     const isEmailValid = validateField("email", form.email);
     const isNameValid = validateField("displayName", form.displayName);
     const isUserValid = validateField("userName", form.userName);
@@ -156,6 +187,7 @@ export default function RegisterPage() {
     setIsSubmitting(true);
 
     try {
+      // Bước 2: Gọi API POST /api/v1/auth/register thông qua authApi
       const authData = await authApi.register({
         email: form.email.trim(),
         displayName: form.displayName.trim(),
@@ -163,7 +195,7 @@ export default function RegisterPage() {
         password: form.password,
       });
 
-      // Lưu trữ phiên đăng nhập
+      // Bước 3: Lưu trữ phiên đăng nhập vào LocalStorage
       if (authData.accessToken) {
         localStorage.setItem("accessToken", authData.accessToken);
       }
@@ -174,14 +206,16 @@ export default function RegisterPage() {
         localStorage.setItem("user", JSON.stringify(authData.user));
       }
 
-      // Thông báo cập nhật trạng thái auth
+      // Bước 4: Phát sự kiện 'auth-changed' để đồng bộ Navbar
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("auth-changed"));
       }
 
+      // Bước 5: Chuyển hướng người dùng về trang chủ
       router.push("/");
       router.refresh();
     } catch (error: unknown) {
+      // Bước 6: Xử lý và phân loại mã lỗi HTTP trả về
       if (axios.isAxiosError(error)) {
         const status = error.response?.status;
         const data = error.response?.data as
@@ -194,12 +228,14 @@ export default function RegisterPage() {
           | undefined;
 
         if (status === 409) {
+          // HTTP 409 Conflict: Trùng Email hoặc Tên đăng nhập
           setAlertError({
             type: "conflict",
             message:
               data?.detail || "Địa chỉ email hoặc tên đăng nhập này đã được sử dụng.",
           });
         } else if (status === 400) {
+          // HTTP 400 Bad Request: Lỗi validation nghiệp vụ từ Backend
           const errorDetails = data?.errors
             ? Object.values(data.errors).flat().join(" ")
             : data?.detail || "Dữ liệu đăng ký không hợp lệ.";
@@ -208,6 +244,7 @@ export default function RegisterPage() {
             message: errorDetails,
           });
         } else {
+          // Các lỗi hệ thống khác
           setAlertError({
             type: "general",
             message:
@@ -231,9 +268,10 @@ export default function RegisterPage() {
   return (
     <main className="min-h-screen bg-gradient-to-br from-amber-50/60 via-orange-50/40 to-stone-100 flex items-center justify-center px-4 py-12">
       <div className="w-full max-w-lg">
-        {/* Card Register */}
+        {/* Khung thẻ Card đăng ký chính */}
         <div className="rounded-3xl border border-orange-100/80 bg-white/95 p-8 sm:p-10 shadow-xl shadow-orange-500/5 backdrop-blur-sm">
-          {/* Header */}
+          
+          {/* Header & Logo */}
           <div className="mb-8 text-center">
             <Link href="/" className="inline-flex items-center gap-2 group mb-3">
               <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 text-white shadow-md shadow-orange-500/20 group-hover:scale-105 transition-transform">
@@ -249,7 +287,7 @@ export default function RegisterPage() {
             </p>
           </div>
 
-          {/* Alert Banner */}
+          {/* Banner thông báo lỗi trực quan */}
           {alertError && (
             <div
               role="alert"
@@ -275,9 +313,10 @@ export default function RegisterPage() {
             </div>
           )}
 
-          {/* Form Register */}
+          {/* Form nhập liệu đăng ký */}
           <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-5" noValidate>
-            {/* Email Field */}
+            
+            {/* Ô nhập Email */}
             <div>
               <label
                 htmlFor="email"
@@ -307,9 +346,10 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {/* Display Name & Username in 2 columns on sm */}
+            {/* Tên hiển thị và Tên đăng nhập (Chia 2 cột trên màn hình sm trở lên) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Display Name */}
+              
+              {/* Tên hiển thị */}
               <div>
                 <label
                   htmlFor="displayName"
@@ -339,7 +379,7 @@ export default function RegisterPage() {
                 )}
               </div>
 
-              {/* Username (Optional) */}
+              {/* Tên đăng nhập (Tùy chọn) */}
               <div>
                 <label
                   htmlFor="userName"
@@ -369,7 +409,7 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Password Field */}
+            {/* Ô nhập Mật khẩu */}
             <div>
               <label
                 htmlFor="password"
@@ -400,6 +440,7 @@ export default function RegisterPage() {
                   className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1"
                 >
                   {showPassword ? (
+                    // Icon Ẩn mật khẩu
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
@@ -409,6 +450,7 @@ export default function RegisterPage() {
                       />
                     </svg>
                   ) : (
+                    // Icon Hiện mật khẩu
                     <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
                         strokeLinecap="round"
@@ -427,7 +469,7 @@ export default function RegisterPage() {
                 </button>
               </div>
 
-              {/* Password Strength Meter */}
+              {/* Thanh đo độ mạnh mật khẩu (Password Strength Meter) */}
               {form.password && (
                 <div className="mt-2 space-y-1 animate-in fade-in duration-200">
                   <div className="flex items-center justify-between text-xs">
@@ -452,7 +494,7 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {/* Confirm Password Field */}
+            {/* Ô nhập Xác nhận mật khẩu */}
             <div>
               <label
                 htmlFor="confirmPassword"
@@ -518,7 +560,7 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {/* Terms of Service Checkbox */}
+            {/* Checkbox Đồng ý điều khoản dịch vụ */}
             <div className="pt-1">
               <div className="flex items-start gap-2.5">
                 <input
@@ -547,7 +589,7 @@ export default function RegisterPage() {
               )}
             </div>
 
-            {/* Submit Button */}
+            {/* Nút Submit Tạo tài khoản */}
             <button
               type="submit"
               disabled={isSubmitting}
@@ -582,7 +624,7 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          {/* Footer Link */}
+          {/* Footer chuyển sang trang Đăng nhập */}
           <div className="mt-8 border-t border-slate-100 pt-6 text-center">
             <p className="text-xs sm:text-sm text-slate-500">
               Đã có tài khoản Culinary Blog?{" "}
