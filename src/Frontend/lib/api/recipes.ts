@@ -18,21 +18,33 @@ export interface GetRecipesParams {
   sort?: string;
 }
 
+export interface SearchRecipesParams {
+  q: string;
+  page?: number;
+  pageSize?: number;
+}
+
 export const recipesApi = {
   // FR-RCP-001: GET /api/v1/recipes
   getAll: async (params?: GetRecipesParams): Promise<{ items: RecipeListItemDto[]; total: number }> => {
     try {
-      const res = await apiClient.get<ApiResponse<RecipeListItemDto[]>>("/api/v1/recipes", { params });
+      const res = await apiClient.get<ApiResponse<RecipeListItemDto[]>>("/recipes", { params });
       return { items: res.data?.data || [], total: res.data?.meta?.total || 0 };
     } catch {
       return { items: [], total: 0 };
     }
   },
 
+  // FR-SRCH-001: backend dùng PostgreSQL unaccent cho tiếng Việt có/không dấu.
+  search: async (params: SearchRecipesParams): Promise<{ items: RecipeListItemDto[]; total: number }> => {
+    const res = await apiClient.get<ApiResponse<RecipeListItemDto[]>>("/recipes/search", { params });
+    return { items: res.data?.data || [], total: res.data?.meta?.total || 0 };
+  },
+
   // FR-RCP-002: GET /api/v1/recipes/{slug}
   getBySlug: async (slug: string): Promise<RecipeDetailDto | null> => {
     try {
-      const res = await apiClient.get<ApiResponse<RecipeDetailDto>>(`/api/v1/recipes/${slug}`);
+      const res = await apiClient.get<ApiResponse<RecipeDetailDto>>(`/recipes/${slug}`);
       return res.data?.data || null;
     } catch {
       return null;
@@ -45,7 +57,7 @@ export const recipesApi = {
 
   // 1. Lấy danh sách các bước nấu của công thức
   getSteps: async (recipeId: string): Promise<RecipeStepDto[]> => {
-    const res = await apiClient.get<ApiResponse<RecipeStepDto[]>>(`/api/v1/recipes/${recipeId}/steps`);
+    const res = await apiClient.get<ApiResponse<RecipeStepDto[]>>(`/recipes/${recipeId}/steps`);
     return res.data?.data || [];
   },
 
@@ -60,7 +72,7 @@ export const recipesApi = {
       imageUrl?: string;
     }
   ): Promise<RecipeStepDto> => {
-    const res = await apiClient.post<ApiResponse<RecipeStepDto>>(`/api/v1/recipes/${recipeId}/steps`, data);
+    const res = await apiClient.post<ApiResponse<RecipeStepDto>>(`/recipes/${recipeId}/steps`, data);
     return res.data?.data;
   },
 
@@ -76,13 +88,13 @@ export const recipesApi = {
       imageUrl?: string;
     }
   ): Promise<RecipeStepDto> => {
-    const res = await apiClient.put<ApiResponse<RecipeStepDto>>(`/api/v1/recipes/${recipeId}/steps/${stepId}`, data);
+    const res = await apiClient.put<ApiResponse<RecipeStepDto>>(`/recipes/${recipeId}/steps/${stepId}`, data);
     return res.data?.data;
   },
 
   // 4. Xóa bước nấu khỏi công thức
   deleteStep: async (recipeId: string, stepId: string): Promise<boolean> => {
-    await apiClient.delete(`/api/v1/recipes/${recipeId}/steps/${stepId}`);
+    await apiClient.delete(`/recipes/${recipeId}/steps/${stepId}`);
     return true;
   },
 
@@ -92,13 +104,13 @@ export const recipesApi = {
 
   // 5. Xuất bản công thức (kiểm tra điều kiện D11)
   publish: async (recipeId: string): Promise<RecipeDetailDto> => {
-    const res = await apiClient.patch<ApiResponse<RecipeDetailDto>>(`/api/v1/recipes/${recipeId}/publish`);
+    const res = await apiClient.patch<ApiResponse<RecipeDetailDto>>(`/recipes/${recipeId}/publish`);
     return res.data?.data;
   },
 
   // 6. Hủy xuất bản công thức về Draft
   unpublish: async (recipeId: string): Promise<RecipeDetailDto> => {
-    const res = await apiClient.patch<ApiResponse<RecipeDetailDto>>(`/api/v1/recipes/${recipeId}/unpublish`);
+    const res = await apiClient.patch<ApiResponse<RecipeDetailDto>>(`/recipes/${recipeId}/unpublish`);
     return res.data?.data;
   },
 };

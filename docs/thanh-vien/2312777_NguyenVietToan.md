@@ -217,6 +217,22 @@ git checkout -b 2312777-NguyenVietToan-buoi4
      - Ô tìm kiếm live-search có debounce 300ms gọi endpoint `GET /recipes/search`.
      - Drawer/Dropdown lọc theo thời gian nấu tối đa (`maxCookTime`), mức độ khó và tùy chọn sắp xếp đa tiêu chí theo **Quyết định D8**.
 
+### ✅ Ghi chú triển khai Tuần 5 (đã cập nhật giao diện)
+
+**Các file đã chạm vào**
+- `src/Frontend/app/(public)/categories/page.tsx` và `categories/[slug]/page.tsx`: đã có sẵn và tiếp tục dùng API danh mục để hiển thị lưới danh mục, số lượng công thức và danh sách món theo slug.
+- `src/Frontend/app/(admin)/admin/categories/page.tsx`: bổ sung nút **Sửa/Xóa**, modal sửa và thông báo kết quả.
+- `src/Frontend/lib/api/categories.ts`: thêm `update()` và `remove()` để gọi `PUT/DELETE /categories/{id}`.
+- `src/Frontend/app/(public)/recipes/page.tsx` cùng `components/recipes/RecipeSearchAndFilters.tsx`: giao diện tìm kiếm live-search và bộ lọc.
+
+**Luồng hoạt động để thuyết trình**
+1. Người dùng gõ vào ô tìm kiếm. Giao diện đợi **300 ms** sau lần gõ cuối rồi gọi `GET /recipes/search?q=...`; vì backend dùng `unaccent`, "pho bo" vẫn tìm được "phở bò".
+2. Khi không nhập từ khóa, danh sách gọi `GET /recipes` với `categoryId`, `difficulty`, `maxCookTime`, `sortBy`, `sortOrder`. Đây là đúng quy ước **D8**.
+3. Admin bấm **Sửa** để mở modal. Request chỉ gửi `name`, `description`, `imageUrl`, `orderIndex`, tuyệt đối không gửi `slug`; backend vì vậy giữ URL cũ theo **D12**.
+4. Admin bấm **Xóa** phải xác nhận trước. API thực hiện soft delete theo **D1**. Nếu danh mục vẫn có công thức, backend trả `409` và giao diện giải thích không thể xóa.
+
+**Lưu ý kiểm thử**: cần đăng nhập bằng tài khoản Admin trước khi thử sửa/xóa; các endpoint đó yêu cầu policy `AdminOnly`. Frontend đã có API base `/api/v1`, vì vậy các lời gọi recipe được sửa về `/recipes/...` để tránh bị lặp `/api/v1/api/v1`.
+
 ### 📅 Tuần 6 (Lab 6): Tích hợp Redis Caching & Tối ưu thời gian phản hồi
 * **Nhánh làm việc**: `2312777-NguyenVietToan-buoi6`
 * **Nhiệm vụ trọng tâm**:

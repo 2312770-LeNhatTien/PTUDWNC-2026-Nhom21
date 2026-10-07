@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { categoriesApi, CreateCategoryRequest } from '@/lib/api/categories';
+import { categoriesApi, CreateCategoryRequest, UpdateCategoryRequest } from '@/lib/api/categories';
 import type { CategoryDto, ProblemDetails } from '@/types/api';
 import ImageUploader from '@/components/ui/ImageUploader';
 
@@ -39,6 +39,13 @@ export default function AdminCategoriesPage() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [editing, setEditing] = useState<CategoryDto | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editImageUrl, setEditImageUrl] = useState('');
+  const [editOrderIndex, setEditOrderIndex] = useState(0);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [isSavingEdit, setIsSavingEdit] = useState(false);
 
   // Tải danh sách danh mục từ API
   const fetchCategories = useCallback(async () => {
@@ -126,6 +133,33 @@ export default function AdminCategoriesPage() {
     c.slug.toLowerCase().includes(searchFilter.toLowerCase())
   );
 
+  const openEdit = (category: CategoryDto) => {
+    setActionError(null); setEditing(category); setEditName(category.name); setEditDescription(category.description || '');
+    setEditImageUrl(category.imageUrl || ''); setEditOrderIndex(category.orderIndex);
+  };
+
+  const saveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing || !editName.trim()) { setActionError('Tên danh mục không được để trống.'); return; }
+    setIsSavingEdit(true); setActionError(null);
+    try {
+      const payload: UpdateCategoryRequest = { name: editName.trim(), description: editDescription.trim() || undefined, imageUrl: editImageUrl.trim() || undefined, orderIndex: Math.max(0, editOrderIndex) };
+      const updated = await categoriesApi.update(editing.id, payload);
+      setCategories(current => current.map(item => item.id === updated.id ? updated : item));
+      setSuccessMessage(`Đã cập nhật "${updated.name}". Slug vẫn là "${updated.slug}" theo D12.`); setEditing(null);
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: ProblemDetails } };
+      setActionError(error.response?.data?.detail || 'Không thể cập nhật danh mục.');
+    } finally { setIsSavingEdit(false); }
+  };
+
+  const deleteCategory = async (category: CategoryDto) => {
+    if (!window.confirm(`Xóa mềm danh mục "${category.name}"? Thao tác không xóa dữ liệu vĩnh viễn.`)) return;
+    setActionError(null);
+    try { await categoriesApi.remove(category.id); setCategories(current => current.filter(item => item.id !== category.id)); setSuccessMessage(`Đã xóa mềm danh mục "${category.name}".`); }
+    catch (err: unknown) { const error = err as { response?: { status?: number; data?: ProblemDetails } }; setActionError(error.response?.status === 409 ? 'Không thể xóa: danh mục vẫn còn công thức.' : error.response?.data?.detail || 'Không thể xóa danh mục.'); }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* Breadcrumb & Navigation */}
@@ -149,7 +183,7 @@ export default function AdminCategoriesPage() {
                 Quản lý Danh Mục Ẩm Thực
               </h1>
               <p className="text-xs text-neutral-500">
-                Phân hệ Admin (FR-CAT-003): Tạo mới và quản lý danh mục công thức nấu ăn
+                FR-CAT-003/004/005: tạo, sửa giữ slug (D12) và xóa mềm (D1)
               </p>
             </div>
           </div>
@@ -168,6 +202,8 @@ export default function AdminCategoriesPage() {
           </button>
         </div>
       </div>
+
+      {actionError && <div className="mb-5 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{actionError}</div>}
 
       {/* Main Grid: Form tạo mới bên trái / Danh sách bên phải */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -435,6 +471,7 @@ export default function AdminCategoriesPage() {
                     <th className="py-2.5 px-2 text-center">Thứ tự</th>
                     <th className="py-2.5 px-2 text-center">Số bài viết</th>
                     <th className="py-2.5 px-3">Mô tả</th>
+                    <th className="py-2.5 px-3 text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-100">
@@ -485,6 +522,10 @@ export default function AdminCategoriesPage() {
                       <td className="py-3 px-3 text-neutral-500 max-w-xs truncate text-[11px]" title={cat.description || ''}>
                         {cat.description || <span className="text-neutral-300 italic">Chưa có mô tả</span>}
                       </td>
+                      <td className="py-3 px-3 whitespace-nowrap text-right">
+                        <button onClick={() => openEdit(cat)} className="mr-2 rounded-lg px-2 py-1 text-[11px] font-semibold text-orange-700 hover:bg-orange-50">Sửa</button>
+                        <button onClick={() => deleteCategory(cat)} className="rounded-lg px-2 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-50">Xóa</button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -493,6 +534,7 @@ export default function AdminCategoriesPage() {
           )}
         </div>
       </div>
+      {editing && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Chỉnh sửa danh mục"><form onSubmit={saveEdit} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl"><div className="mb-5 flex items-start justify-between"><div><h2 className="text-lg font-bold text-neutral-900">Sửa danh mục</h2><p className="mt-1 text-xs text-neutral-500">Slug <code className="rounded bg-neutral-100 px-1">{editing.slug}</code> được giữ nguyên theo D12.</p></div><button type="button" onClick={() => setEditing(null)} className="text-xl text-neutral-400">×</button></div>{actionError && <p className="mb-3 text-sm text-red-600">{actionError}</p>}<div className="space-y-4"><label className="block text-sm font-medium">Tên<input required value={editName} onChange={e => setEditName(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label><label className="block text-sm font-medium">Mô tả<textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} className="mt-1 w-full rounded-lg border p-2" rows={3} /></label><label className="block text-sm font-medium">Ảnh URL<input type="url" value={editImageUrl} onChange={e => setEditImageUrl(e.target.value)} className="mt-1 w-full rounded-lg border p-2" /></label><label className="block text-sm font-medium">Thứ tự<input type="number" min="0" value={editOrderIndex} onChange={e => setEditOrderIndex(Number(e.target.value))} className="mt-1 w-full rounded-lg border p-2" /></label></div><div className="mt-6 flex justify-end gap-3"><button type="button" onClick={() => setEditing(null)} className="rounded-lg px-4 py-2 text-sm">Hủy</button><button disabled={isSavingEdit} className="rounded-lg bg-orange-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">{isSavingEdit ? 'Đang lưu...' : 'Lưu thay đổi'}</button></div></form></div>}
     </div>
   );
 }
