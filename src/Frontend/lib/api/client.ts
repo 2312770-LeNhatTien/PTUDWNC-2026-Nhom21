@@ -16,6 +16,11 @@ const apiClient = axios.create({
 });
 
 apiClient.interceptors.request.use(async (config) => {
+  // Chuẩn hóa URL: Nếu config.url bắt đầu bằng /api/v1 thì loại bỏ để tránh trùng lặp với baseURL
+  if (config.url && config.url.startsWith("/api/v1")) {
+    config.url = config.url.replace(/^\/api\/v1/, "");
+  }
+
   if (typeof window === "undefined") {
     return config;
   }
