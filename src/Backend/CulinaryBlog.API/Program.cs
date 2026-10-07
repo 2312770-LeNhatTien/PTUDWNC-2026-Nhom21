@@ -21,6 +21,12 @@ if (app.Environment.IsDevelopment())
     app.MapOpenApi();
     app.MapScalarApiReference(options => options.WithTitle("Culinary Blog API"));
 
+    // Redirect root va swagger ve Scalar API Docs
+    app.MapGet("/", () => Results.Redirect("/scalar/v1"));
+    app.MapGet("/swagger", () => Results.Redirect("/scalar/v1"));
+    app.MapGet("/swagger/index.html", () => Results.Redirect("/scalar/v1"));
+    app.MapGet("/scalar", () => Results.Redirect("/scalar/v1"));
+
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
     await db.Database.MigrateAsync();

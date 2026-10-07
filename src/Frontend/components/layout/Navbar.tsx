@@ -117,6 +117,9 @@ export default function Navbar() {
           <Link href="/recipes/steps-test" className="hover:text-orange-600 transition-colors flex items-center gap-1 font-medium">
             <span>📋</span> Các bước nấu
           </Link>
+          <Link href="/recipes/ingredients-test" className="hover:text-orange-600 transition-colors flex items-center gap-1 font-medium">
+            <span>🥗</span> Nguyên liệu
+          </Link>
           <Link href="/categories" className="hover:text-orange-600 transition-colors">
             Danh mục
           </Link>
@@ -190,6 +193,27 @@ export default function Navbar() {
                     <p className="text-xs font-bold text-slate-800 truncate">{currentUser.displayName}</p>
                     <p className="text-[11px] text-slate-500 truncate">{currentUser.email}</p>
                   </div>
+                  <Link
+                    href="/profile"
+                    onClick={() => setIsUserMenuOpen(false)}
+                    className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                  >
+                    <span>👤</span> Hồ sơ cá nhân
+                  </Link>
+                    <Link
+                      href="/recipes/ingredients-test"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                    >
+                      <span>🥗</span> Quản lý nguyên liệu
+                    </Link>
+                    <Link
+                      href="/recipes/steps-test"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-2 text-xs font-medium text-slate-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                    >
+                      <span>📋</span> Quản lý bước nấu
+                    </Link>
                   <Link
                     href="/dashboard/recipes/new"
                     onClick={() => setIsUserMenuOpen(false)}
