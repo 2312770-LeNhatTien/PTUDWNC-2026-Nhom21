@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import axios from "axios";
 import { authApi } from "@/lib/api/auth";
+import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -623,6 +624,27 @@ export default function RegisterPage() {
               )}
             </button>
           </form>
+
+          {/* Đường phân cách lựa chọn đăng ký nhanh */}
+          <div className="relative my-6 text-center">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-slate-200/80" />
+            </div>
+            <span className="relative bg-white/95 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
+              Hoặc đăng ký nhanh với
+            </span>
+          </div>
+
+          {/* Nút Đăng ký bằng Google OAuth 2.0 (FR-AUTH-003 UI) */}
+          <GoogleSignInButton
+            mode="register"
+            onError={(msg) =>
+              setAlertError({
+                type: "general",
+                message: msg,
+              })
+            }
+          />
 
           {/* Footer chuyển sang trang Đăng nhập */}
           <div className="mt-8 border-t border-slate-100 pt-6 text-center">
