@@ -1,0 +1,21 @@
+# BÁO CÁO LAB - MÔN PHÁT TRIỂN ỨNG DỤNG WEB NÂNG CAO
+
+**Lab**: 04  
+**Từ ngày**: 25/09/2026 &nbsp;&nbsp;&nbsp;&nbsp; **Đến ngày**: 01/10/2026  
+**MSSV**: 2312792 &nbsp;&nbsp;&nbsp;&nbsp; **Họ và tên**: Nguyễn Đình Tuấn  
+**Nhóm**: 21  
+
+---
+
+### Bảng Tiến Độ Công Việc
+
+| STT | Công việc được giao | Liên kết đến GitHub branch | Tiến độ % |
+| :---: | :--- | :--- | :---: |
+| **1** | **Cài đặt các API endpoints và xử lý nghiệp vụ Quản lý nguyên liệu công thức nấu ăn (FR-RCP-009 CRUD nguyên liệu - Tuân thủ Quyết định Kiến trúc D10)**<br><br>**Đã hoàn thành:**<br>- Định nghĩa các DTO và Commands/Queries trong tầng Application (Features/Recipes/Commands/ManageIngredients/* và Queries/GetRecipeIngredients/*): AddRecipeIngredientCommand, UpdateRecipeIngredientCommand, DeleteRecipeIngredientCommand, GetRecipeIngredientsQuery kế thừa IRequest<Result<...>>.<br>- Cài đặt AddRecipeIngredientCommandHandler và UpdateRecipeIngredientCommandHandler tuân thủ nghiêm ngặt Quyết định kiến trúc D10: cho phép trường Quantity và Unit nhận giá trị null đối với các loại gia vị nêm nếm ("nêm vừa ăn", "tùy thích").<br>- Kiểm tra tính hợp lệ dữ liệu (FluentValidation): Ràng buộc tên nguyên liệu Name bắt buộc, không được để trống và độ dài không vượt quá 100 ký tự.<br>- Cài đặt DeleteRecipeIngredientCommandHandler: Xóa nguyên liệu khỏi công thức nấu ăn và tự động đánh số lại thứ tự (OrderIndex) để đảm bảo tính liên tục của danh sách nguyên liệu.<br>- Cài đặt GetRecipeIngredientsQueryHandler: Lấy danh sách nguyên liệu theo RecipeId đã sắp xếp theo thứ tự OrderIndex tăng dần.<br>- Phân quyền truy cập bảo mật: Cấu hình chính sách ủy quyền .RequireAuthorization("AuthorOrAdmin") cho các thao tác thêm, sửa, xóa nguyên liệu nhằm đảm bảo chỉ có tác giả công thức hoặc Admin mới có quyền thao tác.<br>- Đăng ký và ánh xạ đầy đủ 4 RESTful API endpoints trong RecipesEndpoints.cs: GET /api/v1/recipes/{id}/ingredients, POST /api/v1/recipes/{id}/ingredients, PUT /api/v1/recipes/{id}/ingredients/{ingredientId}, DELETE /api/v1/recipes/{id}/ingredients/{ingredientId}.<br>- Toàn bộ mã nguồn backend được chú thích // chi tiết, rõ ràng, vượt qua toàn bộ kiểm tra dotnet build đạt 0 lỗi, 0 cảnh báo.<br><br>**Chưa hoàn thành:**<br>- Không có (Đã hoàn thành 100%). | https://github.com/2312770-coder/PTUDWNC-2026-Nhom21/tree/2312792-NguyenDinhTuan-buoi4 | **100%** |
+| **2** | **Cài đặt các API endpoints Xem và Cập nhật hồ sơ cá nhân bảo mật (FR-AUTH-006 Xem hồ sơ & FR-AUTH-007 Cập nhật hồ sơ liên kết MinIO)**<br><br>**Đã hoàn thành:**<br>- Mở rộng tầng Application DTO: Cập nhật UserProfileDto bổ sung trường tiểu sử string? Bio và ánh xạ đầy đủ thông tin người dùng an toàn.<br>- Cài đặt GetProfileQuery và GetProfileQueryHandler (FR-AUTH-006): Trích xuất UserId an toàn từ claim định danh sub trong JWT Access Token (thông qua ICurrentUser), tuyệt đối không nhận UserId từ tham số request để tránh giả mạo định danh; trả về UserProfileDto an toàn, che giấu hoàn toàn các thông tin nhạy cảm như PasswordHash, SecurityStamp.<br>- Cài đặt UpdateProfileCommand và UpdateProfileCommandHandler (FR-AUTH-007): Kiểm tra tính hợp lệ dữ liệu với DisplayName tối đa 50 ký tự, Bio tối đa 500 ký tự; hỗ trợ cập nhật đường dẫn ảnh đại diện AvatarUrl (liên kết với MinIO S3 bucket hoặc URL bên ngoài).<br>- Đăng ký và cấu hình chính sách bảo mật cho 2 API endpoints trong AuthEndpoints.cs: GET /api/v1/auth/me với .RequireAuthorization(), PATCH /api/v1/auth/me với .RequireAuthorization().<br>- Tương thích và đồng bộ hoàn hảo với toàn bộ hệ thống xác thực của nhóm (Google Login, Refresh Token Rotation, Logout), giải quyết triệt để xung đột merge conflict với nhánh main.<br>- Kiểm thử thành công 100% trên Swagger/Scalar API Docs và kết nối cơ sở dữ liệu PostgreSQL.<br><br>**Chưa hoàn thành:**<br>- Không có (Đã hoàn thành 100%). | https://github.com/2312770-coder/PTUDWNC-2026-Nhom21/tree/2312792-NguyenDinhTuan-buoi4 | **100%** |
+
+---
+
+### Lưu ý:
+- **Công việc được giao**: Liệt kê mỗi tính năng/chức năng/công việc được giao trên một dòng. Trong mỗi dòng, ghi cụ thể các bước/công đoạn đã thực hiện để hoàn thành công việc đó và những việc chưa hoàn thành.
+- **Tiến độ %**: Tự đánh giá mức độ hoàn thành và ghi vào cột Tiến độ %.

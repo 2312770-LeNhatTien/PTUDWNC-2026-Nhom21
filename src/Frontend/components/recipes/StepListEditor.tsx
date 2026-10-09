@@ -17,7 +17,7 @@ import type { RecipeStepDto } from '@/types/api';
  * Thuộc tính nhận vào của Component StepListEditor
  */
 interface StepListEditorProps {
-  recipeId: string; // ID món ăn đang thao tác
+  recipeId?: string; // ID món ăn đang thao tác
   initialSteps?: RecipeStepDto[]; // Danh sách bước ban đầu
   onStepsChange?: (steps: RecipeStepDto[]) => void; // Hàm gọi lại khi danh sách bước thay đổi
 }
