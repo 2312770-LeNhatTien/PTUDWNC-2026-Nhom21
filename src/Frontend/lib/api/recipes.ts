@@ -1,10 +1,23 @@
 // ============================================================================
 // Frontend API module cho Recipes (FR-RCP)
-// Bổ sung: FR-RCP-010 Quản lý các bước nấu (Nguyễn Đình Tuấn - 2312792)
+// Hợp nhất đầy đủ các chức năng:
+// - FR-RCP-001 / 002: Lấy danh sách & chi tiết công thức
+// - FR-RCP-010: Quản lý các bước nấu (Nguyễn Đình Tuấn - 2312792)
+// - FR-RCP-009: Quản lý nguyên liệu (Nguyễn Đình Tuấn - 2312792 - D10)
+// - FR-RCP-005: Xuất bản / Hủy xuất bản (Lâm Văn Đức - 2314299)
+// - FR-RCP-008: Quản lý gallery ảnh công thức (Lê Nhật Tiến - 2312770)
 // ============================================================================
 
 import apiClient from "./client";
-import type { ApiResponse, RecipeListItemDto, RecipeDetailDto, RecipeDifficulty, RecipeStepDto } from "@/types/api";
+import type {
+  ApiResponse,
+  RecipeListItemDto,
+  RecipeDetailDto,
+  RecipeDifficulty,
+  RecipeStepDto,
+  RecipeIngredientDto,
+  RecipeImageDto,
+} from "@/types/api";
 
 export interface GetRecipesParams {
   page?: number;
@@ -87,22 +100,6 @@ export const recipesApi = {
   },
 
   // ==========================================================================
-  // FR-RCP-005: XUẤT BẢN / HỦY XUẤT BẢN CÔNG THỨC (LÂM VĂN ĐỨC - 2314299)
-  // ==========================================================================
-
-  // 5. Xuất bản công thức (kiểm tra điều kiện D11)
-  publish: async (recipeId: string): Promise<RecipeDetailDto> => {
-    const res = await apiClient.patch<ApiResponse<RecipeDetailDto>>(`/recipes/${recipeId}/publish`);
-    return res.data?.data;
-  },
-
-  // 6. Hủy xuất bản công thức về Draft
-  unpublish: async (recipeId: string): Promise<RecipeDetailDto> => {
-    const res = await apiClient.patch<ApiResponse<RecipeDetailDto>>(`/recipes/${recipeId}/unpublish`);
-    return res.data?.data;
-  },
-
-  // ==========================================================================
   // FR-RCP-009: QUẢN LÝ NGUYÊN LIỆU (NGUYỄN ĐÌNH TUẤN - 2312792)
   // TUÂN THỦ QUYẾT ĐỊNH KIẾN TRÚC D10: Nullable Quantity & Unit cho gia vị
   // ==========================================================================
@@ -150,6 +147,49 @@ export const recipesApi = {
     return true;
   },
 
+  // ==========================================================================
+  // FR-RCP-005: XUẤT BẢN / HỦY XUẤT BẢN CÔNG THỨC (LÂM VĂN ĐỨC - 2314299)
+  // ==========================================================================
+
+  // 5. Xuất bản công thức (kiểm tra điều kiện D11)
+  publish: async (recipeId: string): Promise<RecipeDetailDto> => {
+    const res = await apiClient.patch<ApiResponse<RecipeDetailDto>>(`/recipes/${recipeId}/publish`);
+    return res.data?.data;
+  },
+
+  // 6. Hủy xuất bản công thức về Draft
+  unpublish: async (recipeId: string): Promise<RecipeDetailDto> => {
+    const res = await apiClient.patch<ApiResponse<RecipeDetailDto>>(`/recipes/${recipeId}/unpublish`);
+    return res.data?.data;
+  },
+
+  // ==========================================================================
+  // FR-RCP-008: QUẢN LÝ GALLERY ẢNH CÔNG THỨC (LÊ NHẬT TIẾN - 2312770)
+  // ==========================================================================
+
+  // 7. Thêm ảnh mới vào gallery của công thức
+  addImage: async (
+    recipeId: string,
+    data: {
+      originalUrl: string;
+      altText?: string;
+      isPrimary?: boolean;
+      orderIndex?: number;
+    }
+  ): Promise<RecipeImageDto> => {
+    const res = await apiClient.post<ApiResponse<RecipeImageDto>>(`/recipes/${recipeId}/images`, data);
+    return res.data?.data;
+  },
+
+  // 8. Xóa ảnh khỏi gallery của công thức
+  deleteImage: async (recipeId: string, imageId: string): Promise<boolean> => {
+    await apiClient.delete(`/recipes/${recipeId}/images/${imageId}`);
+    return true;
+  },
+
+  // 9. Đặt ảnh làm ảnh bìa chính (Primary Image) của công thức
+  setPrimaryImage: async (recipeId: string, imageId: string): Promise<RecipeImageDto> => {
+    const res = await apiClient.patch<ApiResponse<RecipeImageDto>>(`/recipes/${recipeId}/images/${imageId}/primary`);
+    return res.data?.data;
+  },
 };
-
-
