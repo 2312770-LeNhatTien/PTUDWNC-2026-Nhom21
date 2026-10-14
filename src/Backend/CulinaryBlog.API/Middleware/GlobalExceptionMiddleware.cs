@@ -57,6 +57,9 @@ public class GlobalExceptionMiddleware : IExceptionHandler
         if (exception is ValidationException validationException)
             problem.Extensions["errors"] = validationException.Errors;
 
+        if (exception is ConflictException { ErrorCode: not null } conflict)
+            problem.Extensions["errorCode"] = conflict.ErrorCode;
+
         // Gắn CorrelationId để tra log (FR-OBS-002).
         if (httpContext.Items.TryGetValue("CorrelationId", out var correlationId))
             problem.Extensions["correlationId"] = correlationId;

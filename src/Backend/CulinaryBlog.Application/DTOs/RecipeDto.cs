@@ -35,7 +35,10 @@ public record RecipeDetailDto(
     NutritionDto? Nutrition,
     IReadOnlyList<RecipeStepDto> Steps,
     IReadOnlyList<RecipeIngredientDto> Ingredients,
-    IReadOnlyList<RecipeImageDto> Images
+    IReadOnlyList<RecipeImageDto> Images,
+    byte[]? RowVersion = null,
+    DateTime? CreatedAt = null,
+    DateTime? UpdatedAt = null
 );
 
 public record CategoryRefDto(Guid Id, string Name, string Slug);

@@ -191,7 +191,7 @@ export default function ImageUploader({
       {error && (
         <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl flex items-center justify-between">
           <span>⚠️ {error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs">Đóng</button>
+          <button type="button" onClick={() => setError(null)} className="text-red-400 hover:text-red-600 text-xs">Đóng</button>
         </div>
       )}
 
@@ -235,7 +235,7 @@ export default function ImageUploader({
 
             {/* Nút hủy chọn trước khi upload */}
             {!uploadedUrl && !isLoading && (
-              <button
+              <button type="button"
                 onClick={resetSelection}
                 className="absolute top-2 right-2 bg-black/60 hover:bg-black/80 text-white rounded-full p-1.5 transition text-xs"
                 title="Hủy chọn"
@@ -246,7 +246,7 @@ export default function ImageUploader({
 
             {/* Nút xóa sau khi upload */}
             {uploadedUrl && !isLoading && (
-              <button
+              <button type="button"
                 onClick={handleDelete}
                 className="absolute top-2 right-2 bg-red-600 hover:bg-red-700 text-white rounded-full px-3 py-1.5 transition shadow-md flex items-center gap-1.5 text-xs font-medium"
                 title="Xóa ảnh này"
@@ -263,7 +263,7 @@ export default function ImageUploader({
                 <span className="flex items-center gap-1">
                   <span>✅</span> Đã tải ảnh lên thành công!
                 </span>
-                <button
+                <button type="button"
                   onClick={handleCopy}
                   className="text-emerald-700 hover:text-emerald-900 underline font-semibold"
                 >
@@ -279,14 +279,14 @@ export default function ImageUploader({
             </div>
           ) : (
             <div className="flex justify-end gap-2">
-              <button
+              <button type="button"
                 onClick={resetSelection}
                 disabled={isLoading}
                 className="px-4 py-2 text-sm text-neutral-600 hover:text-neutral-800 bg-neutral-100 rounded-xl transition"
               >
                 Chọn ảnh khác
               </button>
-              <button
+              <button type="button"
                 onClick={handleUpload}
                 disabled={isLoading}
                 className="px-5 py-2 text-sm font-medium text-white bg-orange-500 hover:bg-orange-600 rounded-xl transition flex items-center gap-2 shadow-sm disabled:opacity-50"

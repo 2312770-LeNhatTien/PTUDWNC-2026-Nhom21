@@ -10,7 +10,7 @@
 // ============================================================================
 
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
-import { getSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import type { ApiResponse, AuthResponseDto } from "@/types/api";
 
 // Mở rộng kiểu dữ liệu của AxiosRequestConfig để hỗ trợ cờ _retry (chống lặp vô hạn)
@@ -77,14 +77,8 @@ apiClient.interceptors.request.use(async (config) => {
     return config;
   }
 
-  // 1. Kiểm tra NextAuth Session trước (nếu có sử dụng NextAuth)
-  const session = await getSession();
-  if (session?.user?.accessToken) {
-    config.headers.Authorization = `Bearer ${session.user.accessToken}`;
-    return config;
-  }
-
-  // 2. Lấy Access Token lưu trong LocalStorage
+  // The backend token store is authoritative for API requests and rotation.
+  // The NextAuth cookie protects pages and never replaces a freshly rotated token.
   const token = localStorage.getItem("accessToken");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -155,6 +149,7 @@ apiClient.interceptors.response.use(
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
         window.dispatchEvent(new Event("auth-changed"));
+        await signOut({ redirect: false }).catch(() => undefined);
         window.location.href = "/login";
       }
       return Promise.reject(error);
@@ -206,6 +201,7 @@ apiClient.interceptors.response.use(
         localStorage.removeItem("refreshToken");
         localStorage.removeItem("user");
         window.dispatchEvent(new Event("auth-changed"));
+        await signOut({ redirect: false }).catch(() => undefined);
         window.location.href = "/login";
       }
 

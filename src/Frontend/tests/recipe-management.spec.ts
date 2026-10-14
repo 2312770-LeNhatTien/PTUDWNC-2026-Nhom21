@@ -1,0 +1,66 @@
+import { test, expect } from '@playwright/test';
+
+const api = process.env.RECIPES_TEST_API_URL || 'http://localhost:5106/api/v1';
+test('real login, private preview, two-tab conflict/reload, archive and delete', async ({ page, context, request }) => {
+  const login = await request.post(`${api}/auth/login`, { data: { email: 'admin@culinary.local', password: 'Admin@123' } });
+  const token = (await login.json()).data.accessToken;
+  const headers = { Authorization: `Bearer ${token}` };
+  const categoryId = (await (await request.get(`${api}/categories`)).json()).data[0].id;
+  const title = `Recipe browser ${Date.now()}`;
+  const original = { title, description: 'Thử dashboard thực tế', instructions: 'Nấu chín', categoryId, prepTime: 10, cookTime: 20, servings: 2, difficulty: 'Easy', nutrition: { calories: 234 } };
+  const created = await request.post(`${api}/recipes`, { headers, data: original });
+  expect(created.status()).toBe(201);
+  const id = (await created.json()).data.id;
+  try {
+    await page.goto('/dashboard/recipes');
+    await expect(page).toHaveURL(/\/login/);
+    await page.getByLabel(/Địa chỉ Email/).fill('admin@culinary.local');
+    await page.getByRole('textbox', { name: 'Mật khẩu *', exact: true }).fill('Admin@123');
+    await page.getByRole('button', { name: 'Đăng nhập', exact: true }).click();
+    await expect(page).toHaveURL(/\/dashboard\/recipes$/, { timeout: 30000 });
+    await expect(page.getByText(title, { exact: true })).toBeVisible();
+    await page.goto(`/dashboard/recipes/${id}/preview`);
+    await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+    await page.goto(`/dashboard/recipes/${id}/edit`);
+    await expect(page.getByLabel('Tiêu đề', { exact: true })).toHaveValue(title);
+    const other = await context.newPage();
+    await other.goto(`/dashboard/recipes/${id}/edit`);
+    await expect(other.getByLabel('Tiêu đề', { exact: true })).toHaveValue(title);
+    await page.getByLabel('Tiêu đề', { exact: true }).fill(title + ' mới');
+    const warning = page.waitForEvent('dialog');
+    const navigate = page.getByRole('link', { name: 'Trang chủ', exact: true }).first().click();
+    const dialog = await warning;
+    expect(dialog.message()).toContain('chưa lưu');
+    await dialog.dismiss();
+    await navigate;
+    await expect(page).toHaveURL(new RegExp(`/dashboard/recipes/${id}/edit$`));
+    await expect(page.getByLabel('Tiêu đề', { exact: true })).toHaveValue(title + ' mới');
+    await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
+    await expect(page.getByText('Đã lưu công thức thành công.')).toBeVisible();
+    await other.getByLabel('Tiêu đề', { exact: true }).fill(title + ' cũ');
+    await other.getByRole('button', { name: 'Lưu thay đổi' }).click();
+    await expect(other.getByRole('dialog')).toBeVisible();
+    await expect(other.getByLabel('Tiêu đề', { exact: true })).toHaveValue(title + ' cũ');
+    await other.getByRole('button', { name: 'Tải lại dữ liệu mới nhất', exact: true }).click();
+    await expect(other.getByRole('dialog')).toHaveCount(0);
+    await expect(other.getByLabel('Tiêu đề', { exact: true })).toHaveValue(title + ' mới');
+    await expect(other.getByLabel('Calories (kcal)', { exact: true })).toHaveValue('234');
+    await other.close();
+    await page.goto('/dashboard/recipes');
+    const row = page.getByRole('row').filter({ hasText: title + ' mới' });
+    await row.getByRole('button', { name: 'Lưu trữ', exact: true }).click();
+    await page.getByRole('button', { name: 'Xác nhận lưu trữ' }).click();
+    await expect(page.getByText('Đã lưu trữ công thức.', { exact: true })).toBeVisible();
+    await page.getByLabel('Trạng thái', { exact: true }).selectOption('Archived');
+    await expect(row).toBeVisible();
+    await row.getByRole('button', { name: 'Xóa mềm', exact: true }).click();
+    await page.getByRole('button', { name: 'Xác nhận xóa mềm' }).click();
+    await expect(row).toHaveCount(0);
+    // A failed Auth.js request must not prevent clearing backend credentials.
+    await page.route('**/api/auth/signout', route => route.abort('failed'));
+    await page.getByRole('button', { name: /Quản Trị Viên/ }).click();
+    await page.getByRole('button', { name: /Đăng xuất an toàn/ }).click();
+    await expect(page).toHaveURL(/\/login$/);
+    expect(await page.evaluate(() => ['accessToken', 'refreshToken', 'user'].map(key => localStorage.getItem(key)))).toEqual([null, null, null]);
+  } finally { await fetch(`${api}/recipes/${id}`, { method: 'DELETE', headers }); }
+});

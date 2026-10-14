@@ -4,5 +4,6 @@ namespace CulinaryBlog.Application.Common.Exceptions;
 // hoặc xóa danh mục còn công thức bên trong.
 public class ConflictException : Exception
 {
-    public ConflictException(string message) : base(message) { }
+    public string? ErrorCode { get; }
+    public ConflictException(string message, string? errorCode = null) : base(message) => ErrorCode = errorCode;
 }

@@ -17,6 +17,7 @@ import type {
   RecipeStepDto,
   RecipeIngredientDto,
   RecipeImageDto,
+  MyRecipeDto, RecipeEditDto, RecipeStatus, UpdateRecipeRequest, PaginationMeta,
 } from "@/types/api";
 
 export interface GetRecipesParams {
@@ -33,6 +34,24 @@ export interface GetRecipesParams {
 }
 
 export const recipesApi = {
+  getMine: async (params: { page: number; pageSize: number; status?: RecipeStatus; sortBy?: string; sortOrder?: 'asc' | 'desc'; sort?: string }, signal?: AbortSignal): Promise<{ items: MyRecipeDto[]; meta: PaginationMeta }> => {
+    const res = await apiClient.get<ApiResponse<MyRecipeDto[]>>("/recipes/mine", { params, signal });
+    return { items: res.data.data, meta: res.data.meta! };
+  },
+  getForEdit: async (id: string): Promise<RecipeEditDto> => {
+    const res = await apiClient.get<ApiResponse<RecipeEditDto>>(`/recipes/${id}/edit`);
+    return res.data.data;
+  },
+  update: async (id: string, data: UpdateRecipeRequest): Promise<RecipeEditDto> => {
+    const res = await apiClient.put<ApiResponse<RecipeDetailDto & { rowVersion: string; createdAt: string; updatedAt?: string }>>(`/recipes/${id}`, data);
+    const recipe = res.data.data;
+    return { recipe, rowVersion: recipe.rowVersion, createdAt: recipe.createdAt, updatedAt: recipe.updatedAt };
+  },
+  archive: async (id: string): Promise<RecipeEditDto> => {
+    const res = await apiClient.patch<ApiResponse<RecipeEditDto>>(`/recipes/${id}/archive`);
+    return res.data.data;
+  },
+  delete: async (id: string): Promise<void> => { await apiClient.delete(`/recipes/${id}`); },
   search: async (params: GetRecipesParams, signal?: AbortSignal): Promise<{ items: RecipeListItemDto[]; total: number }> => {
     const { q, ...filters } = params;
     const res = await apiClient.get<ApiResponse<RecipeListItemDto[]>>(q?.trim() ? '/recipes/search' : '/recipes', {
