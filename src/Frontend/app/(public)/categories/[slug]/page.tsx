@@ -51,7 +51,7 @@ export default async function CategoryDetailPage({ params }: CategoryDetailPageP
               Trang chủ
             </Link>
             <span>/</span>
-            <Link href="/recipes" className="hover:text-orange-600 transition-colors">
+            <Link href="/categories" className="hover:text-orange-600 transition-colors">
               Danh mục
             </Link>
             <span>/</span>

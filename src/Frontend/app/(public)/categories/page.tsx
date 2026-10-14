@@ -2,6 +2,8 @@ import { categoriesApi } from "@/lib/api/categories";
 import Image from "next/image";
 import Link from "next/link";
 
+export const dynamic = "force-dynamic";
+
 export default async function CategoriesPage() {
   // Lấy dữ liệu danh mục từ Backend (đã cấu hình api ở lib/api/categories.ts)
   const categories = await categoriesApi.getAll();
@@ -20,6 +22,7 @@ export default async function CategoriesPage() {
         </p>
       </div>
 
+      {!categories.length && <p className="py-10 text-center text-neutral-500">Chưa có danh mục ẩm thực.</p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
         {categories.map((category) => (
           <Link href={`/categories/${category.slug}`} key={category.id} className="block group">

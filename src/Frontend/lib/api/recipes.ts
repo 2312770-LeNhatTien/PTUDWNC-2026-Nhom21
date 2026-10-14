@@ -20,6 +20,7 @@ import type {
 } from "@/types/api";
 
 export interface GetRecipesParams {
+  q?: string;
   page?: number;
   pageSize?: number;
   categoryId?: string;
@@ -32,6 +33,13 @@ export interface GetRecipesParams {
 }
 
 export const recipesApi = {
+  search: async (params: GetRecipesParams, signal?: AbortSignal): Promise<{ items: RecipeListItemDto[]; total: number }> => {
+    const { q, ...filters } = params;
+    const res = await apiClient.get<ApiResponse<RecipeListItemDto[]>>(q?.trim() ? '/recipes/search' : '/recipes', {
+      params: q?.trim() ? { ...filters, q: q.trim() } : filters, signal,
+    });
+    return { items: res.data.data, total: res.data.meta?.total ?? 0 };
+  },
   // FR-RCP-001: GET /api/v1/recipes
   getAll: async (params?: GetRecipesParams): Promise<{ items: RecipeListItemDto[]; total: number }> => {
     try {

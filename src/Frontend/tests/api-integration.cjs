@@ -1,0 +1,50 @@
+const assert = require('node:assert/strict');
+const base = process.env.LAB05_API_URL || 'http://localhost:5105/api/v1';
+async function request(path, options = {}) {
+  const response = await fetch(base + path, options);
+  const text = await response.text();
+  return { status: response.status, body: text ? JSON.parse(text) : null };
+}
+async function main() {
+  const login = await request('/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'admin@culinary.local', password: 'Admin@123' }) });
+  assert.equal(login.status, 200);
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${login.body.data.accessToken}` };
+  const name = `Lab 05 ${Date.now()}`;
+  const created = await request('/categories', { method: 'POST', headers, body: JSON.stringify({ name, orderIndex: 1 }) });
+  assert.equal(created.status, 201);
+  const category = created.body.data;
+  const edited = await request(`/categories/${category.id}`, { method: 'PUT', headers, body: JSON.stringify({ name: name + ' sửa', orderIndex: 2 }) });
+  assert.equal(edited.status, 200);
+  assert.equal(edited.body.data.slug, category.slug, 'D12: slug must remain unchanged');
+  const invalid = await request(`/categories/${category.id}`, { method: 'PUT', headers, body: JSON.stringify({ name: '', orderIndex: -1 }) });
+  assert.equal(invalid.status, 400);
+  assert.equal((await request(`/categories/${category.id}`, { method: 'DELETE' })).status, 401, 'Anonymous delete must be blocked');
+  assert.equal((await request(`/categories/${category.id}`, { method: 'DELETE', headers })).status, 204);
+  assert.equal((await request(`/categories/${category.slug}`)).status, 404);
+  const categories = (await request('/categories')).body.data;
+  assert.ok(!categories.some(c => c.id === category.id));
+  const occupied = categories.find(c => c.recipeCount > 0);
+  assert.ok(occupied, 'Use a seeded test database with published recipes');
+  assert.equal((await request(`/categories/${occupied.id}`, { method: 'DELETE', headers })).status, 409, 'D1: non-empty category must not be deleted');
+  const filtered = await request(`/recipes?categoryId=${occupied.id}&maxCookTime=60&sortBy=cookTime&sortOrder=asc&pageSize=100`);
+  assert.equal(filtered.status, 200);
+  assert.ok(filtered.body.data.every(r => r.categoryName === occupied.name && r.cookTime <= 60 && r.status === 'Published'));
+  assert.deepEqual(filtered.body.data.map(r => r.cookTime), filtered.body.data.map(r => r.cookTime).sort((a,b) => a-b));
+  const accented = await request('/recipes/search?q=' + encodeURIComponent('công thức') + '&pageSize=100&sortBy=cookTime&sortOrder=asc');
+  const plain = await request('/recipes/search?q=cong%20thuc&pageSize=100&sortBy=cookTime&sortOrder=asc');
+  assert.equal(accented.status, 200);
+  assert.equal(plain.status, 200);
+  assert.ok(plain.body.meta.total > 0);
+  assert.deepEqual(plain.body.data.map(r => r.id), accented.body.data.map(r => r.id));
+  const combined = await request(`/recipes/search?q=cong%20thuc&categoryId=${occupied.id}&difficulty=Easy&maxCookTime=60&sortBy=cookTime&sortOrder=asc&pageSize=100`);
+  assert.equal(combined.status, 200);
+  assert.ok(combined.body.data.every(r => r.categoryName === occupied.name && r.difficulty === 'Easy' && r.cookTime <= 60));
+  const shorthand = await request('/recipes/search?q=cong%20thuc&pageSize=100&sort=cookTime');
+  assert.deepEqual(shorthand.body.data.map(r => r.id), plain.body.data.map(r => r.id), 'D8 shorthand must match explicit ordering');
+  const p1 = await request('/recipes/search?q=cong%20thuc&pageSize=1&page=1');
+  const p2 = await request('/recipes/search?q=cong%20thuc&pageSize=1&page=2');
+  assert.equal(p1.body.meta.total, p2.body.meta.total);
+  assert.notEqual(p1.body.data[0].id, p2.body.data[0].id);
+  console.log('PASS: API CRUD, D12, D1, authorization, validation, filters, Vietnamese unaccent search, combined search and pagination.');
+}
+main().catch(error => { console.error(error); process.exitCode = 1; });

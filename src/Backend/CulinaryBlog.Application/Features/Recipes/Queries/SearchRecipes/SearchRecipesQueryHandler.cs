@@ -19,7 +19,7 @@ public class SearchRecipesQueryHandler : IRequestHandler<SearchRecipesQuery, Pag
         int page = request.Paging.Page is > 0 ? request.Paging.Page.Value : 1;
         int pageSize = request.Paging.PageSize is > 0 ? request.Paging.PageSize.Value : 10;
 
-        var (items, total) = await _recipeRepository.SearchAsync(request.Query, page, pageSize, ct);
+        var (items, total) = await _recipeRepository.SearchAsync(request.Query, page, pageSize, ct, request.CategoryId, request.Difficulty, request.MaxCookTime, request.Paging.SortBy, request.Paging.IsDescending);
 
         var dtos = items.Select(r => new RecipeListItemDto(
             r.Id,
