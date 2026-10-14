@@ -1,16 +1,5 @@
 "use client";
 
-// ============================================================================
-// CHỨC NĂNG: Thanh điều hướng Navbar chính của toàn trang web (Lab 5 - Task 4)
-// THÀNH VIÊN: Lâm Văn Đức (MSSV: 2314299)
-// TÍNH NĂNG NỔI BẬT:
-// 1. Quản lý trạng thái phiên đăng nhập (Đồng bộ qua sự kiện 'auth-changed').
-// 2. Dropdown Menu Người dùng hiển thị Tên, Email, Avatar và Huy hiệu Phân quyền (Admin / Author).
-// 3. Tự động đóng Menu khi người dùng click ra bên ngoài (Click Outside Handler).
-// 4. Các lối tắt nghiệp vụ theo Role: Hồ sơ cá nhân, Viết công thức, Quản trị hệ thống.
-// 5. Nút Đăng xuất an toàn (FR-AUTH-005): Thu hồi token trên CSDL và dọn sạch LocalStorage.
-// ============================================================================
-
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -151,7 +140,7 @@ export default function Navbar() {
               Culinary<span className="text-orange-600">Blog</span>
             </span>
             <span className="block text-[10px] uppercase tracking-wider font-semibold text-neutral-400">
-              Cộng Đồng Ẩm Thực Việt
+              Cộng đồng Ẩm Thực Việt
             </span>
           </div>
         </Link>
@@ -178,6 +167,12 @@ export default function Navbar() {
             className="hover:text-orange-600 transition-colors flex items-center gap-1"
           >
             <span>📋</span> Các bước nấu
+          </Link>
+          <Link
+            href="/recipes/ingredients-test"
+            className="hover:text-orange-600 transition-colors flex items-center gap-1"
+          >
+            <span>🥗</span> Nguyên liệu
           </Link>
         </nav>
 
@@ -206,46 +201,44 @@ export default function Navbar() {
           </button>
         </form>
 
-        {/* 4. Khối Tài khoản & Nút thao tác - Màn hình Desktop */}
-        <div className="hidden sm:flex items-center gap-3">
-          
-          {/* Nút Viết công thức mới (dành cho Author & Admin) */}
-          <Link
-            href="/dashboard/recipes/new"
-            className="inline-flex items-center gap-1.5 rounded-full bg-orange-50 px-4 py-2 text-xs font-semibold text-orange-700 hover:bg-orange-100 transition-colors border border-orange-200/60 shadow-sm"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Viết công thức
-          </Link>
-
-          {/* TRƯỜNG HỢP 1: Người dùng ĐÃ ĐĂNG NHẬP (Hiển thị Dropdown Menu) */}
+        {/* 4. Khu vực Hành động Người dùng (Đăng nhập / Đăng ký / Thông tin Profile) */}
+        <div className="hidden md:flex items-center gap-4">
           {currentUser ? (
+            /* TRƯỜNG HỢP 1: Người dùng đã đăng nhập thành công */
             <div className="relative" ref={userMenuRef}>
+              
+              {/* Nút bấm mở Avatar & Tên người dùng */}
               <button
                 type="button"
                 onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                aria-expanded={isUserMenuOpen}
-                className="flex items-center gap-2 rounded-full border border-orange-200 bg-orange-50/70 py-1.5 pl-1.5 pr-3 text-xs font-semibold text-slate-800 hover:bg-orange-100 transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-orange-300"
+                className="flex items-center gap-2.5 rounded-full border border-orange-200/80 bg-gradient-to-r from-orange-50/60 to-amber-50/40 p-1.5 pr-3 hover:border-orange-300 hover:shadow-md transition-all focus:outline-none"
               >
-                {/* Ảnh đại diện Avatar (hoặc Chữ cái đầu tên) */}
+                {/* Ảnh đại diện Avatar (có fallback chữ cái đầu) */}
                 {currentUser.avatarUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={currentUser.avatarUrl}
                     alt={currentUser.displayName}
-                    className="h-7 w-7 rounded-full object-cover shadow-sm border border-orange-200"
+                    className="h-8 w-8 rounded-full object-cover border border-orange-200 shadow-sm"
                   />
                 ) : (
-                  <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 font-bold text-white uppercase text-xs shadow-sm">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 font-bold text-white uppercase text-xs shadow-sm">
                     {currentUser.displayName ? currentUser.displayName.charAt(0) : "U"}
                   </span>
                 )}
 
-                <span className="max-w-[110px] truncate">{currentUser.displayName}</span>
+                <div className="text-left hidden sm:block">
+                  <span className="block text-xs font-semibold text-slate-800 leading-tight">
+                    {currentUser.displayName}
+                  </span>
+                  <span className="block text-[10px] text-orange-600 font-medium">
+                    {isAdmin ? "Quản trị viên" : isAuthor ? "Tác giả" : "Thành viên"}
+                  </span>
+                </div>
+
+                {/* Mũi tên Dropdown nhỏ */}
                 <svg
-                  className={`h-3.5 w-3.5 text-slate-500 transition-transform duration-200 ${
+                  className={`h-3.5 w-3.5 text-neutral-400 transition-transform duration-200 ${
                     isUserMenuOpen ? "rotate-180" : ""
                   }`}
                   fill="none"
@@ -256,7 +249,7 @@ export default function Navbar() {
                 </svg>
               </button>
 
-              {/* Hộp Dropdown Menu Tài khoản */}
+              {/* KHUNG POPUP MENU THẢ XUỐNG (DROPDOWN) */}
               {isUserMenuOpen && (
                 <div className="absolute right-0 mt-2 w-64 rounded-3xl border border-orange-100 bg-white/95 p-2 shadow-2xl shadow-orange-500/10 backdrop-blur-md ring-1 ring-black/5 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
                   
@@ -315,6 +308,26 @@ export default function Navbar() {
                     >
                       <span className="text-sm">👤</span>
                       <span>Hồ sơ cá nhân</span>
+                    </Link>
+
+                    {/* Quản lý nguyên liệu (FR-RCP-009) */}
+                    <Link
+                      href="/recipes/ingredients-test"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                    >
+                      <span className="text-sm">🥗</span>
+                      <span>Quản lý nguyên liệu</span>
+                    </Link>
+
+                    {/* Quản lý các bước nấu (FR-RCP-010) */}
+                    <Link
+                      href="/recipes/steps-test"
+                      onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                    >
+                      <span className="text-sm">📋</span>
+                      <span>Quản lý bước nấu</span>
                     </Link>
 
                     {/* Viết công thức mới */}
@@ -456,6 +469,13 @@ export default function Navbar() {
               className="px-3 py-2 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-colors"
             >
               📋 Các bước nấu
+            </Link>
+            <Link
+              href="/recipes/ingredients-test"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="px-3 py-2 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-colors"
+            >
+              🥗 Nguyên liệu
             </Link>
           </nav>
 

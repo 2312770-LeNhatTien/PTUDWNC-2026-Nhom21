@@ -65,6 +65,7 @@ export default function StepListEditor({
    * Tuân thủ D9: Server tự động sinh số thứ tự tiếp theo Max + 1
    */
   const handleAddStep = async (e: React.FormEvent) => {
+    if (!recipeId) return;
     e.preventDefault();
     if (!newTitle.trim()) {
       setErrorMessage('Vui lòng nhập tiêu đề cho bước nấu.');
@@ -132,6 +133,7 @@ export default function StepListEditor({
    * Lưu thông tin đã chỉnh sửa của bước (PUT /api/v1/recipes/{id}/steps/{stepId})
    */
   const handleSaveEdit = async (stepId: string) => {
+    if (!recipeId) return;
     if (!editTitle.trim()) {
       setErrorMessage('Tiêu đề bước nấu không được để trống.');
       return;
@@ -220,6 +222,7 @@ export default function StepListEditor({
    * Tuân thủ D9: Server tự động renumber lại các bước còn lại 1, 2, 3...
    */
   const handleDeleteStep = async (stepId: string, stepNumber: number) => {
+    if (!recipeId) return;
     const confirm = window.confirm(`Bạn có chắc chắn muốn xóa Bước ${stepNumber} không?`);
     if (!confirm) return;
 
