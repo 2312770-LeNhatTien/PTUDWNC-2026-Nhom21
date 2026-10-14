@@ -84,23 +84,7 @@ export default function GoogleSignInButton({
 
         // Bước 1: Gửi Google ID Token lên Backend API: POST /api/v1/auth/google
         // Backend sẽ kiểm tra chữ ký RSA với Google Public Key và tự động tạo User nếu chưa có
-        const authData = await authApi.googleLogin(response.credential);
-
-        // Bước 2: Lưu trữ phiên đăng nhập vào LocalStorage
-        if (authData.accessToken) {
-          localStorage.setItem("accessToken", authData.accessToken);
-        }
-        if (authData.refreshToken) {
-          localStorage.setItem("refreshToken", authData.refreshToken);
-        }
-        if (authData.user) {
-          localStorage.setItem("user", JSON.stringify(authData.user));
-        }
-
-        // Bước 3: Phát sự kiện 'auth-changed' để đồng bộ Navbar toàn ứng dụng tức thì
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("auth-changed"));
-        }
+        await authApi.googleLogin(response.credential);
 
         // Bước 4: Điều hướng người dùng về trang chủ
         router.push("/");

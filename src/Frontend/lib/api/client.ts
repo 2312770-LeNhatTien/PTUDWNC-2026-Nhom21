@@ -9,6 +9,7 @@
 // 5. Token Rotation: Tự động cập nhật cặp AccessToken & RefreshToken mới vào LocalStorage.
 // ============================================================================
 
+import { useAuthStore } from '@/stores/auth-store';
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { getSession } from "next-auth/react";
 import type { ApiResponse, AuthResponseDto } from "@/types/api";
@@ -77,17 +78,16 @@ apiClient.interceptors.request.use(async (config) => {
     return config;
   }
 
-  // 1. Kiểm tra NextAuth Session trước (nếu có sử dụng NextAuth)
+  const storedToken = localStorage.getItem("accessToken");
+  if (storedToken) {
+    config.headers.Authorization = `Bearer ${storedToken}`;
+    return config;
+  }
+  // Fallback for sessions created through Auth.js.
   const session = await getSession();
   if (session?.user?.accessToken) {
     config.headers.Authorization = `Bearer ${session.user.accessToken}`;
     return config;
-  }
-
-  // 2. Lấy Access Token lưu trong LocalStorage
-  const token = localStorage.getItem("accessToken");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
   }
 
   return config;
@@ -127,6 +127,7 @@ apiClient.interceptors.response.use(
     }
 
     // 3. Nếu đang có một tiến trình refresh token khác chạy ngầm -> xếp hàng chờ
+    originalRequest._retry = true;
     if (isRefreshing) {
       return new Promise<string>((resolve, reject) => {
         failedQueue.push({ resolve, reject });
@@ -139,8 +140,7 @@ apiClient.interceptors.response.use(
         .catch((queueError) => Promise.reject(queueError));
     }
 
-    // 4. Đánh dấu request này đã được thử refresh một lần (chống retry lặp vô hạn)
-    originalRequest._retry = true;
+    // Start a single refresh for all waiting requests.
     isRefreshing = true;
 
     // Lấy Refresh Token hiện tại từ LocalStorage
@@ -151,10 +151,7 @@ apiClient.interceptors.response.use(
     if (!currentRefreshToken) {
       isRefreshing = false;
       if (typeof window !== "undefined") {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
-        window.dispatchEvent(new Event("auth-changed"));
+        useAuthStore.getState().clearSession();
         window.location.href = "/login";
       }
       return Promise.reject(error);
@@ -174,20 +171,7 @@ apiClient.interceptors.response.use(
       }
 
       const newAccessToken = authData.accessToken;
-      const newRefreshToken = authData.refreshToken;
-      const user = authData.user;
-
-      // 6. Cập nhật cặp Token mới vào LocalStorage (Tuân thủ Refresh Token Rotation)
-      if (typeof window !== "undefined") {
-        localStorage.setItem("accessToken", newAccessToken);
-        if (newRefreshToken) {
-          localStorage.setItem("refreshToken", newRefreshToken);
-        }
-        if (user) {
-          localStorage.setItem("user", JSON.stringify(user));
-        }
-        window.dispatchEvent(new Event("auth-changed"));
-      }
+      useAuthStore.getState().setSession(authData);
 
       // 7. Gán Access Token mới vào header của request ban đầu
       originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
@@ -202,10 +186,7 @@ apiClient.interceptors.response.use(
       processQueue(refreshError, null);
 
       if (typeof window !== "undefined") {
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("refreshToken");
-        localStorage.removeItem("user");
-        window.dispatchEvent(new Event("auth-changed"));
+        useAuthStore.getState().clearSession();
         window.location.href = "/login";
       }
 

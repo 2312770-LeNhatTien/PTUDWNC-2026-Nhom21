@@ -9,7 +9,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
-import axios from "axios";
+import { getApiError } from "@/lib/api/errors";
 import { authApi } from "@/lib/api/auth";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
@@ -98,74 +98,17 @@ export default function LoginPage() {
 
     try {
       // Bước 2: Gọi API POST /api/v1/auth/login thông qua authApi
-      const authData = await authApi.login(form.email.trim(), form.password);
-
-      // Bước 3: Lưu trữ token và thông tin người dùng vào LocalStorage
-      if (authData.accessToken) {
-        localStorage.setItem("accessToken", authData.accessToken);
-      }
-      if (authData.refreshToken) {
-        localStorage.setItem("refreshToken", authData.refreshToken);
-      }
-      if (authData.user) {
-        localStorage.setItem("user", JSON.stringify(authData.user));
-      }
-
-      // Bước 4: Phát sự kiện 'auth-changed' để đồng bộ trạng thái Navbar toàn trang
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("auth-changed"));
-      }
+      await authApi.login(form.email.trim(), form.password);
 
       // Bước 5: Chuyển hướng người dùng về trang chủ
       router.push("/");
       router.refresh();
     } catch (error: unknown) {
-      // Bước 6: Xử lý và phân loại mã lỗi HTTP trả về theo chuẩn RFC 7807 Problem Details
-      if (axios.isAxiosError(error)) {
-        const status = error.response?.status;
-        const data = error.response?.data as
-          | { detail?: string; message?: string; title?: string }
-          | undefined;
-
-        if (status === 423) {
-          // HTTP 423 Locked: Tài khoản bị khóa 15 phút do nhập sai 5 lần
-          setAlertError({
-            type: "locked",
-            message:
-              data?.detail ||
-              "Tài khoản đã bị tạm khóa 15 phút do nhập sai mật khẩu quá 5 lần. Vui lòng thử lại sau.",
-          });
-        } else if (status === 429) {
-          // HTTP 429 Too Many Requests: Rate Limiting chống Brute-Force (5 req/phút)
-          setAlertError({
-            type: "ratelimit",
-            message:
-              data?.detail ||
-              "Bạn đã gửi quá nhiều yêu cầu đăng nhập. Hệ thống đang bảo vệ tài khoản, vui lòng đợi 1 phút.",
-          });
-        } else if (status === 401) {
-          // HTTP 401 Unauthorized: Sai thông tin email hoặc password
-          setAlertError({
-            type: "auth",
-            message: data?.detail || "Email hoặc mật khẩu không chính xác.",
-          });
-        } else {
-          // Các lỗi hệ thống khác
-          setAlertError({
-            type: "general",
-            message:
-              data?.detail ||
-              data?.message ||
-              data?.title ||
-              "Đăng nhập thất bại. Vui lòng kiểm tra kết nối mạng và thử lại.",
-          });
-        }
-      } else {
-        setAlertError({
-          type: "general",
-          message: "Đã xảy ra lỗi không xác định. Vui lòng thử lại.",
-        });
-      }
+      const failure = getApiError(error, "Đăng nhập thất bại. Vui lòng kiểm tra kết nối và thử lại.");
+      setAlertError({
+        type: failure.status === 423 ? "locked" : failure.status === 429 ? "ratelimit" : failure.status === 401 ? "auth" : "general",
+        message: failure.message,
+      });
     } finally {
       setIsSubmitting(false);
     }

@@ -3,6 +3,10 @@
 Nhánh: `2312777-NguyenVietToan-buoi6`, dựa trên `main` commit `15f9f06`.
 Phạm vi theo mục Tuần 6 trong tài liệu phân công cá nhân: Redis Caching & tối ưu thời gian phản hồi. Giao diện tìm kiếm và bộ lọc đã hoàn thành ở buổi 5.
 
+## Bổ sung tiêu chí frontend của giảng viên
+
+Đã bổ sung bộ UI, auth store, tiện ích lỗi, component dùng chung và layout theo [Checklist frontend Lab 6](Lab06_Frontend_Checklist_2312777.md).
+
 ## Kết quả nghiệm thu
 
 - [x] `RedisCacheService` dùng `IDistributedCache`, System.Text.Json UTF-8 byte[], hỗ trợ Get/Set/Remove và CancellationToken.

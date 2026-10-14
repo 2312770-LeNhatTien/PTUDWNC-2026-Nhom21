@@ -189,28 +189,12 @@ export default function RegisterPage() {
 
     try {
       // Bước 2: Gọi API POST /api/v1/auth/register thông qua authApi
-      const authData = await authApi.register({
+      await authApi.register({
         email: form.email.trim(),
         displayName: form.displayName.trim(),
         userName: form.userName.trim() || undefined,
         password: form.password,
       });
-
-      // Bước 3: Lưu trữ phiên đăng nhập vào LocalStorage
-      if (authData.accessToken) {
-        localStorage.setItem("accessToken", authData.accessToken);
-      }
-      if (authData.refreshToken) {
-        localStorage.setItem("refreshToken", authData.refreshToken);
-      }
-      if (authData.user) {
-        localStorage.setItem("user", JSON.stringify(authData.user));
-      }
-
-      // Bước 4: Phát sự kiện 'auth-changed' để đồng bộ Navbar
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("auth-changed"));
-      }
 
       // Bước 5: Chuyển hướng người dùng về trang chủ
       router.push("/");

@@ -1,3 +1,4 @@
+import { useAuthStore } from '@/stores/auth-store';
 import apiClient from "./client";
 import type { ApiResponse, AuthResponseDto, UserDto } from "@/types/api";
 
@@ -12,30 +13,35 @@ export const authApi = {
   // FR-AUTH-001: POST /api/v1/auth/register
   register: async (data: RegisterRequest): Promise<AuthResponseDto> => {
     const response = await apiClient.post<ApiResponse<AuthResponseDto>>("/auth/register", data);
+    useAuthStore.getState().setSession(response.data.data);
     return response.data.data;
   },
 
   // FR-AUTH-002: POST /api/v1/auth/login
   login: async (email: string, password: string): Promise<AuthResponseDto> => {
     const response = await apiClient.post<ApiResponse<AuthResponseDto>>("/auth/login", { email, password });
+    useAuthStore.getState().setSession(response.data.data);
     return response.data.data;
   },
 
   // FR-AUTH-003: POST /api/v1/auth/google
   googleLogin: async (idToken: string): Promise<AuthResponseDto> => {
     const response = await apiClient.post<ApiResponse<AuthResponseDto>>("/auth/google", { idToken });
+    useAuthStore.getState().setSession(response.data.data);
     return response.data.data;
   },
 
   // FR-AUTH-004: POST /api/v1/auth/refresh
   refreshToken: async (refreshToken: string): Promise<AuthResponseDto> => {
     const response = await apiClient.post<ApiResponse<AuthResponseDto>>("/auth/refresh", { refreshToken });
+    useAuthStore.getState().setSession(response.data.data);
     return response.data.data;
   },
 
   // FR-AUTH-005: POST /api/v1/auth/logout
   logout: async (refreshToken: string): Promise<void> => {
-    await apiClient.post("/auth/logout", { refreshToken });
+    try { await apiClient.post("/auth/logout", { refreshToken }); }
+    finally { useAuthStore.getState().clearSession(); }
   },
 
   // FR-AUTH-006: GET /api/v1/auth/me - Xem thông tin hồ sơ cá nhân bảo mật
@@ -51,6 +57,7 @@ export const authApi = {
     avatarUrl?: string;
   }): Promise<UserDto> => {
     const response = await apiClient.patch<ApiResponse<UserDto>>("/auth/me", data);
+    useAuthStore.getState().updateUser(response.data.data);
     return response.data.data;
   },
 };
