@@ -353,7 +353,7 @@ export default function Navbar() {
                     {/* Lối tắt dành riêng cho Quản trị viên (Admin Panel) */}
                     {isAdmin && (
                       <Link
-                        href="/admin"
+                        href="/admin/categories"
                         onClick={() => setIsUserMenuOpen(false)}
                         className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-purple-700 hover:bg-purple-50 hover:text-purple-800 transition-colors font-semibold"
                       >

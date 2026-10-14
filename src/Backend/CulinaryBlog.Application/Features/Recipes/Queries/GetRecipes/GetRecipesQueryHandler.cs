@@ -27,6 +27,7 @@ public class GetRecipesQueryHandler : IRequestHandler<GetRecipesQuery, PagedResu
             .Include(r => r.Category)
             .Include(r => r.Author)
             .Include(r => r.Images)
+            .Where(r => r.Status == CulinaryBlog.Domain.Enums.RecipeStatus.Published && !r.IsDeleted)
             .AsQueryable();
 
         // 2. Lọc theo danh mục nếu có
@@ -61,10 +62,10 @@ public class GetRecipesQueryHandler : IRequestHandler<GetRecipesQuery, PagedResu
         // 5.5. Sắp xếp đa cú pháp
         query = request.Paging.SortBy?.ToLower() switch
         {
-            "title" => request.Paging.IsDescending ? query.OrderByDescending(r => r.Title) : query.OrderBy(r => r.Title),
-            "cooktime" => request.Paging.IsDescending ? query.OrderByDescending(r => r.CookTime) : query.OrderBy(r => r.CookTime),
-            "difficulty" => request.Paging.IsDescending ? query.OrderByDescending(r => r.Difficulty) : query.OrderBy(r => r.Difficulty),
-            _ => request.Paging.IsDescending ? query.OrderByDescending(r => r.CreatedAt) : query.OrderBy(r => r.CreatedAt) // Mặc định createdAt
+            "title" => request.Paging.IsDescending ? query.OrderByDescending(r => r.Title).ThenBy(r => r.Id) : query.OrderBy(r => r.Title).ThenBy(r => r.Id),
+            "cooktime" => request.Paging.IsDescending ? query.OrderByDescending(r => r.CookTime).ThenBy(r => r.Id) : query.OrderBy(r => r.CookTime).ThenBy(r => r.Id),
+            "difficulty" => request.Paging.IsDescending ? query.OrderByDescending(r => r.Difficulty).ThenBy(r => r.Id) : query.OrderBy(r => r.Difficulty).ThenBy(r => r.Id),
+            _ => request.Paging.IsDescending ? query.OrderByDescending(r => r.CreatedAt).ThenBy(r => r.Id) : query.OrderBy(r => r.CreatedAt).ThenBy(r => r.Id) // Mặc định createdAt
         };
 
         // 6. Lấy dữ liệu theo trang và ánh xạ sang RecipeListItemDto

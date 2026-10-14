@@ -15,18 +15,18 @@ public static class RecipesEndpoints
         var group = app.MapGroup("/api/v1/recipes").WithTags("Recipes");
 
         // FR-RCP-001: Lấy danh sách công thức (hỗ trợ phân trang)
-        group.MapGet("/", async ([AsParameters] PagingParams paging, ISender sender, CancellationToken ct) =>
+        group.MapGet("/", async ([AsParameters] PagingParams paging, Guid? categoryId, RecipeDifficulty? difficulty, int? maxCookTime, int? maxTotalTime, ISender sender, CancellationToken ct) =>
         {
-            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipes.GetRecipesQuery(paging), ct);
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipes.GetRecipesQuery(paging, categoryId, difficulty, maxCookTime, maxTotalTime), ct);
             return Results.Ok(ApiResponse.FromPaged(result));
         })
         .WithName("GetRecipes")
         .WithSummary("Lấy danh sách công thức nấu ăn (FR-RCP-001)");
 
         // FR-SRCH-001: Tìm kiếm toàn văn unaccent tsvector
-        group.MapGet("/search", async (string q, [AsParameters] PagingParams paging, ISender sender, CancellationToken ct) =>
+        group.MapGet("/search", async (string q, [AsParameters] PagingParams paging, Guid? categoryId, RecipeDifficulty? difficulty, int? maxCookTime, ISender sender, CancellationToken ct) =>
         {
-            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.SearchRecipes.SearchRecipesQuery(q, paging), ct);
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.SearchRecipes.SearchRecipesQuery(q, paging, categoryId, difficulty, maxCookTime), ct);
             return Results.Ok(ApiResponse.FromPaged(result));
         })
         .WithName("SearchRecipes")

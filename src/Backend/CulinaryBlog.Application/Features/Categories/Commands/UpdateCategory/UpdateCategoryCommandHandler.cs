@@ -22,7 +22,7 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
         // Nếu đổi tên khác, cần check xem tên mới đã bị ai dùng chưa
         if (!string.IsNullOrWhiteSpace(request.Name) && 
             request.Name != category.Name && 
-            await _categoryRepository.NameExistsAsync(request.Name, ct: ct))
+            await _categoryRepository.NameExistsAsync(request.Name.Trim(), excludeId: request.Id, ct: ct))
         {
             throw new ConflictException("Tên danh mục đã tồn tại.");
         }

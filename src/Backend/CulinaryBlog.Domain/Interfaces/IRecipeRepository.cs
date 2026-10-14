@@ -14,5 +14,7 @@ public interface IRecipeRepository : IRepository<Recipe>
     // FR-SRCH-001: Full-Text Search dùng PostgreSQL tsvector + unaccent.
     // TODO (người phụ trách FR-SRCH-001): hiện thực trong RecipeRepository.
     Task<(IReadOnlyList<Recipe> Items, int Total)> SearchAsync(
-        string keyword, int page, int pageSize, CancellationToken ct = default);
+        string keyword, int page, int pageSize, CancellationToken ct = default,
+        Guid? categoryId = null, CulinaryBlog.Domain.Enums.RecipeDifficulty? difficulty = null,
+        int? maxCookTime = null, string? sortBy = null, bool descending = true);
 }

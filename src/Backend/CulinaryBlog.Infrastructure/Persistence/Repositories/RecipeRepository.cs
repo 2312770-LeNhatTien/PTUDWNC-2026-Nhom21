@@ -29,20 +29,11 @@ public class RecipeRepository : Repository<Recipe>, IRecipeRepository
     public async Task<bool> SlugExistsAsync(string slug, CancellationToken ct = default)
         => await Db.Recipes.AnyAsync(r => r.Slug == slug, ct);
 
-    // FR-SRCH-001 - CHƯA HIỆN THỰC, dành cho người phụ trách FR-SRCH-001.
-    //
-    // Gợi ý:
-    //   1. Trước tiên phải thêm cột SearchVector + GIN index vào
-    //      RecipeConfiguration (xem TODO trong file đó) rồi tạo migration mới.
-    //   2. Bật extension trong PostgreSQL: CREATE EXTENSION IF NOT EXISTS unaccent;
-    //   3. Truy vấn:
-    //        var tsQuery = EF.Functions.PlainToTsQuery("simple", keyword);
-    //        query.Where(r => r.SearchVector.Matches(tsQuery))
-    //             .OrderByDescending(r => r.SearchVector.Rank(tsQuery))
-    //   4. Chỉ tìm trong recipe Status = Published.
-    //   5. Trả về cả danh sách lẫn tổng số kết quả để phục vụ phân trang.
+    // FR-SRCH-001: Vietnamese unaccent full-text search with filters before pagination.
     public async Task<(IReadOnlyList<Recipe> Items, int Total)> SearchAsync(
-        string keyword, int page, int pageSize, CancellationToken ct = default)
+        string keyword, int page, int pageSize, CancellationToken ct = default,
+        Guid? categoryId = null, CulinaryBlog.Domain.Enums.RecipeDifficulty? difficulty = null,
+        int? maxCookTime = null, string? sortBy = null, bool descending = true)
     {
         var query = Db.Recipes
             .AsNoTracking()
@@ -54,15 +45,23 @@ public class RecipeRepository : Repository<Recipe>, IRecipeRepository
 
         if (!string.IsNullOrWhiteSpace(keyword))
         {
-            var tsQuery = EF.Functions.PlainToTsQuery("simple", EF.Functions.Unaccent(keyword));
             query = query
-                .Where(r => EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title)).Matches(tsQuery));
+                .Where(r => EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title)).Matches(EF.Functions.PlainToTsQuery("simple", EF.Functions.Unaccent(keyword))));
         }
 
+        if (categoryId.HasValue) query = query.Where(r => r.CategoryId == categoryId.Value);
+        if (difficulty.HasValue) query = query.Where(r => r.Difficulty == difficulty.Value);
+        if (maxCookTime.HasValue) query = query.Where(r => r.CookTime <= maxCookTime.Value);
+        query = sortBy?.ToLowerInvariant() switch
+        {
+            "title" => descending ? query.OrderByDescending(r => r.Title).ThenBy(r => r.Id) : query.OrderBy(r => r.Title).ThenBy(r => r.Id),
+            "cooktime" => descending ? query.OrderByDescending(r => r.CookTime).ThenBy(r => r.Id) : query.OrderBy(r => r.CookTime).ThenBy(r => r.Id),
+            "difficulty" => descending ? query.OrderByDescending(r => r.Difficulty).ThenBy(r => r.Id) : query.OrderBy(r => r.Difficulty).ThenBy(r => r.Id),
+            _ => descending ? query.OrderByDescending(r => r.CreatedAt).ThenBy(r => r.Id) : query.OrderBy(r => r.CreatedAt).ThenBy(r => r.Id)
+        };
         var total = await query.CountAsync(ct);
 
         var items = await query
-            .OrderByDescending(r => r.CreatedAt)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(ct);

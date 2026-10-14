@@ -43,9 +43,9 @@ Tuần 4 (Lab 4 - Hoàn thành 100% Backend API Endpoints):
   🔲 FR-SRCH-002..004 — Nâng cấp GET /recipes (Bộ lọc maxCookTime, difficulty, category & sắp xếp dual-syntax D8)
 
 Tuần 5 (Lab 5 - Frontend Integration & Category / Search UI):
-  🔲 Giao diện Khám phá Danh mục /categories và trang món theo danh mục /categories/[slug]
-  🔲 Modal quản trị danh mục trong /admin/categories (thêm/sửa danh mục bảo toàn slug D12, xóa mềm D1)
-  🔲 Thanh tìm kiếm Live-search debounce 300ms kết hợp Drawer bộ lọc đa tiêu chí chuẩn D8
+  ✅ Giao diện Khám phá Danh mục /categories và trang món theo danh mục /categories/[slug]
+  ✅ Modal quản trị danh mục trong /admin/categories (thêm/sửa danh mục bảo toàn slug D12, xóa mềm D1)
+  ✅ Thanh tìm kiếm Live-search debounce 300ms kết hợp Drawer bộ lọc đa tiêu chí chuẩn D8
 
 Tuần 6 (Lab 6 - Tích hợp Redis Caching & Tối ưu hiệu năng):
   🔲 Hoàn thiện RedisCacheService.cs (IDistributedCache, serialize UTF-8 byte[], TTL 30 phút)
@@ -205,6 +205,8 @@ git checkout -b 2312777-NguyenVietToan-buoi4
 ## 8. LỘ TRÌNH CHI TIẾT CÁC TUẦN TIẾP THEO (TUẦN 5 → TUẦN 8)
 
 ### 📅 Tuần 5 (Lab 5): Giao diện Khám phá Danh mục, Tìm kiếm Live & Bộ lọc D8
+
+**Đã hiện thực và kiểm thử** — xem [Báo cáo Lab 05](Bao_Cao_Lab_05_2312777_NguyenVietToan.md).
 * **Nhánh làm việc**: `2312777-NguyenVietToan-buoi5`
 * **Nhiệm vụ trọng tâm**:
   1. Xây dựng giao diện Khám phá Danh mục ẩm thực trên Next.js 15:
