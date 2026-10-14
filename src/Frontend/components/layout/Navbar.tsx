@@ -100,6 +100,22 @@ export default function Navbar() {
     } catch (err) {
       console.warn("Không thể thu hồi token từ server:", err);
     } finally {
+      // 1. Vô hiệu hóa tính năng tự động ghi nhớ và thu hồi consent tài khoản Google để người dùng có thể chọn tài khoản khác
+      if (typeof window !== "undefined") {
+        try {
+          const emailToRevoke = currentUser?.email || localStorage.getItem("lastGoogleEmail");
+          const googleId = (window as unknown as { google?: { accounts?: { id?: { disableAutoSelect?: () => void; revoke?: (hint: string, cb?: (res: unknown) => void) => void } } } }).google?.accounts?.id;
+          if (googleId) {
+            googleId.disableAutoSelect?.();
+            if (emailToRevoke && googleId.revoke) {
+              googleId.revoke(emailToRevoke);
+            }
+          }
+        } catch {
+          // Bỏ qua nếu Google SDK chưa nạp
+        }
+      }
+
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
