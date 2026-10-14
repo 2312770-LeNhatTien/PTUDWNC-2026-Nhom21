@@ -172,24 +172,22 @@ export default function Navbar() {
           <Link href="/categories" className="hover:text-orange-600 transition-colors">
             Danh mục
           </Link>
-          <Link
-            href="/upload-test"
-            className="hover:text-orange-600 transition-colors flex items-center gap-1"
-          >
-            <span>📸</span> Tải ảnh lên
-          </Link>
-          <Link
-            href="/recipes/steps-test"
-            className="hover:text-orange-600 transition-colors flex items-center gap-1"
-          >
-            <span>📋</span> Các bước nấu
-          </Link>
-          <Link
-            href="/recipes/ingredients-test"
-            className="hover:text-orange-600 transition-colors flex items-center gap-1"
-          >
-            <span>🥗</span> Nguyên liệu
-          </Link>
+          {isAdmin && (
+            <>
+              <Link
+                href="/recipes/steps-test"
+                className="hover:text-orange-600 transition-colors flex items-center gap-1"
+              >
+                <span>📋</span> Các bước nấu
+              </Link>
+              <Link
+                href="/recipes/ingredients-test"
+                className="hover:text-orange-600 transition-colors flex items-center gap-1"
+              >
+                <span>🥗</span> Nguyên liệu
+              </Link>
+            </>
+          )}
         </nav>
 
         {/* 3. Ô tìm kiếm nhanh - Màn hình Desktop */}
@@ -326,25 +324,27 @@ export default function Navbar() {
                       <span>Hồ sơ cá nhân</span>
                     </Link>
 
-                    {/* Quản lý nguyên liệu (FR-RCP-009) */}
-                    <Link
-                      href="/recipes/ingredients-test"
-                      onClick={() => setIsUserMenuOpen(false)}
-                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                    >
-                      <span className="text-sm">🥗</span>
-                      <span>Quản lý nguyên liệu</span>
-                    </Link>
+                    {isAdmin && (
+                      <>
+                        <Link
+                          href="/recipes/ingredients-test"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                        >
+                          <span className="text-sm">🥗</span>
+                          <span>Quản lý nguyên liệu</span>
+                        </Link>
 
-                    {/* Quản lý các bước nấu (FR-RCP-010) */}
-                    <Link
-                      href="/recipes/steps-test"
-                      onClick={() => setIsUserMenuOpen(false)}
-                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                    >
-                      <span className="text-sm">📋</span>
-                      <span>Quản lý bước nấu</span>
-                    </Link>
+                        <Link
+                          href="/recipes/steps-test"
+                          onClick={() => setIsUserMenuOpen(false)}
+                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                        >
+                          <span className="text-sm">📋</span>
+                          <span>Quản lý bước nấu</span>
+                        </Link>
+                      </>
+                    )}
 
                     {/* Viết công thức mới */}
                     <Link
@@ -472,27 +472,24 @@ export default function Navbar() {
             >
               📁 Danh mục món ăn
             </Link>
-            <Link
-              href="/upload-test"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="px-3 py-2 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-colors"
-            >
-              📸 Tải ảnh lên (MinIO)
-            </Link>
-            <Link
-              href="/recipes/steps-test"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="px-3 py-2 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-colors"
-            >
-              📋 Các bước nấu
-            </Link>
-            <Link
-              href="/recipes/ingredients-test"
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="px-3 py-2 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-colors"
-            >
-              🥗 Nguyên liệu
-            </Link>
+            {isAdmin && (
+              <>
+                <Link
+                  href="/recipes/steps-test"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                >
+                  📋 Các bước nấu
+                </Link>
+                <Link
+                  href="/recipes/ingredients-test"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                >
+                  🥗 Nguyên liệu
+                </Link>
+              </>
+            )}
           </nav>
 
           {/* Phần trạng thái người dùng trên Mobile */}

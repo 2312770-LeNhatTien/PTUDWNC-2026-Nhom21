@@ -3,7 +3,7 @@
 // Chức năng: Quản lý danh sách nguyên liệu món ăn (Thêm, Sửa, Xóa, Sắp xếp)
 // Tính năng nổi bật Tuần 5:
 //   1. Nhập liên tục bằng phím Enter (nhập xong gõ Enter tự động thêm và nhảy focus)
-//   2. Tuân thủ Quyết định Kiến trúc D10: Hỗ trợ null Quantity & Unit cho gia vị
+//   2. Hỗ trợ null Quantity & Unit cho gia vị nêm nếm
 // Tác giả: Nguyễn Đình Tuấn (MSSV: 2312792)
 // ============================================================================
 
@@ -118,7 +118,7 @@ export default function IngredientListEditor({
       return;
     }
 
-    // Tuân thủ Quyết định D10: nếu là gia vị nêm nếm hoặc để trống -> gửi null
+    // Nếu là gia vị nêm nếm hoặc để trống -> gửi null
     const parsedQty = isTasteSeasoning || !quantity.trim() ? null : parseFloat(quantity.trim());
     const parsedUnit = isTasteSeasoning || !unit.trim() ? null : unit.trim();
     const parsedNotes = notes.trim() ? notes.trim() : null;
@@ -292,7 +292,7 @@ export default function IngredientListEditor({
             </span>
           </h3>
           <p className="text-xs text-neutral-500 mt-1">
-            Tuân thủ Quyết định D10: Cho phép gia vị nêm nếm không bắt buộc định lượng.
+            Linh hoạt định lượng hoặc để trống cho các gia vị nêm nếm theo khẩu vị.
           </p>
         </div>
 
@@ -409,7 +409,7 @@ export default function IngredientListEditor({
                           }}
                           className="w-3.5 h-3.5 text-amber-600 rounded border-neutral-300 focus:ring-amber-500"
                         />
-                        <span>Gia vị nêm vừa ăn (Quyết định D10)</span>
+                        <span>Gia vị nêm vừa ăn (Tùy khẩu vị)</span>
                       </label>
                       <div className="flex gap-2">
                         <button
@@ -450,7 +450,7 @@ export default function IngredientListEditor({
                     </div>
                   </div>
 
-                  {/* Định lượng (Quyết định D10) */}
+                  {/* Định lượng gia vị */}
                   <div className="flex items-center gap-3 shrink-0">
                     {hasQuantity || hasUnit ? (
                       <span className="inline-flex items-center text-xs font-semibold px-2 py-0.5 bg-neutral-100 text-neutral-700 rounded-md">
@@ -458,7 +458,7 @@ export default function IngredientListEditor({
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/50 rounded-md">
-                        <span>✨</span> Nêm vừa ăn (D10)
+                        <span>✨</span> Nêm vừa ăn (Tùy khẩu vị)
                       </span>
                     )}
 
@@ -529,7 +529,7 @@ export default function IngredientListEditor({
                 }}
                 className="w-3.5 h-3.5 text-amber-600 rounded border-neutral-300 focus:ring-amber-500"
               />
-              <span className="font-medium text-amber-900">Gia vị nêm vừa ăn (Không cần định lượng - D10)</span>
+              <span className="font-medium text-amber-900">Gia vị nêm vừa ăn (Tùy khẩu vị, không bắt buộc định lượng)</span>
             </label>
           </div>
 
