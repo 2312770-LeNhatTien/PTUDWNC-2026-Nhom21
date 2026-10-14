@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import Script from "next/script";
 import axios from "axios";
 import { authApi } from "@/lib/api/auth";
+import { establishLoginSession, loginDestination } from "@/lib/login-session";
 
 // Khai báo kiểu dữ liệu cho đối tượng window.google của Google Identity Services SDK
 declare global {
@@ -87,23 +88,8 @@ export default function GoogleSignInButton({
         const authData = await authApi.googleLogin(response.credential);
 
         // Bước 2: Lưu trữ phiên đăng nhập vào LocalStorage
-        if (authData.accessToken) {
-          localStorage.setItem("accessToken", authData.accessToken);
-        }
-        if (authData.refreshToken) {
-          localStorage.setItem("refreshToken", authData.refreshToken);
-        }
-        if (authData.user) {
-          localStorage.setItem("user", JSON.stringify(authData.user));
-        }
-
-        // Bước 3: Phát sự kiện 'auth-changed' để đồng bộ Navbar toàn ứng dụng tức thì
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new Event("auth-changed"));
-        }
-
-        // Bước 4: Điều hướng người dùng về trang chủ
-        router.push("/");
+        await establishLoginSession(authData);
+      router.push(loginDestination());
         router.refresh();
       } catch (error: unknown) {
         // Bước 5: Xử lý thông báo lỗi phản hồi từ Backend

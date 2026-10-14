@@ -14,6 +14,14 @@ public static class RecipesEndpoints
     {
         var group = app.MapGroup("/api/v1/recipes").WithTags("Recipes");
 
+        group.MapGet("/mine", async ([AsParameters] PagingParams paging, RecipeStatus? status, ISender sender, CancellationToken ct) =>
+            Results.Ok(ApiResponse.FromPaged(await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.GetMyRecipes.GetMyRecipesQuery(paging, status), ct))))
+            .RequireAuthorization("AuthorOrAdmin").WithName("GetMyRecipes").WithSummary("Công thức của tôi, gồm cả bản nháp và lưu trữ");
+
+        group.MapGet("/{id:guid}/edit", async (Guid id, ISender sender, CancellationToken ct) =>
+            Results.Ok(ApiResponse.Ok(await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipeForEdit.GetRecipeForEditQuery(id), ct))))
+            .RequireAuthorization("AuthorOrAdmin").WithName("GetRecipeForEdit").WithSummary("Đọc công thức để sửa/xem trước, kèm RowVersion");
+
         // FR-RCP-001: Lấy danh sách công thức (hỗ trợ phân trang)
         group.MapGet("/", async ([AsParameters] PagingParams paging, Guid? categoryId, RecipeDifficulty? difficulty, int? maxCookTime, int? maxTotalTime, ISender sender, CancellationToken ct) =>
         {
@@ -51,7 +59,7 @@ public static class RecipesEndpoints
         .WithName("GetRecipeBySlug")
         .WithSummary("Xem chi tiết công thức nấu ăn theo slug kèm đầy đủ nguyên liệu, bước nấu và ảnh (FR-RCP-002)");
 
-        // FR-RCP-004: Cập nhật công thức nấu ăn kèm Optimistic Concurrency D8 (Lê Nhật Tiến - 2312770)
+        // FR-RCP-004: Cập nhật công thức nấu ăn kèm Optimistic Concurrency (Lê Nhật Tiến - 2312770)
         group.MapPut("/{id:guid}", async (
             Guid id,
             UpdateRecipeRequest request,
@@ -75,7 +83,7 @@ public static class RecipesEndpoints
             return Results.Ok(ApiResponse.Ok(result));
         })
         .WithName("UpdateRecipe")
-        .WithSummary("Cập nhật thông tin công thức nấu ăn kèm Optimistic Concurrency D8 (FR-RCP-004)")
+        .WithSummary("Cập nhật thông tin công thức nấu ăn kèm Optimistic Concurrency (FR-RCP-004)")
         .RequireAuthorization("AuthorOrAdmin");
 
         // FR-RCP-006: Lưu trữ công thức nấu ăn (Lê Nhật Tiến - 2312770)
@@ -85,7 +93,7 @@ public static class RecipesEndpoints
             CancellationToken ct) =>
         {
             await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.ArchiveRecipe.ArchiveRecipeCommand(id), ct);
-            return Results.NoContent();
+            return Results.Ok(ApiResponse.Ok(await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipeForEdit.GetRecipeForEditQuery(id), ct)));
         })
         .WithName("ArchiveRecipe")
         .WithSummary("Lưu trữ công thức nấu ăn (FR-RCP-006)")

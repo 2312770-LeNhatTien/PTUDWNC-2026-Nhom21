@@ -143,3 +143,21 @@ Nếu không thỏa, ném `DomainException` / trả về `400 Bad Request` kèm 
 
 **Quyết định:** Trong `Category.Update()`, chỉ cập nhật `Name`, `Description`, `ImageUrl`, `OrderIndex`. Tuyệt đối **không** tạo lại `Slug` để bảo vệ URL SEO đã được index.
 
+
+---
+
+## D13 - Sinh RowVersion của Recipe trên PostgreSQL
+
+Bổ sung trong thay đổi quản lý công thức cá nhân; review cùng migration khi merge.
+
+**Vấn đề:** Mapping EF hiện có `.IsRowVersion()` trên cột `bytea` yêu cầu database sinh token. PostgreSQL không tự sinh bytea rowversion như SQL Server. Khi token null hoặc không đổi, không thể phát hiện hai phiên ghi đè nhau.
+
+**Cách triển khai:**
+- Giữ tên/cột `Recipes.RowVersion` và mapping `.IsRowVersion()`, không chuyển sang `xmin` hay thêm dependency vào Domain.
+- Migration `20261014120000_RecipeConcurrency` backfill token và thêm trigger PostgreSQL sinh 16 byte cho mỗi lần INSERT/UPDATE Recipe. Đây là token phiên bản opaque, không phải thời gian và không phải token xác thực.
+- Thay đổi RecipeStep/RecipeIngredient/RecipeImage cũng làm đổi phiên bản bài cha để form đang mở nhận biết nội dung đã thay đổi. Không đổi schema hay API của các bảng con.
+- PUT bắt buộc gửi rowVersion base64 lấy từ GET quản lý. Handler kiểm tra phiên bản client; EF tiếp tục kiểm tra phiên bản ở điều kiện UPDATE để xử lý cuộc đua giữa hai request. Xung đột trả 409 `RECIPE_CONCURRENCY_CONFLICT`.
+- PUT giữ DTO công thức phẳng như trước, chỉ bổ sung rowVersion/createdAt/updatedAt. GET riêng phục vụ form có thể trả DTO quản lý; không thay response GET công khai.
+- Trigger là chi tiết persistence ở Infrastructure. Không đặt SQL/PostgreSQL vào Domain hoặc API. Migration Down gỡ trigger/ràng buộc và giữ dữ liệu.
+
+**Kiểm chứng:** Integration test gửi đồng thời hai PUT cùng phiên bản, chỉ một lần lưu thành công; lần còn lại trả 409. Thay đổi nguyên liệu làm token bài cha thay đổi. Kiểm thử dùng database riêng.
