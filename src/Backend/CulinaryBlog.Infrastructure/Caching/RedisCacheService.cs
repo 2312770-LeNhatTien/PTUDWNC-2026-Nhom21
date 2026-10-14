@@ -1,40 +1,69 @@
+using System.Text.Json;
 using CulinaryBlog.Application.Common.Interfaces;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
 
 namespace CulinaryBlog.Infrastructure.Caching;
 
-/// <summary>
-/// Cache phân tán qua Redis sử dụng IDistributedCache.
-/// Phụ trách: Nguyễn Viết Toàn (MSSV: 2312777) - Kỹ thuật Caching & NFR-PERF-003.
-/// 
-/// Nhiệm vụ thành viên:
-/// 1. GetAsync: Lấy byte[] từ _cache.GetAsync(key), deserialize JSON UTF-8 về kiểu T.
-/// 2. SetAsync: Serialize value T sang byte[], lưu vào Redis qua _cache.SetAsync kèm thời hạn TTL (DistributedCacheEntryOptions).
-/// 3. RemoveAsync: Xóa key khỏi Redis qua _cache.RemoveAsync.
-/// 4. RemoveByPrefixAsync: Quản lý danh sách key theo tiền tố (ví dụ "categories:") để xóa hàng loạt khi dữ liệu thay đổi (Cache Invalidation).
-/// </summary>
-public class RedisCacheService : ICacheService
+public sealed class RedisCacheService(
+    IDistributedCache cache,
+    IConnectionMultiplexer redis,
+    ILogger<RedisCacheService> logger) : ICacheService
 {
-    public RedisCacheService()
-    {
-    }
+    public const string InstanceName = "culinaryblog:";
 
-    public Task<T?> GetAsync<T>(string key, CancellationToken ct = default)
+    public async Task<T?> GetAsync<T>(string key, CancellationToken ct = default)
     {
-        throw new NotImplementedException("RedisCacheService.GetAsync chưa được hiện thực. Nguyễn Viết Toàn sẽ hiện thực phương thức này.");
+        var bytes = await cache.GetAsync(key, ct);
+        if (bytes is null) return default;
+        try
+        {
+            return JsonSerializer.Deserialize<T>(bytes);
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "Discarding invalid cache entry {CacheKey}", key);
+            await cache.RemoveAsync(key, ct);
+            return default;
+        }
     }
 
     public Task SetAsync<T>(string key, T value, TimeSpan ttl, CancellationToken ct = default)
     {
-        throw new NotImplementedException("RedisCacheService.SetAsync chưa được hiện thực. Nguyễn Viết Toàn sẽ hiện thực phương thức này.");
+        if (ttl <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(ttl));
+        return cache.SetAsync(key, JsonSerializer.SerializeToUtf8Bytes(value),
+            new DistributedCacheEntryOptions { AbsoluteExpirationRelativeToNow = ttl }, ct);
     }
 
     public Task RemoveAsync(string key, CancellationToken ct = default)
-    {
-        throw new NotImplementedException("RedisCacheService.RemoveAsync chưa được hiện thực. Nguyễn Viết Toàn sẽ hiện thực phương thức này.");
-    }
+        => cache.RemoveAsync(key, ct);
 
-    public Task RemoveByPrefixAsync(string prefix, CancellationToken ct = default)
+    // SCAN on every primary supports multiple API instances without an in-memory key registry.
+    // Only this application's namespace is deleted; never flush the shared Redis database.
+    public async Task RemoveByPrefixAsync(string prefix, CancellationToken ct = default)
     {
-        throw new NotImplementedException("RedisCacheService.RemoveByPrefixAsync chưa được hiện thực. Nguyễn Viết Toàn sẽ hiện thực phương thức này.");
+        ArgumentException.ThrowIfNullOrWhiteSpace(prefix);
+        prefix = prefix.TrimEnd('*');
+        if (prefix.Length == 0 || prefix.IndexOfAny(['*', '?', '[', ']', '\\']) >= 0)
+            throw new ArgumentException("Use a literal, non-empty prefix with an optional trailing *.", nameof(prefix));
+
+        var database = redis.GetDatabase();
+        foreach (var endpoint in redis.GetEndPoints())
+        {
+            var server = redis.GetServer(endpoint);
+            if (!server.IsConnected || server.IsReplica) continue;
+            var batch = new List<RedisKey>(128);
+            await foreach (var key in server.KeysAsync(database.Database, InstanceName + prefix + "*", pageSize: 128)
+                .WithCancellation(ct))
+            {
+                batch.Add(key);
+                if (batch.Count < 128) continue;
+                await database.KeyDeleteAsync(batch.ToArray()).WaitAsync(ct);
+                batch.Clear();
+            }
+            if (batch.Count > 0) await database.KeyDeleteAsync(batch.ToArray()).WaitAsync(ct);
+        }
+        logger.LogInformation("Invalidated cache prefix {CachePrefix}", prefix);
     }
 }
