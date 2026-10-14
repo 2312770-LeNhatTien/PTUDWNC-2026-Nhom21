@@ -1,3 +1,4 @@
+using CulinaryBlog.Application.Common.Models;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Util;
@@ -20,6 +21,7 @@ public class MinioFileStorageService : IFileStorageService
     private readonly ILogger<MinioFileStorageService> _logger;
     private readonly string _bucketName;
     private readonly string _publicEndpoint;
+    private readonly bool _useSsl;
     private bool _bucketInitialized = false;
     private readonly SemaphoreSlim _initLock = new(1, 1);
 
@@ -45,6 +47,7 @@ public class MinioFileStorageService : IFileStorageService
 
         var endpoint = configuration["MinIO:Endpoint"] ?? "localhost:9000";
         var useSsl = configuration.GetValue<bool>("MinIO:UseSSL");
+        _useSsl = useSsl;
         _publicEndpoint = $"http{(useSsl ? "s" : "")}://{endpoint}";
     }
 
@@ -101,6 +104,72 @@ public class MinioFileStorageService : IFileStorageService
         _logger.LogInformation("FR-FILE-001: Đã upload thành công file lên MinIO: {PublicUrl}", publicUrl);
 
         return publicUrl;
+    }
+
+    
+    public async Task<PresignedUploadResult> GetPresignedUploadUrlAsync(
+        string fileName,
+        string contentType,
+        string folder,
+        TimeSpan? expiry = null,
+        CancellationToken ct = default)
+    {
+        // 1. Kiểm tra bucket đã tồn tại chưa
+        await EnsureBucketExistsAsync(ct);
+
+        // 2. Validate MIME type
+        if (!AllowedMimeTypes.Contains(contentType))
+        {
+            throw new ValidationException("FILE_MIME_INVALID",
+                $"Định dạng file '{contentType}' không được hỗ trợ. Chỉ chấp nhận JPG, PNG, WebP, AVIF.");
+        }
+
+        // 3. Sinh objectKey an toàn: {folder}/{uuid}{ext}
+        var ext = Path.GetExtension(fileName).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(ext))
+        {
+            ext = contentType.ToLowerInvariant() switch
+            {
+                "image/jpeg" => ".jpg",
+                "image/png" => ".png",
+                "image/webp" => ".webp",
+                "image/avif" => ".avif",
+                _ => ".jpg"
+            };
+        }
+
+        var sanitizedFolder = folder.Trim('/', '\\');
+        var objectKey = string.IsNullOrWhiteSpace(sanitizedFolder)
+            ? $"{Guid.NewGuid():N}{ext}"
+            : $"{sanitizedFolder}/{Guid.NewGuid():N}{ext}";
+
+        // 4. Sinh Presigned PUT URL với thời hạn sống ngắn (mặc định 15 phút - SRS CONS-007 / Lab 6)
+        var duration = expiry ?? TimeSpan.FromMinutes(15);
+        var preSignedRequest = new GetPreSignedUrlRequest
+        {
+            BucketName = _bucketName,
+            Key = objectKey,
+            Verb = HttpVerb.PUT,
+            Expires = DateTime.UtcNow.Add(duration),
+            ContentType = contentType,
+            Protocol = _useSsl ? Protocol.HTTPS : Protocol.HTTP
+        };
+
+        var uploadUrl = _s3Client.GetPreSignedURL(preSignedRequest);
+        if (!_useSsl && uploadUrl.StartsWith("https://"))
+        {
+            uploadUrl = "http://" + uploadUrl[8..];
+        }
+        var publicUrl = $"{_publicEndpoint}/{_bucketName}/{objectKey}";
+
+        _logger.LogInformation("FR-FILE-003: Đã sinh Presigned Upload URL cho {ObjectKey}, hết hạn sau {Minutes} phút",
+            objectKey, duration.TotalMinutes);
+
+        return new PresignedUploadResult(
+            uploadUrl,
+            publicUrl,
+            objectKey,
+            (int)duration.TotalMinutes);
     }
 
     public async Task DeleteAsync(string fileUrl, CancellationToken ct = default)

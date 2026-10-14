@@ -10,7 +10,37 @@ public static class FilesEndpoints
     {
         var group = app.MapGroup("/api/v1/files").WithTags("Files");
 
-        // FR-FILE-001: Upload file ảnh lên MinIO
+        // FR-FILE-003: Sinh Presigned URL tải lên file trực tiếp từ Client (Không lộ Secret Key, hết hạn sau 15 phút)
+        group.MapPost("/presigned-url", async (
+            [FromBody] PresignedUrlRequest request,
+            IFileStorageService fileStorage,
+            CancellationToken ct) =>
+        {
+            if (string.IsNullOrWhiteSpace(request.FileName) || string.IsNullOrWhiteSpace(request.ContentType))
+            {
+                return Results.Problem(
+                    title: "Dữ liệu không hợp lệ",
+                    detail: "FileName và ContentType không được để trống.",
+                    statusCode: StatusCodes.Status400BadRequest);
+            }
+
+            var folder = string.IsNullOrWhiteSpace(request.Folder) ? "general" : request.Folder;
+            var result = await fileStorage.GetPresignedUploadUrlAsync(
+                request.FileName,
+                request.ContentType,
+                folder,
+                TimeSpan.FromMinutes(15),
+                ct);
+
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("GetPresignedUploadUrl")
+        .WithSummary("Sinh Presigned URL tải lên MinIO an toàn (FR-FILE-003)")
+        .Produces<ApiResponse<PresignedUploadResult>>(StatusCodes.Status200OK)
+        .Produces<ProblemDetails>(StatusCodes.Status400BadRequest)
+        .DisableAntiforgery();
+
+        // FR-FILE-001: Upload file ảnh lên MinIO (Server Proxy Stream)
         group.MapPost("/upload", async (
             IFormFile file,
             string? folder,
@@ -64,3 +94,8 @@ public static class FilesEndpoints
         return app;
     }
 }
+
+/// <summary>
+/// DTO yêu cầu sinh Presigned URL
+/// </summary>
+public record PresignedUrlRequest(string FileName, string ContentType, string? Folder);

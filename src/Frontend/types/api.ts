@@ -132,3 +132,17 @@ export interface RecipeDetailDto {
   ingredients: RecipeIngredientDto[];
   images: RecipeImageDto[];
 }
+
+export interface PresignedUploadResult {
+  uploadUrl: string;
+  publicUrl: string;
+  objectKey: string;
+  expiresInMinutes: number;
+}
+
+export interface FileUploadResponse {
+  url: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+}

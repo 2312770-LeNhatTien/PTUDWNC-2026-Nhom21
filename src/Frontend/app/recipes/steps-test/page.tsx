@@ -1,9 +1,3 @@
-// ============================================================================
-// TRANG QUẢN LÝ QUY TRÌNH CHẾ BIẾN MÓN ĂN
-// Chức năng: Quản lý chi tiết từng bước nấu ăn cho các món trong hệ thống
-// Tác giả: Nguyễn Đình Tuấn
-// ============================================================================
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -28,6 +22,25 @@ export default function RecipeStepsPage() {
   // Thông báo lỗi nếu xảy ra sự cố kết nối máy chủ
   const [error, setError] = useState<string | null>(null);
 
+  // Phân quyền: Kiểm tra người dùng có phải Quản trị viên (Admin) hoặc Tác giả (Author)
+  const [currentUser, setCurrentUser] = useState<{ id: string; roles?: string[] } | null>(null);
+  const [authChecked, setAuthChecked] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        setCurrentUser(JSON.parse(stored));
+      } else {
+        setCurrentUser(null);
+      }
+    } catch {
+      setCurrentUser(null);
+    } finally {
+      setAuthChecked(true);
+    }
+  }, []);
+
   // 1. Tải danh sách món ăn khi khởi chạy trang
   useEffect(() => {
     async function loadRecipes() {
@@ -36,7 +49,14 @@ export default function RecipeStepsPage() {
       try {
         const result = await recipesApi.getAll({ pageSize: 50 });
         setRecipes(result.items);
-        if (result.items.length > 0) {
+
+        // Kiểm tra xem URL có truyền query param recipeId không
+        const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const targetRecipeId = params?.get('recipeId');
+
+        if (targetRecipeId && result.items.some((item) => item.id === targetRecipeId)) {
+          setSelectedRecipeId(targetRecipeId);
+        } else if (result.items.length > 0) {
           // Mặc định chọn món ăn đầu tiên để hiển thị ngay
           setSelectedRecipeId(result.items[0].id);
         }
@@ -67,6 +87,39 @@ export default function RecipeStepsPage() {
     }
     loadSteps();
   }, [selectedRecipeId]);
+
+  const canManage = currentUser?.roles?.includes('Admin');
+
+  // Giao diện khi khách (chưa đăng nhập hoặc không có quyền Admin/Author) cố gắng truy cập trang
+  if (authChecked && !canManage) {
+    return (
+      <div className="min-h-screen bg-neutral-50/50 py-16 px-4 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-neutral-200/80 p-8 text-center shadow-lg space-y-4">
+          <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto text-3xl">
+            🔒
+          </div>
+          <h2 className="text-xl font-bold text-neutral-800">Quyền truy cập dành cho Ban Quản trị</h2>
+          <p className="text-sm text-neutral-600 leading-relaxed">
+            Chức năng quản lý và biên soạn các bước nấu ăn chỉ dành cho Quản trị viên và Tác giả ẩm thực. Bạn có thể xem chi tiết hướng dẫn nấu nướng tại mục Khám phá công thức.
+          </p>
+          <div className="pt-2 flex flex-col gap-2">
+            <Link
+              href="/recipes"
+              className="w-full py-2.5 px-4 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 transition"
+            >
+              🍲 Khám phá các công thức món ngon
+            </Link>
+            <Link
+              href="/login"
+              className="w-full py-2.5 px-4 bg-neutral-100 text-neutral-700 font-semibold rounded-xl hover:bg-neutral-200 transition"
+            >
+              🔐 Đăng nhập tài khoản Quản trị viên
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Tìm thông tin chi tiết của món ăn đang được chọn
   const selectedRecipe = recipes.find((r) => r.id === selectedRecipeId);
@@ -104,9 +157,19 @@ export default function RecipeStepsPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-semibold text-neutral-500 bg-neutral-100/80 px-3.5 py-2 rounded-2xl">
-            <span>📖</span>
-            <span>Tổng hợp công thức nấu nướng</span>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/recipes"
+              className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200/80 text-neutral-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+            >
+              <span>🍲</span> Xem Khám Phá
+            </Link>
+            <Link
+              href="/recipes/ingredients-test"
+              className="px-4 py-2 bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
+            >
+              <span>🥗</span> Quản Lý Nguyên Liệu
+            </Link>
           </div>
         </div>
 
@@ -138,56 +201,51 @@ export default function RecipeStepsPage() {
               </p>
             </div>
 
-            {/* Ô tìm kiếm món ăn nhanh */}
-            <div className="w-full sm:w-64">
+            {/* Ô tìm kiếm món ăn */}
+            <div className="relative w-full sm:w-64">
               <input
                 type="text"
-                placeholder="Tìm món ăn hoặc danh mục..."
+                placeholder="Tìm món ăn..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full px-3.5 py-1.5 text-xs bg-neutral-50 border border-neutral-200 rounded-xl outline-none focus:border-orange-500 focus:bg-white transition"
+                className="w-full text-xs pl-8 pr-3 py-2 rounded-xl border border-neutral-200 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent transition"
               />
+              <span className="absolute left-2.5 top-2.5 text-neutral-400 text-xs">🔍</span>
             </div>
           </div>
 
+          {/* Danh sách thẻ món ăn (Scroll ngang hoặc dạng thanh trượt) */}
           {isLoading ? (
-            <div className="py-8 text-center text-sm text-neutral-500 animate-pulse">
-              Đang tải danh sách các món ăn hấp dẫn...
+            <div className="py-8 text-center text-xs text-neutral-400 flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+              <span>Đang tải danh sách món ăn từ hệ thống...</span>
             </div>
-          ) : recipes.length === 0 ? (
-            <div className="py-8 text-center text-sm text-neutral-500">
-              Hiện chưa có món ăn nào trong thực đơn.
+          ) : filteredRecipes.length === 0 ? (
+            <div className="py-6 text-center text-xs text-neutral-400">
+              Không tìm thấy món ăn nào khớp với từ khóa &quot;{searchQuery}&quot;.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 max-h-64 overflow-y-auto pr-1">
-              {filteredRecipes.map((recipe) => {
-                const isSelected = recipe.id === selectedRecipeId;
+            <div className="flex gap-2.5 overflow-x-auto pb-2 pt-1 scrollbar-thin">
+              {filteredRecipes.map((r) => {
+                const isSelected = r.id === selectedRecipeId;
                 return (
                   <button
-                    key={recipe.id}
-                    type="button"
-                    onClick={() => setSelectedRecipeId(recipe.id)}
-                    className={`text-left p-3.5 rounded-2xl border transition-all ${
+                    key={r.id}
+                    onClick={() => setSelectedRecipeId(r.id)}
+                    className={`flex items-center gap-2 px-3.5 py-2 rounded-2xl text-xs font-semibold whitespace-nowrap transition-all ${
                       isSelected
-                        ? 'border-orange-500 bg-orange-50/70 ring-2 ring-orange-400/40 shadow-xs'
-                        : 'border-neutral-200/80 hover:border-orange-200 bg-white hover:bg-neutral-50/50'
+                        ? 'bg-orange-600 text-white shadow-sm ring-2 ring-orange-600/30 ring-offset-1'
+                        : 'bg-neutral-100/80 hover:bg-neutral-200/70 text-neutral-700'
                     }`}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-bold text-neutral-900 text-sm truncate">{recipe.title}</p>
-                      {isSelected && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-600 text-white flex-shrink-0">
-                          Đang chọn
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-xs text-neutral-500 mt-1.5 flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 font-medium text-orange-700 bg-orange-100/60 px-2 py-0.5 rounded-lg text-[11px]">
-                        🏷️ {recipe.categoryName || 'Món truyền thống'}
-                      </span>
-                      <span>•</span>
-                      <span>⏱️ {recipe.cookTime || 30} phút nấu</span>
-                    </div>
+                    <span>{r.title}</span>
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-md font-bold ${
+                        isSelected ? 'bg-orange-700/60 text-white' : 'bg-neutral-200/80 text-neutral-500'
+                      }`}
+                    >
+                      {r.difficulty}
+                    </span>
                   </button>
                 );
               })}
@@ -195,54 +253,53 @@ export default function RecipeStepsPage() {
           )}
         </div>
 
-        {/* Khung biên tập các bước nấu của món ăn đang chọn */}
-        {selectedRecipeId && selectedRecipe && (
-          <div className="space-y-5">
-            {/* Thẻ thông tin món ăn đang biên tập */}
-            <div className="bg-gradient-to-r from-neutral-900 via-neutral-800 to-neutral-900 text-white rounded-3xl p-6 shadow-md flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 text-xs text-orange-400 font-bold uppercase tracking-wider">
-                  <span>✨</span> Món ăn đang tinh chỉnh quy trình
-                </div>
-                <h2 className="text-xl sm:text-2xl font-bold tracking-tight">{selectedRecipe.title}</h2>
-                <p className="text-xs sm:text-sm text-neutral-300 max-w-2xl line-clamp-2">
-                  {selectedRecipe.description || 'Món ăn đậm đà hương vị truyền thống thơm ngon khó cưỡng.'}
+        {/* Khung biên soạn bước nấu cho món ăn được chọn */}
+        {selectedRecipe ? (
+          <div className="space-y-4">
+            <div className="bg-white rounded-3xl border border-neutral-200/70 p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-xs uppercase font-bold text-orange-600 tracking-wide">
+                  Đang thiết lập cho:
+                </span>
+                <h3 className="text-xl font-extrabold text-neutral-900 mt-0.5">
+                  {selectedRecipe.title}
+                </h3>
+                <p className="text-xs text-neutral-500 mt-1">
+                  Danh mục: {selectedRecipe.categoryName || 'Món ăn gia đình'} • Độ khó: {selectedRecipe.difficulty}
                 </p>
               </div>
 
-              <div className="flex items-center gap-4 bg-white/10 px-4 py-2.5 rounded-2xl backdrop-blur-xs text-xs text-neutral-200">
-                <div>
-                  <p className="text-[10px] text-neutral-400 uppercase font-semibold">Khẩu phần</p>
-                  <p className="font-bold text-white text-sm">{selectedRecipe.servings || 4} người</p>
-                </div>
-                <div className="w-px h-6 bg-white/20" />
-                <div>
-                  <p className="text-[10px] text-neutral-400 uppercase font-semibold">Chuẩn bị</p>
-                  <p className="font-bold text-white text-sm">{selectedRecipe.prepTime || 15}p</p>
-                </div>
-                <div className="w-px h-6 bg-white/20" />
-                <div>
-                  <p className="text-[10px] text-neutral-400 uppercase font-semibold">Nấu</p>
-                  <p className="font-bold text-white text-sm">{selectedRecipe.cookTime || 30}p</p>
-                </div>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/recipes/${selectedRecipe.slug}`}
+                  target="_blank"
+                  className="px-3.5 py-2 rounded-xl bg-orange-50 text-orange-700 border border-orange-200/80 text-xs font-bold hover:bg-orange-100 transition flex items-center gap-1.5"
+                >
+                  <span>👁️</span> Xem công thức công khai ↗
+                </Link>
               </div>
             </div>
 
-            {/* Component quản lý các bước nấu (StepListEditor) */}
+            {/* Trình biên tập các bước nấu */}
             {isLoadingSteps ? (
-              <div className="p-12 text-center text-neutral-500 bg-white rounded-3xl border border-neutral-200/80 animate-pulse">
-                Đang chuẩn bị danh sách các bước nấu ăn...
+              <div className="bg-white rounded-3xl border border-neutral-200/70 p-12 text-center text-xs text-neutral-400 flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin"></div>
+                <span>Đang tải các bước nấu...</span>
               </div>
             ) : (
               <StepListEditor
-                key={selectedRecipeId}
                 recipeId={selectedRecipeId}
                 initialSteps={currentSteps}
                 onStepsChange={(newSteps) => setCurrentSteps(newSteps)}
               />
             )}
           </div>
+        ) : (
+          <div className="bg-white rounded-3xl border border-neutral-200/70 p-12 text-center text-neutral-400 text-sm">
+            Vui lòng chọn một món ăn phía trên để bắt đầu biên soạn quy trình nấu nướng.
+          </div>
         )}
+
       </div>
     </div>
   );
