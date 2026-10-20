@@ -1,0 +1,13 @@
+{
+  "measuredAt": "2026-10-14T18:49:50.6392249+07:00",
+  "url": "http://localhost:5000/api/v1/categories",
+  "samples": 200,
+  "firstRequestMs": 35.3039,
+  "meanMs": 2.7371994999999987,
+  "medianMs": 2.4402,
+  "p95Ms": 3.7106,
+  "minMs": 1.8951,
+  "maxMs": 19.8123,
+  "targetMs": 5,
+  "p95TargetMet": true
+}

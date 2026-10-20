@@ -3,19 +3,13 @@
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useAuthStore } from '@/stores/auth-store';
 import { authApi } from "@/lib/api/auth";
 import { signOut } from 'next-auth/react';
 
 /**
  * Interface biểu diễn thông tin người dùng lưu trữ trong LocalStorage
  */
-interface UserProfile {
-  id: string;
-  email: string;
-  displayName: string;
-  avatarUrl?: string | null;
-  roles?: string[];
-}
 
 export default function Navbar() {
   const router = useRouter();
@@ -25,7 +19,7 @@ export default function Navbar() {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
 
   // 2. Quản lý thông tin người dùng hiện tại đang đăng nhập
-  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const currentUser = useAuthStore(state => state.user);
 
   // 3. Quản lý ô tìm kiếm nhanh công thức
   const [searchQuery, setSearchQuery] = useState("");
@@ -36,32 +30,7 @@ export default function Navbar() {
   /**
    * Đồng bộ thông tin người dùng từ LocalStorage vào React State
    */
-  useEffect(() => {
-    const syncUser = () => {
-      try {
-        const stored = localStorage.getItem("user");
-        if (stored) {
-          setCurrentUser(JSON.parse(stored));
-        } else {
-          setCurrentUser(null);
-        }
-      } catch {
-        setCurrentUser(null);
-      }
-    };
 
-    // Đồng bộ ngay khi component mount
-    syncUser();
-
-    // Lắng nghe sự kiện đăng nhập/đăng xuất/refresh token để cập nhật Navbar tức thời
-    window.addEventListener("auth-changed", syncUser);
-    window.addEventListener("storage", syncUser);
-
-    return () => {
-      window.removeEventListener("auth-changed", syncUser);
-      window.removeEventListener("storage", syncUser);
-    };
-  }, []);
 
   /**
    * Tự động đóng Dropdown menu khi người dùng click ra bất kỳ vị trí nào bên ngoài
@@ -117,10 +86,7 @@ export default function Navbar() {
         }
       }
 
-      localStorage.removeItem("accessToken");
-      localStorage.removeItem("refreshToken");
-      localStorage.removeItem("user");
-      setCurrentUser(null);
+      useAuthStore.getState().clearSession();
       setIsUserMenuOpen(false);
       setIsMobileMenuOpen(false);
       window.dispatchEvent(new Event("auth-changed"));

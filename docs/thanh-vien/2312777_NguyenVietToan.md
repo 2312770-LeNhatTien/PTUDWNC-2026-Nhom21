@@ -48,9 +48,9 @@ Tuần 5 (Lab 5 - Frontend Integration & Category / Search UI):
   ✅ Thanh tìm kiếm Live-search debounce 300ms kết hợp Drawer bộ lọc đa tiêu chí chuẩn D8
 
 Tuần 6 (Lab 6 - Tích hợp Redis Caching & Tối ưu hiệu năng):
-  🔲 Hoàn thiện RedisCacheService.cs (IDistributedCache, serialize UTF-8 byte[], TTL 30 phút)
-  🔲 Tích hợp Cache Invalidation tự động xóa cache khi Admin sửa/xóa danh mục (RemoveByPrefixAsync)
-  🔲 Đo lường benchmark thời gian phản hồi API danh mục đạt <= 5ms
+  ✅ Hoàn thiện RedisCacheService.cs (IDistributedCache, serialize UTF-8 byte[], TTL 30 phút)
+  ✅ Tích hợp Cache Invalidation tự động xóa cache khi Admin sửa/xóa danh mục (RemoveByPrefixAsync)
+  ✅ Đo lường benchmark: mean 2,74ms; p95 3,71ms (200 request, Release + Seq)
 
 Tuần 7 (Lab 7 - Đánh giá sao & Bình luận):
   🔲 FR-INT-001 — Đánh giá sao công thức (Rating 1-5 sao, tính điểm trung bình và số lượt đánh giá)
@@ -236,6 +236,8 @@ git checkout -b 2312777-NguyenVietToan-buoi4
 **Lưu ý kiểm thử**: cần đăng nhập bằng tài khoản Admin trước khi thử sửa/xóa; các endpoint đó yêu cầu policy `AdminOnly`. Frontend đã có API base `/api/v1`, vì vậy các lời gọi recipe được sửa về `/recipes/...` để tránh bị lặp `/api/v1/api/v1`.
 
 ### 📅 Tuần 6 (Lab 6): Tích hợp Redis Caching & Tối ưu thời gian phản hồi
+
+**Đã hiện thực và kiểm thử** — xem [Báo cáo Lab 06](Bao_Cao_Lab_06_2312777_NguyenVietToan.md).
 * **Nhánh làm việc**: `2312777-NguyenVietToan-buoi6`
 * **Nhiệm vụ trọng tâm**:
   1. Hoàn thiện dịch vụ `RedisCacheService.cs` trong `CulinaryBlog.Infrastructure`:

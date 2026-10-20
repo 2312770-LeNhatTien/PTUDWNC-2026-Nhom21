@@ -1,4 +1,5 @@
 using System.Text;
+using StackExchange.Redis;
 using Amazon.S3;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Domain.Entities;
@@ -90,10 +91,16 @@ public static class DependencyInjection
             .AddPolicy("AuthorOrAdmin", p => p.RequireRole("Author", "Admin"));
 
         // ── Redis Distributed Cache ──────────────────────────────────────────
-        services.AddStackExchangeRedisCache(options =>
+        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(
+            configuration.GetConnectionString("Redis") ?? "localhost:6379"));
+        services.AddStackExchangeRedisCache(_ => { });
+        services.AddOptions<Microsoft.Extensions.Caching.StackExchangeRedis.RedisCacheOptions>()
+            .Configure<IConnectionMultiplexer>((options, multiplexer) =>
         {
             options.Configuration = configuration.GetConnectionString("Redis");
-            options.InstanceName = "culinaryblog:";
+            options.InstanceName = RedisCacheService.InstanceName;
+            options.ConnectionMultiplexerFactory = () => Task.FromResult(
+                multiplexer);
         });
         services.AddScoped<ICacheService, RedisCacheService>();
 

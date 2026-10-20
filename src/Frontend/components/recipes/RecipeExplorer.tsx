@@ -1,5 +1,11 @@
 'use client';
 
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Pagination } from '@/components/shared/Pagination';
+import { LoadingState } from '@/components/shared/LoadingState';
+import { ErrorState } from '@/components/shared/ErrorState';
+import { getApiError } from '@/lib/api/errors';
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { recipesApi } from '@/lib/api/recipes';
@@ -59,8 +65,8 @@ export default function RecipeExplorer() {
       sort: current.get('sort') || undefined,
     }, controller.signal).then(data => {
       if (!controller.signal.aborted) { setItems(data.items); setTotal(data.total); }
-    }).catch(() => {
-      if (!controller.signal.aborted) setError('Không thể tải công thức. Kiểm tra kết nối và thử lại.');
+    }).catch((error: unknown) => {
+      if (!controller.signal.aborted) setError(getApiError(error, 'Không thể tải công thức. Kiểm tra kết nối và thử lại.').message);
     }).finally(() => { if (!controller.signal.aborted) setLoading(false); });
     return () => controller.abort();
   }, [queryString, retry]);
@@ -77,8 +83,8 @@ export default function RecipeExplorer() {
     <h1 className="text-3xl font-bold">Khám phá công thức nấu ăn</h1>
     <p className="mt-2 text-neutral-500">Tìm món ăn tiếng Việt có dấu hoặc không dấu, lọc theo thời gian và độ khó.</p>
     <div className="my-6 flex flex-wrap gap-3">
-      <label className="min-w-0 flex-1"><span className="sr-only">Tìm công thức</span><input type="search" value={text} onChange={e => setText(e.target.value)} placeholder="Tìm món ăn, ví dụ: pho bo…" className="w-full rounded-xl border p-3" /></label>
-      <button aria-expanded={filtersOpen} aria-controls="recipe-filters" className="rounded-xl border border-orange-300 bg-orange-50 px-5 py-3 text-orange-800" onClick={() => setFiltersOpen(!filtersOpen)}>Bộ lọc {filtersOpen ? '▴' : '▾'}</button>
+      <label className="min-w-0 flex-1"><span className="sr-only">Tìm công thức</span><Input type="search" value={text} onChange={e => setText(e.target.value)} placeholder="Tìm món ăn, ví dụ: pho bo…" className="w-full rounded-xl border p-3" /></label>
+      <Button variant="outline" aria-expanded={filtersOpen} aria-controls="recipe-filters" className="rounded-xl border border-orange-300 bg-orange-50 px-5 py-3 text-orange-800" onClick={() => setFiltersOpen(!filtersOpen)}>Bộ lọc {filtersOpen ? '▴' : '▾'}</Button>
     </div>
     {filtersOpen && <section id="recipe-filters" aria-label="Bộ lọc nâng cao" className="mb-6 grid gap-4 rounded-xl border bg-orange-50/50 p-5 sm:grid-cols-2 lg:grid-cols-5">
       <label>Danh mục<select aria-label="Danh mục" className={selectClass} value={params.get('categoryId') || ''} onChange={e => update('categoryId', e.target.value)}><option value="">Tất cả</option>{categories.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
@@ -90,14 +96,10 @@ export default function RecipeExplorer() {
     </section>}
     {categoryError && <p role="status" className="mb-4 text-amber-800">{categoryError}</p>}
     <section aria-label="Kết quả công thức" aria-busy={loading}>
-      {loading ? <p role="status">Đang tìm công thức…</p> : error ? <div role="alert" className="rounded-lg bg-red-50 p-4 text-red-700">{error} <button className="underline" onClick={() => setRetry(n => n + 1)}>Thử lại</button></div> : <>
+      {loading ? <LoadingState message="Đang tìm công thức…" /> : error ? <ErrorState title="Không thể tải công thức" message={error} onRetry={() => setRetry(n => n + 1)} /> : <>
         <p role="status" className="mb-5 text-neutral-600">Tìm thấy {total} công thức{keyword ? ` cho “${keyword}”` : ''}.</p>
         {items.length ? <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{items.map(recipe => <RecipeCard key={recipe.id} recipe={recipe} />)}</div> : <p className="rounded-xl border border-dashed p-10 text-center">Không có công thức phù hợp. Hãy thử từ khóa hoặc bộ lọc khác.</p>}
-        <nav aria-label="Phân trang" className="mt-8 flex items-center justify-center gap-5">
-          <button disabled={page <= 1} className="rounded-lg border px-4 py-2 disabled:opacity-40" onClick={() => update('page', String(page - 1))}>Trước</button>
-          <span>Trang {page} / {Math.max(1, Math.ceil(total / pageSize))}</span>
-          <button disabled={page * pageSize >= total} className="rounded-lg border px-4 py-2 disabled:opacity-40" onClick={() => update('page', String(page + 1))}>Sau</button>
-        </nav>
+        <Pagination page={page} total={total} pageSize={pageSize} onPageChange={page => update('page', String(page))} />
       </>}
     </section>
   </div>;

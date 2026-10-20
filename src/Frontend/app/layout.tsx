@@ -14,8 +14,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="vi" className="scroll-smooth">
       <body className="min-h-screen bg-neutral-50/60 font-sans text-neutral-800 antialiased flex flex-col">
         <Providers>
+          <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-white focus:p-3">Đến nội dung chính</a>
           <Navbar />
-          <div className="flex-1">
+          <div id="main-content" tabIndex={-1} className="flex-1">
             {children}
           </div>
           <Footer />

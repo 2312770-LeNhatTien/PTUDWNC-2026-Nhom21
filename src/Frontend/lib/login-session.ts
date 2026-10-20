@@ -1,5 +1,6 @@
 'use client';
 
+import { useAuthStore } from '@/stores/auth-store';
 import { signIn } from 'next-auth/react';
 import type { AuthResponseDto } from '@/types/api';
 
@@ -8,10 +9,7 @@ import type { AuthResponseDto } from '@/types/api';
 export async function establishLoginSession(data: AuthResponseDto) {
   const result = await signIn('backend-token', { accessToken: data.accessToken, redirect: false });
   if (!result || result.error) throw new Error('Không thể tạo phiên đăng nhập. Vui lòng thử lại.');
-  localStorage.setItem('accessToken', data.accessToken);
-  localStorage.setItem('refreshToken', data.refreshToken);
-  localStorage.setItem('user', JSON.stringify(data.user));
-  window.dispatchEvent(new Event('auth-changed'));
+  useAuthStore.getState().setSession(data);
 }
 
 export function loginDestination(): string {

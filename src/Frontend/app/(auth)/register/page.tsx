@@ -199,6 +199,7 @@ export default function RegisterPage() {
       // Bước 3: Lưu trữ phiên đăng nhập vào LocalStorage
       await establishLoginSession(authData);
       router.push(loginDestination());
+
       router.refresh();
     } catch (error: unknown) {
       // Bước 6: Xử lý và phân loại mã lỗi HTTP trả về
