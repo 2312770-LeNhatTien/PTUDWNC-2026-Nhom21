@@ -11,9 +11,10 @@
 'use client';
 
 import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
 import { authApi } from '@/lib/api/auth';
+import { filesApi } from '@/lib/api/files';
+import FallbackImage from '@/components/ui/FallbackImage';
 import type { UserDto } from '@/types/api';
 
 export default function ProfilePage() {
@@ -47,13 +48,7 @@ export default function ProfilePage() {
     }
   };
 
-  // Helper lấy baseURL cho upload
-  const getApiBaseUrl = () => {
-    const raw = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
-    const base = raw.replace(/\/api\/v1\/?$/, '');
-    return `${base}/api/v1`;
-  };
-
+  
   // Tải thông tin hồ sơ từ backend GET /api/v1/auth/me
   useEffect(() => {
     async function fetchProfile() {
@@ -128,28 +123,9 @@ export default function ProfilePage() {
       // Nếu người dùng đã chọn file ảnh mới -> tải lên MinIO trước
       if (selectedFile) {
         setIsUploadingAvatar(true);
-        const formData = new FormData();
-        formData.append('file', selectedFile);
-        formData.append('folder', 'avatars');
-
-        const uploadRes = await fetch(`${getApiBaseUrl()}/files/upload`, {
-          method: 'POST',
-          body: formData,
-        });
-
-        if (!uploadRes.ok) {
-          throw new Error('Máy chủ từ chối file ảnh tải lên MinIO.');
-        }
-
-        const uploadJson = await uploadRes.json();
-        const minioUploadedUrl = uploadJson?.data?.url || uploadJson?.url;
-
-        if (!minioUploadedUrl) {
-          throw new Error('Không nhận được đường dẫn ảnh từ MinIO.');
-        }
-
-        finalAvatarUrl = minioUploadedUrl;
-        setAvatarUrl(minioUploadedUrl);
+        const uploadResult = await filesApi.uploadImage(selectedFile, 'avatars');
+        finalAvatarUrl = uploadResult.url;
+        setAvatarUrl(uploadResult.url);
       }
 
       // Cập nhật thông tin vào CSDL qua API PATCH /api/v1/auth/me
@@ -226,13 +202,11 @@ export default function ProfilePage() {
               {/* AVATAR TRÒN LỚN CÓ NÚT UPLOAD MINIO */}
               <div className="relative group mb-4">
                 <div className="w-32 h-32 sm:w-36 sm:h-36 rounded-full overflow-hidden border-4 border-amber-100 shadow-md relative bg-neutral-100">
-                  <Image
+                  <FallbackImage
                     src={currentAvatarSrc}
                     alt={displayName || 'Avatar'}
-                    fill
-                    sizes="144px"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
-                    priority
+                    fallbackText="Chưa có avatar"
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   {isUploadingAvatar && (
                     <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white text-xs gap-1">
