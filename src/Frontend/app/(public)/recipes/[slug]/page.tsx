@@ -9,7 +9,6 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { recipesApi } from '@/lib/api/recipes';
 import IngredientChecklist from '@/components/recipes/IngredientChecklist';
-import RecipeAdminActions from '@/components/recipes/RecipeAdminActions';
 import type { RecipeDifficulty, RecipeImageDto } from '@/types/api';
 
 interface RecipeDetailPageProps {
