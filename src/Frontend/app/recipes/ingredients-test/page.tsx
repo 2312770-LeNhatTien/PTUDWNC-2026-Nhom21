@@ -1,12 +1,3 @@
-// ============================================================================
-// TRANG KIỂM THỬ: QUẢN LÝ NGUYÊN LIỆU MÓN ĂN (IngredientListEditor Test Page)
-// Tuần 5: Frontend Integration & Profile / Editor UI
-// Tác giả: Nguyễn Đình Tuấn (MSSV: 2312792)
-// Kiểm thử:
-//   1. Nhập liên tục bằng phím Enter (không cần chạm chuột)
-//   2. Quyết định kiến trúc D10: Nullable Quantity & Unit cho gia vị nêm nếm
-// ============================================================================
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -24,6 +15,25 @@ export default function IngredientsTestPage() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
+  // Phân quyền: Kiểm tra người dùng có phải Quản trị viên (Admin) hoặc Tác giả (Author)
+  const [currentUser, setCurrentUser] = useState<{ id: string; roles?: string[] } | null>(null);
+  const [authChecked, setAuthChecked] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('user');
+      if (stored) {
+        setCurrentUser(JSON.parse(stored));
+      } else {
+        setCurrentUser(null);
+      }
+    } catch {
+      setCurrentUser(null);
+    } finally {
+      setAuthChecked(true);
+    }
+  }, []);
+
   // Tải danh sách món ăn từ Backend GET /api/v1/recipes
   useEffect(() => {
     async function fetchRecipes() {
@@ -32,7 +42,14 @@ export default function IngredientsTestPage() {
       try {
         const res = await recipesApi.getAll({ pageSize: 50 });
         setRecipes(res.items);
-        if (res.items.length > 0) {
+        
+        // Kiểm tra xem URL có truyền query param recipeId không
+        const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const targetRecipeId = params?.get('recipeId');
+
+        if (targetRecipeId && res.items.some((item) => item.id === targetRecipeId)) {
+          setSelectedRecipeId(targetRecipeId);
+        } else if (res.items.length > 0) {
           setSelectedRecipeId(res.items[0].id);
         }
       } catch {
@@ -64,6 +81,39 @@ export default function IngredientsTestPage() {
     fetchIngredients();
   }, [selectedRecipeId]);
 
+  const canManage = currentUser?.roles?.includes('Admin');
+
+  // Giao diện khi khách (chưa đăng nhập hoặc không có quyền Admin/Author) cố gắng truy cập trang
+  if (authChecked && !canManage) {
+    return (
+      <div className="min-h-screen bg-neutral-50/50 py-16 px-4 flex items-center justify-center">
+        <div className="max-w-md w-full bg-white rounded-3xl border border-neutral-200/80 p-8 text-center shadow-lg space-y-4">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto text-3xl">
+            🔒
+          </div>
+          <h2 className="text-xl font-bold text-neutral-800">Quyền truy cập dành cho Ban Quản trị</h2>
+          <p className="text-sm text-neutral-600 leading-relaxed">
+            Chức năng quản lý và biên soạn nguyên liệu chỉ dành cho Quản trị viên và Tác giả ẩm thực. Bạn có thể xem danh sách công thức và nguyên liệu chi tiết tại mục Khám phá công thức.
+          </p>
+          <div className="pt-2 flex flex-col gap-2">
+            <Link
+              href="/recipes"
+              className="w-full py-2.5 px-4 bg-orange-600 text-white font-semibold rounded-xl hover:bg-orange-700 transition"
+            >
+              🍲 Khám phá các công thức món ngon
+            </Link>
+            <Link
+              href="/login"
+              className="w-full py-2.5 px-4 bg-neutral-100 text-neutral-700 font-semibold rounded-xl hover:bg-neutral-200 transition"
+            >
+              🔐 Đăng nhập tài khoản Quản trị viên
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const filteredRecipes = recipes.filter((r) =>
     r.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -77,31 +127,33 @@ export default function IngredientsTestPage() {
         <nav className="text-xs text-neutral-500 flex items-center gap-2">
           <Link href="/" className="hover:text-amber-600 transition-colors">Trang chủ</Link>
           <span>/</span>
+          <Link href="/recipes" className="hover:text-amber-600 transition-colors">Khám phá công thức</Link>
+          <span>/</span>
           <Link href="/recipes/steps-test" className="hover:text-amber-600 transition-colors">Các bước nấu</Link>
           <span>/</span>
-          <span className="text-neutral-800 font-semibold">Quản lý nguyên liệu (FR-RCP-009)</span>
+          <span className="text-neutral-800 font-semibold">Biên soạn nguyên liệu</span>
         </nav>
 
         {/* Header */}
         <div className="bg-white rounded-3xl border border-neutral-200/80 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="inline-flex items-center gap-2 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold rounded-full mb-2">
-              <span>🥕</span> LAB 5 - QUẢN LÝ NGUYÊN LIỆU (FR-RCP-009)
+              <span>🥕</span> BỘ CÔNG CỤ QUẢN TRỊ ẨM THỰC
             </div>
             <h1 className="text-2xl font-black text-neutral-800 tracking-tight">
-              Biên Soạn & Thử Nghiệm Nguyên Liệu Món Ăn
+              Biên Soạn Nguyên Liệu Món Ăn
             </h1>
             <p className="text-xs text-neutral-500 mt-1 max-w-2xl">
-              Hỗ trợ nhập liệu siêu tốc bằng phím <kbd className="px-1.5 py-0.5 bg-neutral-100 border border-neutral-300 rounded text-[11px] font-mono font-bold">Enter</kbd> liên tục và tuân thủ chặt chẽ <strong>Quyết định thiết kế D10</strong> (Nullable Quantity & Unit cho gia vị nêm nếm).
+              Hỗ trợ nhập liệu siêu tốc bằng phím <kbd className="px-1.5 py-0.5 bg-neutral-100 border border-neutral-300 rounded text-[11px] font-mono font-bold">Enter</kbd> liên tục. Linh hoạt điều chỉnh định lượng và gia vị nêm nếm theo khẩu vị thực tế của món ăn.
             </p>
           </div>
 
           <div className="flex gap-2">
             <Link
-              href="/profile"
+              href="/recipes"
               className="px-4 py-2 bg-neutral-100 hover:bg-neutral-200/80 text-neutral-700 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5"
             >
-              <span>👤</span> Xem Hồ Sơ Cá Nhân
+              <span>🍲</span> Xem Khám Phá
             </Link>
             <Link
               href="/recipes/steps-test"
@@ -177,9 +229,19 @@ export default function IngredientsTestPage() {
                     <span className="text-[11px] text-amber-800 uppercase font-bold tracking-wider">Món đang chọn:</span>
                     <h3 className="text-base font-extrabold text-neutral-800">{selectedRecipe.title}</h3>
                   </div>
-                  <span className="text-xs bg-white px-3 py-1 rounded-full border border-amber-200 text-amber-800 font-semibold shadow-2xs">
-                    {selectedRecipe.categoryName || 'Món ăn'}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs bg-white px-3 py-1 rounded-full border border-amber-200 text-amber-800 font-semibold shadow-2xs">
+                      {selectedRecipe.categoryName || 'Món ăn'}
+                    </span>
+                    <Link
+                      href={`/recipes/${selectedRecipe.slug}`}
+                      target="_blank"
+                      className="text-xs px-3 py-1 bg-amber-600 text-white rounded-full font-semibold hover:bg-amber-700 transition"
+                      title="Xem trước trang công thức công khai"
+                    >
+                      Xem trang công thức ↗
+                    </Link>
+                  </div>
                 </div>
 
                 {isLoadingIngredients ? (

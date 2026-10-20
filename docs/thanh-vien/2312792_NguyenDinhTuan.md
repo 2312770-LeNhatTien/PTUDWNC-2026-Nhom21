@@ -48,10 +48,7 @@ Tuần 5 (Lab 5 - Frontend Integration & Profile / Editor UI):
   🔲 Component IngredientListEditor.tsx (nhập liên tục bằng phím Enter, null unit D10)
   🔲 Hoàn thiện component StepListEditor.tsx phục vụ trang tạo/sửa món ăn
 
-Tuần 6 (Lab 6 - Tối ưu hóa Media MinIO & Xử lý ảnh):
-  🔲 Sinh Presigned URL an toàn không lộ secret key từ Client
-  🔲 Xử lý Preview ảnh trực tiếp bằng Blob URL trước khi upload, Fallback ảnh lỗi
-  🔲 Kiểm thử tải đa định dạng file ảnh (JPG, PNG, WebP <= 5MB) có thanh tiến trình upload
+Tuần 6 (Lab 6 - Tối ưu hóa Media MinIO & Xử lý ảnh):\n  ✅ Sinh Presigned URL an toàn không lộ secret key từ Client\n  ✅ Xử lý Preview ảnh trực tiếp bằng Blob URL trước khi upload, Fallback ảnh lỗi\n  ✅ Kiểm thử tải đa định dạng file ảnh (JPG, PNG, WebP <= 5MB) có thanh tiến trình upload
 
 Tuần 7 (Lab 7 - Hangfire Background Job nén ảnh Thumbnail):
   🔲 FR-JOB-002 — Hangfire background job tự động nén & resize ảnh thumbnail 300x300 (ImageSharp)

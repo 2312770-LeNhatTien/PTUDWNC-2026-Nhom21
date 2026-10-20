@@ -62,9 +62,17 @@ async function main() {
     assert.equal((await req(path, 'PUT', { ...update, rowVersion: saved.body.data.rowVersion }, token)).status, 409);
     const concurrent = await Promise.all([1, 2].map(n => req(path, 'PUT', { ...update, title: `${payload.title} concurrent ${n}`, rowVersion: afterChild.rowVersion }, token)));
     assert.deepEqual(concurrent.map(r => r.status).sort(), [200, 409]);
+    const published = await req(`${path}/publish`, 'PATCH', undefined, token);
+    assert.equal(published.status, 200, JSON.stringify(published.body));
+    const publishedList = (await req('/recipes/mine?status=Published&pageSize=100', 'GET', undefined, token)).body;
+    assert.ok(publishedList.data.some(r => r.id === id), 'Own dashboard must include Published recipes');
+    const publishedDetail = (await req(`${path}/edit`, 'GET', undefined, token)).body.data;
+    assert.equal(publishedDetail.recipe.status, 'Published');
+    assert.equal((await req(`/recipes/${publishedDetail.recipe.slug}`)).status, 200);
     const archived = await req(`${path}/archive`, 'PATCH', undefined, token);
     assert.equal(archived.status, 200, JSON.stringify(archived.body));
     assert.equal(archived.body.data.recipe.status, 'Archived');
+    assert.ok([403, 404].includes((await req(`/recipes/${publishedDetail.recipe.slug}`)).status), 'Archive must hide the public recipe');
     const list = (await req('/recipes/mine?status=Archived&pageSize=100', 'GET', undefined, token)).body;
     assert.ok(list.data.some(r => r.id === id));
     assert.equal((await req(path, 'DELETE', undefined, token)).status, 204);

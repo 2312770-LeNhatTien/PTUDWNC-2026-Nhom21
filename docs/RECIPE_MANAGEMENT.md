@@ -49,8 +49,12 @@ $env:RECIPES_TEST_API_URL='http://localhost:5106/api/v1'
 npm run test:recipes:api
 $env:PLAYWRIGHT_CHROME_PATH='C:\Program Files\Google\Chrome\Application\chrome.exe'
 npm run test:recipes
+# Chỉ kiểm tra UI với API giả lập, không cần database:
+npm run test:recipes:ui
 ```
 
 Playwright tự mở frontend 3106 và đặt API_URL, NEXT_PUBLIC_API_URL, AUTH_URL/NEXTAUTH_URL phù hợp để không redirect nhầm cổng 3000 từ `.env.local`. Có thể bỏ PLAYWRIGHT_CHROME_PATH nếu đã cài Chromium của Playwright.
 
-API test xác minh token, quyền của tác giả khác, danh sách riêng/lọc, giữ dinh dưỡng và nội dung con, phiên cũ, hai request đồng thời, thay đổi nguyên liệu, lưu trữ và xóa mềm. Browser test dùng API thật, đăng nhập thật, hai tab sửa cùng bài, reload sau 409, lưu trữ và xóa từ dashboard. Các test tạo bài tạm và xóa mềm khi kết thúc; chỉ chạy trên database test.
+API test xác minh token, quyền của tác giả khác, danh sách riêng/lọc Draft/Published/Archived, giữ dinh dưỡng và nội dung con, phiên cũ, hai request đồng thời, thay đổi nguyên liệu, lưu trữ và xóa mềm. Browser test dùng API thật, đăng nhập thật, hai tab sửa cùng bài, reload sau 409, lưu trữ và xóa từ dashboard. Các test tạo bài tạm và xóa mềm khi kết thúc; chỉ chạy trên database test.
+
+`test:recipes:ui` chạy riêng bằng API giả lập và cookie phiên kiểm thử, kiểm tra bộ lọc ba trạng thái, preview, lưu/409/tải lại, archive/delete. Kết quả UI giả lập không thay thế kiểm thử phân quyền/database/concurrency thật.

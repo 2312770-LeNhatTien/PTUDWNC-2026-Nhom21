@@ -1,7 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
-  testDir: './tests', testMatch: 'recipe-management.spec.ts', timeout: 60000, workers: 1,
+  testDir: './tests', testMatch: 'recipe-management*.spec.ts', timeout: 60000, workers: 1,
   use: { baseURL: 'http://localhost:3106', headless: true, actionTimeout: 15000,
     launchOptions: { args: ['--no-proxy-server'], ...(process.env.PLAYWRIGHT_CHROME_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROME_PATH } : {}) } },
   webServer: {

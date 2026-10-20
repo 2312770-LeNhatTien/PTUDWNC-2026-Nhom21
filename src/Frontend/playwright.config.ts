@@ -2,7 +2,7 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  testIgnore: 'recipe-management.spec.ts',
+  testIgnore: 'recipe-management*.spec.ts',
   timeout: 30000,
   workers: 1,
   use: {

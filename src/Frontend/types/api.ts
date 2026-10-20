@@ -164,3 +164,17 @@ export interface UpdateRecipeRequest {
   nutrition: RecipeDetailDto['nutrition'] | null;
   rowVersion: string;
 }
+
+export interface PresignedUploadResult {
+  uploadUrl: string;
+  publicUrl: string;
+  objectKey: string;
+  expiresInMinutes: number;
+}
+
+export interface FileUploadResponse {
+  url: string;
+  fileName: string;
+  contentType: string;
+  size: number;
+}
