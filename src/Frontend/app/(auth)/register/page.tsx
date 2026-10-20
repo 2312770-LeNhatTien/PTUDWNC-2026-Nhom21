@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import axios from "axios";
 import { authApi } from "@/lib/api/auth";
-import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
+import { establishLoginSession, loginDestination } from "@/lib/login-session";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -189,15 +189,17 @@ export default function RegisterPage() {
 
     try {
       // Bước 2: Gọi API POST /api/v1/auth/register thông qua authApi
-      await authApi.register({
+      const authData = await authApi.register({
         email: form.email.trim(),
         displayName: form.displayName.trim(),
         userName: form.userName.trim() || undefined,
         password: form.password,
       });
 
-      // Bước 5: Chuyển hướng người dùng về trang chủ
-      router.push("/");
+      // Bước 3: Lưu trữ phiên đăng nhập vào LocalStorage
+      await establishLoginSession(authData);
+      router.push(loginDestination());
+
       router.refresh();
     } catch (error: unknown) {
       // Bước 6: Xử lý và phân loại mã lỗi HTTP trả về
@@ -608,27 +610,6 @@ export default function RegisterPage() {
               )}
             </button>
           </form>
-
-          {/* Đường phân cách lựa chọn đăng ký nhanh */}
-          <div className="relative my-6 text-center">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-slate-200/80" />
-            </div>
-            <span className="relative bg-white/95 px-4 text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Hoặc đăng ký nhanh với
-            </span>
-          </div>
-
-          {/* Nút Đăng ký bằng Google OAuth 2.0 (FR-AUTH-003 UI) */}
-          <GoogleSignInButton
-            mode="register"
-            onError={(msg) =>
-              setAlertError({
-                type: "general",
-                message: msg,
-              })
-            }
-          />
 
           {/* Footer chuyển sang trang Đăng nhập */}
           <div className="mt-8 border-t border-slate-100 pt-6 text-center">

@@ -13,21 +13,18 @@ export const authApi = {
   // FR-AUTH-001: POST /api/v1/auth/register
   register: async (data: RegisterRequest): Promise<AuthResponseDto> => {
     const response = await apiClient.post<ApiResponse<AuthResponseDto>>("/auth/register", data);
-    useAuthStore.getState().setSession(response.data.data);
     return response.data.data;
   },
 
   // FR-AUTH-002: POST /api/v1/auth/login
   login: async (email: string, password: string): Promise<AuthResponseDto> => {
     const response = await apiClient.post<ApiResponse<AuthResponseDto>>("/auth/login", { email, password });
-    useAuthStore.getState().setSession(response.data.data);
     return response.data.data;
   },
 
   // FR-AUTH-003: POST /api/v1/auth/google
   googleLogin: async (idToken: string): Promise<AuthResponseDto> => {
     const response = await apiClient.post<ApiResponse<AuthResponseDto>>("/auth/google", { idToken });
-    useAuthStore.getState().setSession(response.data.data);
     return response.data.data;
   },
 

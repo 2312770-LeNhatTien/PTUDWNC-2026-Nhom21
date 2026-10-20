@@ -2,6 +2,12 @@ import { test, expect } from '@playwright/test';
 
 const user = { id: 'lab06-author', email: 'author@example.test', displayName: 'Tác giả Lab 6', roles: ['Author'] };
 test.beforeEach(async ({ page }) => {
+  await page.route('**/api/auth/providers', route => route.fulfill({ json: {
+    'backend-token': { id: 'backend-token', name: 'Credentials', type: 'credentials', signinUrl: 'http://localhost:3105/api/auth/signin/backend-token', callbackUrl: 'http://localhost:3105/api/auth/callback/backend-token' }
+  } }));
+  await page.route('**/api/auth/csrf', route => route.fulfill({ json: { csrfToken: 'local-test-csrf' } }));
+  await page.route('**/api/auth/callback/backend-token**', route => route.fulfill({ json: { url: 'http://localhost:3105/' } }));
+  await page.route('**/api/auth/signout', route => route.fulfill({ json: { url: 'http://localhost:3105/login' } }));
   await page.route('**/api/auth/session', route => route.fulfill({ json: {} }));
   await page.route('**/api/v1/categories', route => route.fulfill({ json: { data: [] } }));
   await page.route('**/api/v1/recipes**', route => route.fulfill({ json: { data: [], meta: { total: 25, page: 1, pageSize: 12, totalPages: 3 } } }));
@@ -88,5 +94,33 @@ test('concurrent 401 requests rotate tokens once and replay with fresh token', a
   await expect(page.locator('header')).toContainText('Đã làm mới');
   expect(refreshes).toBe(1);
   expect(await page.evaluate(() => localStorage.getItem('refreshToken'))).toBe('new-refresh');
+});
+
+
+test('Navbar keeps admin-only tools hidden from guests and authors on desktop and mobile', async ({ page }) => {
+  for (const roles of [null, ['Author'], ['Admin']]) {
+    await page.goto('/recipes');
+    await page.evaluate(({ user, roles }) => {
+      if (roles) localStorage.setItem('user', JSON.stringify({ ...user, roles }));
+      else localStorage.removeItem('user');
+      window.dispatchEvent(new Event('auth-changed'));
+    }, { user, roles });
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      if (width === 390) await page.getByRole('button', { name: 'Menu', exact: true }).click();
+      const header = page.locator('header');
+      const steps = header.getByRole('link', { name: /Các bước nấu/ });
+      const ingredients = header.getByRole('link', { name: /Nguyên liệu/ });
+      if (roles?.includes('Admin')) {
+        await expect(steps).toBeVisible();
+        await expect(ingredients).toBeVisible();
+      } else {
+        await expect(steps).toHaveCount(0);
+        await expect(ingredients).toHaveCount(0);
+      }
+      await expect(header.locator('a[href="/upload-test"]')).toHaveCount(0);
+      if (width === 390) await page.getByRole('button', { name: 'Menu', exact: true }).click();
+    }
+  }
 });
 

@@ -11,7 +11,7 @@
 
 import { useAuthStore } from '@/stores/auth-store';
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
-import { getSession } from "next-auth/react";
+import { signOut } from "next-auth/react";
 import type { ApiResponse, AuthResponseDto } from "@/types/api";
 
 // Mở rộng kiểu dữ liệu của AxiosRequestConfig để hỗ trợ cờ _retry (chống lặp vô hạn)
@@ -78,16 +78,11 @@ apiClient.interceptors.request.use(async (config) => {
     return config;
   }
 
-  const storedToken = localStorage.getItem("accessToken");
-  if (storedToken) {
-    config.headers.Authorization = `Bearer ${storedToken}`;
-    return config;
-  }
-  // Fallback for sessions created through Auth.js.
-  const session = await getSession();
-  if (session?.user?.accessToken) {
-    config.headers.Authorization = `Bearer ${session.user.accessToken}`;
-    return config;
+  // The backend token store is authoritative for API requests and rotation.
+  // The NextAuth cookie protects pages and never replaces a freshly rotated token.
+  const token = localStorage.getItem("accessToken");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
 
   return config;
@@ -140,7 +135,8 @@ apiClient.interceptors.response.use(
         .catch((queueError) => Promise.reject(queueError));
     }
 
-    // Start a single refresh for all waiting requests.
+    // 4. Đánh dấu request này đã được thử refresh một lần (chống retry lặp vô hạn)
+    originalRequest._retry = true;
     isRefreshing = true;
 
     // Lấy Refresh Token hiện tại từ LocalStorage
@@ -152,6 +148,7 @@ apiClient.interceptors.response.use(
       isRefreshing = false;
       if (typeof window !== "undefined") {
         useAuthStore.getState().clearSession();
+        await signOut({ redirect: false }).catch(() => undefined);
         window.location.href = "/login";
       }
       return Promise.reject(error);
@@ -187,6 +184,7 @@ apiClient.interceptors.response.use(
 
       if (typeof window !== "undefined") {
         useAuthStore.getState().clearSession();
+        await signOut({ redirect: false }).catch(() => undefined);
         window.location.href = "/login";
       }
 

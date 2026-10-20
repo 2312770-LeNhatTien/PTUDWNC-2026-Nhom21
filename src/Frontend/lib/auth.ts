@@ -1,21 +1,38 @@
-// Cấu hình Auth.js v5. Access token của backend được nhúng vào session JWT
-// của Auth.js (lưu trong cookie HTTP-only), không lưu localStorage để tránh XSS.
+// Cookie Auth.js xác thực danh tính/vai trò cho middleware.
+// Luồng backend-token dùng kho token và refresh hiện có của apiClient;
+// authorize xác minh token với backend trước khi tạo cookie danh tính.
 import NextAuth, { type DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 
 declare module "next-auth" {
   interface Session {
-    user: { id: string; accessToken: string } & DefaultSession["user"];
+    user: { id: string; accessToken?: string; roles: string[] } & DefaultSession["user"];
   }
   interface User {
     accessToken?: string;
     refreshToken?: string;
+    roles?: string[];
   }
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
+    Credentials({
+      id: 'backend-token',
+      credentials: { accessToken: {} },
+      async authorize(credentials) {
+        if (typeof credentials.accessToken !== 'string') return null;
+        const base = (process.env.API_URL || 'http://localhost:5000').replace(/\/api\/v1\/?$/, '');
+        const response = await fetch(`${base}/api/v1/auth/me`, {
+          headers: { Authorization: `Bearer ${credentials.accessToken}` }, cache: 'no-store',
+        });
+        if (!response.ok) return null;
+        const { data } = await response.json();
+        if (!data?.id || !Array.isArray(data.roles)) return null;
+        return { id: data.id, email: data.email, name: data.displayName, image: data.avatarUrl, roles: data.roles };
+      },
+    }),
     Credentials({
       credentials: {
         email: { label: "Email", type: "email" },
@@ -48,6 +65,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             email: credentials.email as string,
             accessToken: tokens.accessToken,
             refreshToken: tokens.refreshToken,
+            roles: tokens.user?.roles ?? [],
           };
         } catch {
           return null;
@@ -69,6 +87,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.accessToken = user.accessToken;
         token.refreshToken = user.refreshToken;
         token.userId = user.id;
+        token.roles = user.roles ?? [];
       }
       // TODO (người phụ trách FR-AUTH-004): access token chỉ sống 15 phút,
       // cần bổ sung logic tự gọi /auth/refresh khi token sắp hết hạn.
@@ -78,6 +97,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async session({ session, token }) {
       session.user.id = token.userId as string;
       session.user.accessToken = token.accessToken as string;
+      session.user.roles = Array.isArray(token.roles) ? token.roles as string[] : [];
       return session;
     },
   },

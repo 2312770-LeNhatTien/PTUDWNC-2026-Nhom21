@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import { getApiError } from "@/lib/api/errors";
 import { authApi } from "@/lib/api/auth";
+import { establishLoginSession, loginDestination } from "@/lib/login-session";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function LoginPage() {
@@ -98,10 +99,12 @@ export default function LoginPage() {
 
     try {
       // Bước 2: Gọi API POST /api/v1/auth/login thông qua authApi
-      await authApi.login(form.email.trim(), form.password);
+      const authData = await authApi.login(form.email.trim(), form.password);
 
-      // Bước 5: Chuyển hướng người dùng về trang chủ
-      router.push("/");
+      // Bước 3: Lưu trữ token và thông tin người dùng vào LocalStorage
+      await establishLoginSession(authData);
+      router.push(loginDestination());
+
       router.refresh();
     } catch (error: unknown) {
       const failure = getApiError(error, "Đăng nhập thất bại. Vui lòng kiểm tra kết nối và thử lại.");

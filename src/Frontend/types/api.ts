@@ -15,6 +15,7 @@ export interface PaginationMeta {
 
 // Lỗi theo RFC 7807 (CONS-005)
 export interface ProblemDetails {
+  errorCode?: string;
   type?: string;
   title?: string;
   status?: number;
@@ -131,4 +132,49 @@ export interface RecipeDetailDto {
   steps: RecipeStepDto[];
   ingredients: RecipeIngredientDto[];
   images: RecipeImageDto[];
+}
+
+export interface MyRecipeDto {
+  id: string;
+  title: string;
+  slug: string;
+  status: RecipeStatus;
+  primaryImageUrl?: string | null;
+  categoryName: string;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface RecipeEditDto {
+  recipe: RecipeDetailDto;
+  rowVersion: string;
+  createdAt: string;
+  updatedAt?: string | null;
+}
+
+export interface UpdateRecipeRequest {
+  title: string;
+  description: string;
+  instructions: string;
+  categoryId: string;
+  prepTime: number;
+  cookTime: number;
+  servings: number;
+  difficulty: RecipeDifficulty;
+  nutrition: RecipeDetailDto['nutrition'] | null;
+  rowVersion: string;
+}
+
+export interface PresignedUploadResult {
+  uploadUrl: string;
+  publicUrl: string;
+  objectKey: string;
+  expiresInMinutes: number;
+}
+
+export interface FileUploadResponse {
+  url: string;
+  fileName: string;
+  contentType: string;
+  size: number;
 }
