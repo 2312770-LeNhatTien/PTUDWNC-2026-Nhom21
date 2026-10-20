@@ -8,7 +8,10 @@
     "start": "next start",
     "lint": "next lint",
     "test:e2e": "playwright test",
-    "test:api": "node tests/api-integration.cjs"
+    "test:api": "node tests/api-integration.cjs",
+    "test:recipes": "playwright test --config playwright.recipes.config.ts",
+    "test:recipes:ui": "playwright test --config playwright.recipes.config.ts recipe-management.ui.spec.ts",
+    "test:recipes:api": "node tests/recipe-management-api.cjs"
   },
   "dependencies": {
     "@hookform/resolvers": "3.9.1",

@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useMemo, useState } from "react";
 import axios from "axios";
 import { authApi } from "@/lib/api/auth";
+import { establishLoginSession, loginDestination } from "@/lib/login-session";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -196,23 +197,8 @@ export default function RegisterPage() {
       });
 
       // Bước 3: Lưu trữ phiên đăng nhập vào LocalStorage
-      if (authData.accessToken) {
-        localStorage.setItem("accessToken", authData.accessToken);
-      }
-      if (authData.refreshToken) {
-        localStorage.setItem("refreshToken", authData.refreshToken);
-      }
-      if (authData.user) {
-        localStorage.setItem("user", JSON.stringify(authData.user));
-      }
-
-      // Bước 4: Phát sự kiện 'auth-changed' để đồng bộ Navbar
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("auth-changed"));
-      }
-
-      // Bước 5: Chuyển hướng người dùng về trang chủ
-      router.push("/");
+      await establishLoginSession(authData);
+      router.push(loginDestination());
       router.refresh();
     } catch (error: unknown) {
       // Bước 6: Xử lý và phân loại mã lỗi HTTP trả về

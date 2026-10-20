@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { authApi } from "@/lib/api/auth";
+import { signOut } from 'next-auth/react';
 
 /**
  * Interface biểu diễn thông tin người dùng lưu trữ trong LocalStorage
@@ -123,6 +124,8 @@ export default function Navbar() {
       setIsUserMenuOpen(false);
       setIsMobileMenuOpen(false);
       window.dispatchEvent(new Event("auth-changed"));
+      try { await signOut({ redirect: false }); }
+      catch (error) { console.warn('Không thể kết thúc cookie phiên đăng nhập:', error); }
       router.push("/login");
     }
   };

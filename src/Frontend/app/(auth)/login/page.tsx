@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 import axios from "axios";
 import { authApi } from "@/lib/api/auth";
+import { establishLoginSession, loginDestination } from "@/lib/login-session";
 import GoogleSignInButton from "@/components/auth/GoogleSignInButton";
 
 export default function LoginPage() {
@@ -101,23 +102,8 @@ export default function LoginPage() {
       const authData = await authApi.login(form.email.trim(), form.password);
 
       // Bước 3: Lưu trữ token và thông tin người dùng vào LocalStorage
-      if (authData.accessToken) {
-        localStorage.setItem("accessToken", authData.accessToken);
-      }
-      if (authData.refreshToken) {
-        localStorage.setItem("refreshToken", authData.refreshToken);
-      }
-      if (authData.user) {
-        localStorage.setItem("user", JSON.stringify(authData.user));
-      }
-
-      // Bước 4: Phát sự kiện 'auth-changed' để đồng bộ trạng thái Navbar toàn trang
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new Event("auth-changed"));
-      }
-
-      // Bước 5: Chuyển hướng người dùng về trang chủ
-      router.push("/");
+      await establishLoginSession(authData);
+      router.push(loginDestination());
       router.refresh();
     } catch (error: unknown) {
       // Bước 6: Xử lý và phân loại mã lỗi HTTP trả về theo chuẩn RFC 7807 Problem Details
