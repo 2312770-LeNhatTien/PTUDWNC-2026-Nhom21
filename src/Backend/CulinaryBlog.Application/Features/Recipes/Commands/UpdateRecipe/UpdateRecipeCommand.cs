@@ -1,11 +1,12 @@
 // ============================================================================
-// CHỨC NĂNG: FR-RCP-004 - Cập nhật công thức nấu ăn kèm Optimistic Concurrency (D8)
+// CHỨC NĂNG: FR-RCP-004 - Cập nhật công thức nấu ăn kèm Optimistic Concurrency
 // THÀNH VIÊN: Lê Nhật Tiến (MSSV: 2312770)
 // ============================================================================
 
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.DTOs;
+using CulinaryBlog.Application.Features.Recipes.Common;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Enums;
 using CulinaryBlog.Domain.ValueObjects;
@@ -32,6 +33,8 @@ public class UpdateRecipeCommandValidator : AbstractValidator<UpdateRecipeComman
 {
     public UpdateRecipeCommandValidator()
     {
+        RuleFor(x => x.RowVersion).NotNull().WithMessage("Thiếu phiên bản dữ liệu. Vui lòng tải lại công thức.")
+            .Must(v => v is { Length: 16 }).WithMessage("Phiên bản dữ liệu không hợp lệ.");
         RuleFor(x => x.Id)
             .NotEmpty().WithMessage("ID công thức không được để trống.");
 
@@ -40,7 +43,8 @@ public class UpdateRecipeCommandValidator : AbstractValidator<UpdateRecipeComman
             .MaximumLength(200).WithMessage("Tiêu đề tối đa 200 ký tự.");
 
         RuleFor(x => x.Description)
-            .NotEmpty().WithMessage("Mô tả không được để trống.");
+            .NotEmpty().WithMessage("Mô tả không được để trống.")
+            .MaximumLength(2000);
 
         RuleFor(x => x.CategoryId)
             .NotEmpty().WithMessage("Danh mục không được để trống.");
@@ -107,13 +111,10 @@ public class UpdateRecipeCommandHandler : IRequestHandler<UpdateRecipeCommand, R
             }
         }
 
-        // 4. Concurrency Token (D8): Kiểm tra xung đột dữ liệu nếu client gửi kèm RowVersion
-        if (request.RowVersion != null && request.RowVersion.Length > 0 && recipe.RowVersion != null && recipe.RowVersion.Length > 0)
+        // 4. RowVersion bắt buộc: kiểm tra phiên bản client trước khi sửa.
+        if (request.RowVersion == null || recipe.RowVersion == null || !request.RowVersion.SequenceEqual(recipe.RowVersion))
         {
-            if (!request.RowVersion.SequenceEqual(recipe.RowVersion))
-            {
-                throw new ConflictException("Dữ liệu công thức đã bị thay đổi bởi phiên làm việc khác. Vui lòng tải lại trang và thực hiện lại.");
-            }
+            throw new ConflictException("Dữ liệu công thức đã bị thay đổi bởi phiên làm việc khác. Vui lòng tải lại trang và thực hiện lại.", "RECIPE_CONCURRENCY_CONFLICT");
         }
 
         // 5. Cập nhật chi tiết qua domain method (tuân thủ quy tắc giữ nguyên Slug nếu đã Published)
@@ -164,78 +165,21 @@ public class UpdateRecipeCommandHandler : IRequestHandler<UpdateRecipeCommand, R
             recipe.SetNutrition(null);
         }
 
-        // 7. Lưu thay đổi và bắt ngoại lệ Concurrency (D8)
+        // 7. Lưu thay đổi và bắt ngoại lệ Concurrency
         try
         {
             await _context.SaveChangesAsync(ct);
         }
         catch (DbUpdateConcurrencyException)
         {
-            throw new ConflictException("Dữ liệu công thức đã bị thay đổi bởi phiên làm việc khác. Vui lòng tải lại trang và thực hiện lại.");
+            throw new ConflictException("Dữ liệu công thức đã bị thay đổi bởi phiên làm việc khác. Vui lòng tải lại trang và thực hiện lại.", "RECIPE_CONCURRENCY_CONFLICT");
         }
 
-        // 8. Tải lại category mới nếu có đổi
-        var category = recipe.Category;
-        if (recipe.CategoryId != category?.Id)
-        {
-            category = await _context.Categories.FirstOrDefaultAsync(c => c.Id == recipe.CategoryId, ct);
-        }
-
-        return new RecipeDetailDto(
-            recipe.Id,
-            recipe.Title,
-            recipe.Slug,
-            recipe.Description,
-            recipe.Instructions,
-            recipe.PrepTime,
-            recipe.CookTime,
-            recipe.Servings,
-            recipe.Difficulty.ToString(),
-            recipe.Status.ToString(),
-            recipe.PublishedAt,
-            new CategoryRefDto(
-                category?.Id ?? recipe.CategoryId,
-                category?.Name ?? "Không phân loại",
-                category?.Slug ?? string.Empty
-            ),
-            new AuthorRefDto(
-                recipe.Author?.Id ?? recipe.AuthorId,
-                recipe.Author?.DisplayName ?? "Tác giả",
-                recipe.Author?.AvatarUrl
-            ),
-            recipe.Nutrition != null ? new NutritionDto(
-                recipe.Nutrition.Calories,
-                recipe.Nutrition.Protein,
-                recipe.Nutrition.Carbohydrates,
-                recipe.Nutrition.Fat,
-                recipe.Nutrition.Fiber,
-                recipe.Nutrition.Sodium
-            ) : null,
-            recipe.Steps.OrderBy(s => s.StepNumber).Select(s => new RecipeStepDto(
-                s.Id,
-                s.StepNumber,
-                s.Title,
-                s.Description,
-                s.TimerMinutes,
-                s.ImageUrl
-            )).ToList(),
-            recipe.Ingredients.OrderBy(i => i.OrderIndex).Select(i => new RecipeIngredientDto(
-                i.Id,
-                i.Name,
-                i.Quantity,
-                i.Unit,
-                i.Notes,
-                i.OrderIndex
-            )).ToList(),
-            recipe.Images.OrderBy(i => i.OrderIndex).Select(i => new RecipeImageDto(
-                i.Id,
-                i.OriginalUrl,
-                i.MediumUrl,
-                i.ThumbnailUrl,
-                i.AltText,
-                i.IsPrimary,
-                i.OrderIndex
-            )).ToList()
-        );
+        // Reload without tracking: PostgreSQL generates the version and timestamps.
+        var saved = await RecipeManagementQueries.Detail(_context)
+            .FirstAsync(r => r.Id == recipe.Id, ct);
+        var result = RecipeManagementMapping.ToEditDto(saved);
+        // Preserve the existing flat recipe response; version/audit fields are additive.
+        return result.Recipe with { RowVersion = result.RowVersion, CreatedAt = result.CreatedAt, UpdatedAt = result.UpdatedAt };
     }
 }

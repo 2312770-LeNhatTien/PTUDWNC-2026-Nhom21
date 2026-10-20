@@ -44,12 +44,12 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <a href="#categories" className="hover:text-orange-400 transition-colors">
+                <Link href="/categories" className="hover:text-orange-400 transition-colors">
                   Danh mục món ăn
-                </a>
+                </Link>
               </li>
               <li>
-                <Link href="/recipes/create" className="hover:text-orange-400 transition-colors">
+                <Link href="/dashboard/recipes/new" className="hover:text-orange-400 transition-colors">
                   Đăng công thức mới
                 </Link>
               </li>
@@ -61,29 +61,29 @@ export default function Footer() {
             <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Danh Mục</h3>
             <ul className="mt-4 space-y-2.5 text-sm text-neutral-400">
               <li>
-                <a href="#categories" className="hover:text-orange-400 transition-colors">
+                <Link href="/categories" className="hover:text-orange-400 transition-colors">
                   Món Chính
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#categories" className="hover:text-orange-400 transition-colors">
+                <Link href="/categories" className="hover:text-orange-400 transition-colors">
                   Món Nước & Canh
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#categories" className="hover:text-orange-400 transition-colors">
+                <Link href="/categories" className="hover:text-orange-400 transition-colors">
                   Khai Vị & Ăn Vặt
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#categories" className="hover:text-orange-400 transition-colors">
+                <Link href="/categories" className="hover:text-orange-400 transition-colors">
                   Món Tráng Miệng
-                </a>
+                </Link>
               </li>
               <li>
-                <a href="#categories" className="hover:text-orange-400 transition-colors">
+                <Link href="/categories" className="hover:text-orange-400 transition-colors">
                   Món Chay Thanh Tịnh
-                </a>
+                </Link>
               </li>
             </ul>
           </div>

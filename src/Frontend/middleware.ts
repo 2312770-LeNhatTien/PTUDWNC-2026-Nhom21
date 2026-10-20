@@ -18,6 +18,12 @@ export default auth((req) => {
     return NextResponse.redirect(redirectUrl);
   }
 
+  if (isProtected && isLoggedIn) {
+    const roles = session.user.roles;
+    const allowed = nextUrl.pathname.startsWith('/dashboard') ? roles.some(role => role === 'Author' || role === 'Admin') : true;
+    if (!allowed) return new NextResponse('Bạn không có quyền truy cập trang này.', { status: 403 });
+  }
+
   return NextResponse.next();
 });
 

@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import ImageUploader from '@/components/ui/ImageUploader';
 import { recipesApi } from '@/lib/api/recipes';
 import PublishRequirementModal from '@/components/recipes/PublishRequirementModal';
+import apiClient from '@/lib/api/client';
+import { problemOf } from '@/components/dashboard/errors';
 
 /**
  * Interface biểu diễn danh mục tải từ API GET /api/v1/categories
@@ -253,34 +255,8 @@ export default function CreateRecipePage() {
 
     try {
       // Lấy JWT token nếu đã lưu ở localStorage hoặc cookie
-      const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-
-      const headers: Record<string, string> = {
-        'Content-Type': 'application/json',
-      };
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-
-      const res = await fetch(`${getApiBaseUrl()}/recipes`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json().catch(() => null);
-
-      if (!res.ok) {
-        // Xử lý lỗi theo format RFC 7807 ProblemDetails
-        if (data?.errors) {
-          const firstErrKey = Object.keys(data.errors)[0];
-          const firstErrMsg = data.errors[firstErrKey]?.[0] || 'Dữ liệu không hợp lệ.';
-          throw new Error(firstErrMsg);
-        }
-        throw new Error(data?.detail || data?.title || `Lỗi tạo công thức (${res.status})`);
-      }
-
-      const createdRecipe = data?.data || data;
+      const response = await apiClient.post('/recipes', payload);
+      const createdRecipe = response.data.data;
       const createdId = createdRecipe?.id;
       const slug = createdRecipe?.slug;
 
@@ -298,14 +274,15 @@ export default function CreateRecipePage() {
       // Tự động chuyển trang sau 1.5 giây
       setTimeout(() => {
         if (slug) {
-          router.push(`/recipes/${slug}`);
+          router.push(`/dashboard/recipes/${createdRecipe.id}/preview`);
         } else {
           router.push('/recipes');
         }
       }, 1500);
     } catch (err: unknown) {
       if (err instanceof Error) {
-        setFormError(err.message);
+        const problem = problemOf(err);
+        setFormError(problem.errors ? Object.values(problem.errors).flat().join(' ') : problem.detail || err.message);
       } else {
         setFormError('Đã có lỗi không xác định xảy ra. Vui lòng thử lại.');
       }

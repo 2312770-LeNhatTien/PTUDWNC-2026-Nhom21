@@ -7,6 +7,8 @@ using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+if (builder.Configuration.GetSection("Seq").Exists())
+    builder.Logging.AddSeq(builder.Configuration.GetSection("Seq"));
 
 // ── Đăng ký service theo từng tầng (SRS mục 6.2) ──────────────────────────
 builder.Services.AddApplication();
