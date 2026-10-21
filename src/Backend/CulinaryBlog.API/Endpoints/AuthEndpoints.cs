@@ -7,6 +7,8 @@ using CulinaryBlog.Application.Features.Auth.Commands.Logout;
 using CulinaryBlog.Application.Features.Auth.Commands.RefreshToken;
 using CulinaryBlog.Application.Features.Auth.Commands.Register;
 using MediatR;
+using CulinaryBlog.API.Authorization;
+using Microsoft.AspNetCore.Authentication;
 
 namespace CulinaryBlog.API.Endpoints;
 
@@ -64,11 +66,13 @@ public static class AuthEndpoints
 
         group.MapPost("/logout", async (
             LogoutRequest request,
+            HttpContext httpContext,
             IMediator mediator,
             CancellationToken cancellationToken) =>
         {
             var command = new LogoutCommand(request.RefreshToken);
             await mediator.Send(command, cancellationToken);
+            await httpContext.SignOutAsync(HangfireAuthorizationFilter.Scheme);
             return Results.NoContent();
         })
         .RequireAuthorization()
