@@ -21,6 +21,20 @@ public interface IFileStorageService
         TimeSpan? expiry = null,
         CancellationToken ct = default);
 
+    // Upload file lên bucket cụ thể (ví dụ 'recipe-thumbnails' cho FR-JOB-002)
+    Task<string> UploadToBucketAsync(
+        Stream content,
+        string fileName,
+        string contentType,
+        string bucketName,
+        string? folder = null,
+        CancellationToken ct = default);
+
+    // Tải dữ liệu ảnh từ URL (hỗ trợ cả MinIO S3 object và URL internet ngoài)
+    Task<(Stream Stream, long Length, string ContentType)> DownloadFileAsync(
+        string fileUrl,
+        CancellationToken ct = default);
+
     // Idempotent: object không tồn tại thì bỏ qua, không ném exception.
     Task DeleteAsync(string fileUrl, CancellationToken ct = default);
 }

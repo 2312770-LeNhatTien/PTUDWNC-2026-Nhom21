@@ -1,3 +1,4 @@
+using Hangfire;
 using CulinaryBlog.API;
 using CulinaryBlog.API.Endpoints;
 using CulinaryBlog.Application;
@@ -58,6 +59,12 @@ app.MapRecipesEndpoints();     // FR-RCP + FR-SRCH (SRS mục 8.3 - 8.6)
 app.MapFilesEndpoints();       // FR-FILE-001 + FR-FILE-002 (Upload/Delete MinIO)
 
 // TODO (người phụ trách FR-OBS-001): map endpoint kiểm tra sức khỏe tại /health
-// TODO (người phụ trách FR-JOB): map dashboard Hangfire tại /hangfire
+// ── Hangfire Dashboard & Background Job Endpoints (FR-JOB) ─────────────────
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    Authorization = new[] { new HangfireAuthorizationFilter() },
+    DashboardTitle = "Culinary Blog - Hangfire Dashboard"
+});
+app.MapJobsEndpoints(); // FR-JOB-002 (Nén & resize ảnh thumbnail 300x300)
 
 app.Run();

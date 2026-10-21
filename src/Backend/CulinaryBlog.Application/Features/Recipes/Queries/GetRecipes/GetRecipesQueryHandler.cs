@@ -82,7 +82,7 @@ public class GetRecipesQueryHandler : IRequestHandler<GetRecipesQuery, PagedResu
                 r.Servings,
                 r.Difficulty.ToString(),
                 r.Status.ToString(),
-                r.Images.FirstOrDefault(i => i.IsPrimary) != null ? r.Images.FirstOrDefault(i => i.IsPrimary)!.OriginalUrl : null,
+                r.Images.FirstOrDefault(i => i.IsPrimary) != null ? (r.Images.FirstOrDefault(i => i.IsPrimary)!.ThumbnailUrl ?? r.Images.FirstOrDefault(i => i.IsPrimary)!.OriginalUrl) : null,
                 r.Category != null ? r.Category.Name : "Khác",
                 r.Author != null ? r.Author.DisplayName : "Đầu bếp",
                 r.PublishedAt

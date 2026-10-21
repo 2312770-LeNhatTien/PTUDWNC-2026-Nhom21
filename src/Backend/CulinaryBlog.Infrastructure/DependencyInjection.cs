@@ -1,3 +1,6 @@
+using Hangfire;
+using Hangfire.PostgreSql;
+using CulinaryBlog.Infrastructure.Jobs;
 using System.Text;
 using StackExchange.Redis;
 using Amazon.S3;
@@ -123,6 +126,26 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUser, CurrentUserService>();
         services.AddScoped<IFileStorageService, MinioFileStorageService>();
         services.AddScoped<IEmailService, MailKitEmailService>();
+
+        // ── Hangfire Background Jobs (FR-JOB) ───────────────────────────────────
+        var defaultConn = configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Thiếu connection string DefaultConnection cho Hangfire.");
+
+        services.AddHangfire(config => config
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UsePostgreSqlStorage(c => c.UseNpgsqlConnection(defaultConn)));
+
+        services.AddHangfireServer(options =>
+        {
+            options.WorkerCount = Math.Max(2, Environment.ProcessorCount);
+            options.Queues = new[] { "default", "images" };
+        });
+
+        services.AddHttpClient();
+        services.AddScoped<IImageResizeJob, ImageResizeJob>();
+        services.AddScoped<IBackgroundJobService, HangfireBackgroundJobService>();
 
         return services;
     }
