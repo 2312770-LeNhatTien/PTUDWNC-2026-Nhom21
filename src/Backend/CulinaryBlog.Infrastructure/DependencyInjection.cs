@@ -9,6 +9,9 @@ using CulinaryBlog.Infrastructure.Caching;
 using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.Infrastructure.Persistence.Repositories;
 using CulinaryBlog.Infrastructure.Services;
+using CulinaryBlog.Infrastructure.Jobs;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -123,6 +126,18 @@ public static class DependencyInjection
         services.AddScoped<ICurrentUser, CurrentUserService>();
         services.AddScoped<IFileStorageService, MinioFileStorageService>();
         services.AddScoped<IEmailService, MailKitEmailService>();
+
+        services.AddOptions<SitemapOptions>().Bind(configuration.GetSection("Sitemap"))
+            .Validate(o => o.IsValid(), "Sitemap requires an absolute website origin, output directory and cron; Google submission requires a public HTTPS site.")
+            .ValidateOnStart();
+        services.AddHttpClient("SearchConsole", client => client.Timeout = TimeSpan.FromSeconds(30));
+        if (configuration.GetValue("Jobs:Enabled", true))
+        {
+            services.AddHangfire(options => options.UseSimpleAssemblyNameTypeSerializer().UseRecommendedSerializerSettings()
+                .UsePostgreSqlStorage(pg => pg.UseNpgsqlConnection(configuration.GetConnectionString("DefaultConnection"))));
+            services.AddHangfireServer();
+            services.AddScoped<SitemapJob>();
+        }
 
         return services;
     }
