@@ -1,3 +1,6 @@
+using Hangfire;
+using Hangfire.PostgreSql;
+using CulinaryBlog.Infrastructure.Jobs;
 using System.Text;
 using StackExchange.Redis;
 using Amazon.S3;
@@ -9,9 +12,6 @@ using CulinaryBlog.Infrastructure.Caching;
 using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.Infrastructure.Persistence.Repositories;
 using CulinaryBlog.Infrastructure.Services;
-using CulinaryBlog.Infrastructure.Jobs;
-using Hangfire;
-using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -133,12 +133,28 @@ public static class DependencyInjection
             .Validate(o => o.IsValid(), "Sitemap requires an absolute website origin, output directory and cron; Google submission requires a public HTTPS site.")
             .ValidateOnStart();
         services.AddHttpClient("SearchConsole", client => client.Timeout = TimeSpan.FromSeconds(30));
+        services.AddHttpClient();
+
         if (configuration.GetValue("Jobs:Enabled", true))
         {
-            services.AddHangfire(options => options.UseSimpleAssemblyNameTypeSerializer().UseRecommendedSerializerSettings()
-                .UsePostgreSqlStorage(pg => pg.UseNpgsqlConnection(configuration.GetConnectionString("DefaultConnection"))));
-            services.AddHangfireServer();
+            var defaultConn = configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("Thiếu connection string DefaultConnection cho Hangfire.");
+
+            services.AddHangfire(options => options
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UsePostgreSqlStorage(pg => pg.UseNpgsqlConnection(defaultConn)));
+
+            services.AddHangfireServer(options =>
+            {
+                options.WorkerCount = Math.Max(2, Environment.ProcessorCount);
+                options.Queues = new[] { "default", "images" };
+            });
+
             services.AddScoped<SitemapJob>();
+            services.AddScoped<IImageResizeJob, ImageResizeJob>();
+            services.AddScoped<IBackgroundJobService, HangfireBackgroundJobService>();
         }
 
         return services;

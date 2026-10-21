@@ -1,3 +1,4 @@
+using Hangfire;
 using CulinaryBlog.API;
 using CulinaryBlog.API.Endpoints;
 using CulinaryBlog.Application;
@@ -58,6 +59,6 @@ app.MapRecipesEndpoints();     // FR-RCP + FR-SRCH (SRS mục 8.3 - 8.6)
 app.MapFilesEndpoints();       // FR-FILE-001 + FR-FILE-002 (Upload/Delete MinIO)
 
 // TODO (người phụ trách FR-OBS-001): map endpoint kiểm tra sức khỏe tại /health
-app.MapJobsEndpoints();       // FR-JOB-003 + dashboard Admin
+app.MapJobsEndpoints();       // FR-JOB-002 (Nén ảnh thumbnail) + FR-JOB-003 (Sitemap) + Dashboard Admin
 
 app.Run();

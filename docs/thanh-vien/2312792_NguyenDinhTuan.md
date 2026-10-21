@@ -294,3 +294,23 @@ git checkout -b 2312792-NguyenDinhTuan-buoi4
   3. Chạy công cụ Google Lighthouse Audit trên trình duyệt Chrome, tối ưu hóa các chỉ số Core Web Vitals (LCP, FID, CLS) đạt điểm Performance $\ge 90$.
   4. Cùng cả nhóm hoàn thiện hồ sơ nghiệm thu đồ án.
 
+
+## Lab 07: Hangfire Background Job nén ảnh Thumbnail (FR-JOB-002)
+
+- **Thời gian**: 16/10/2026 - 22/10/2026
+- **Branch**: [`2312792-NguyenDinhTuan-buoi7`](https://github.com/2312770-coder/PTUDWNC-2026-Nhom21/tree/2312792-NguyenDinhTuan-buoi7)
+- **Tiến độ**: 100%
+
+### Các công việc đã hoàn thành:
+1. **Hangfire Background Job nén ảnh đa kích thước (SixLabors.ImageSharp)**:
+   - Xây dựng `IImageResizeJob`, `IBackgroundJobService`, `HangfireBackgroundJobService` và `ImageResizeJob`.
+   - Resize ảnh tự động thành 2 phiên bản: Thumbnail 300x300 (crop vuông) và Medium 800x600.
+   - Chuyển đổi sang định dạng WebP (Quality 75) tối ưu nén ảnh.
+   - Tự động enqueue job khi thêm ảnh mới (`AddRecipeImageCommand`) và hỗ trợ batch resize toàn bộ ảnh.
+2. **Lưu trữ Bucket chuyên dụng `recipe-thumbnails` trên MinIO**:
+   - Cấu hình tự động tạo bucket và thiết lập Anonymous Read Bucket Policy.
+   - Nén thành công 100/100 ảnh công thức ban đầu, dung lượng giảm từ ~540 KB xuống ~28 KB (**giảm 94.65%**, vượt yêu cầu > 70%).
+3. **Hangfire Dashboard & Tối ưu Web Frontend**:
+   - Tích hợp Hangfire Dashboard tại `/hangfire` với bộ lọc phân quyền `HangfireAuthorizationFilter`.
+   - Bổ sung cụm API quản trị `JobsEndpoints.cs`.
+   - Cập nhật truy vấn `GetRecipesQuery` và `SearchRecipesQuery` ưu tiên dùng `ThumbnailUrl` giúp tải trang web cực nhanh.
