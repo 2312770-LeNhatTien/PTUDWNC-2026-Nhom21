@@ -9,6 +9,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { recipesApi } from '@/lib/api/recipes';
 import IngredientChecklist from '@/components/recipes/IngredientChecklist';
+import RecipeOwnerActions from '@/components/recipes/RecipeOwnerActions';
 import type { RecipeDifficulty, RecipeImageDto } from '@/types/api';
 
 interface RecipeDetailPageProps {
@@ -91,6 +92,15 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
 
   return (
     <div className="min-h-screen bg-neutral-50/50 pb-24">
+      {/* ── THANH QUẢN LÝ DÀNH CHO TÁC GIẢ & QUẢN TRỊ VIÊN (FR-RCP-005 UI) ── */}
+      <RecipeOwnerActions
+        recipeId={recipe.id}
+        initialStatus={recipe.status}
+        authorId={recipe.author.id}
+        ingredientCount={recipe.ingredients.length}
+        stepCount={recipe.steps.length}
+      />
+
       {/* ── 1. BREADCRUMB ĐIỀU HƯỚNG ──────────────────────────────────── */}
       <div className="bg-white border-b border-neutral-100">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3.5">

@@ -4,6 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import ImageUploader from '@/components/ui/ImageUploader';
+import { recipesApi } from '@/lib/api/recipes';
+import PublishRequirementModal from '@/components/recipes/PublishRequirementModal';
 import apiClient from '@/lib/api/client';
 import { problemOf } from '@/components/dashboard/errors';
 
@@ -85,6 +87,29 @@ export default function CreateRecipePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [successSlug, setSuccessSlug] = useState<string | null>(null);
+
+  // Trạng thái xuất bản & kiểm tra điều kiện D11 (FR-RCP-005 UI)
+  const [shouldPublish, setShouldPublish] = useState<boolean>(false);
+  const [isD11ModalOpen, setIsD11ModalOpen] = useState<boolean>(false);
+
+  // Tính số lượng nguyên liệu và bước nấu hợp lệ
+  const validIngredientsCount = ingredients.filter((item) => item.name.trim().length > 0).length;
+  const validStepsCount = steps.filter(
+    (s) => s.title.trim().length > 0 || s.description.trim().length > 0
+  ).length;
+
+  // Xử lý bật/tắt công tắc xuất bản kèm kiểm tra điều kiện D11
+  const handleTogglePublish = () => {
+    if (!shouldPublish) {
+      if (validIngredientsCount < 1 || validStepsCount < 1) {
+        setIsD11ModalOpen(true);
+        return;
+      }
+      setShouldPublish(true);
+    } else {
+      setShouldPublish(false);
+    }
+  };
 
   const getApiBaseUrl = () => {
     const raw = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
@@ -220,16 +245,33 @@ export default function CreateRecipePage() {
       steps: validSteps.length > 0 ? validSteps : null,
     };
 
+    // Kiểm tra điều kiện D11 nếu người dùng chọn chế độ "Xuất bản ngay"
+    if (shouldPublish && (validIngredients.length < 1 || validSteps.length < 1)) {
+      setIsD11ModalOpen(true);
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
       // Lấy JWT token nếu đã lưu ở localStorage hoặc cookie
       const response = await apiClient.post('/recipes', payload);
       const createdRecipe = response.data.data;
+      const createdId = createdRecipe?.id;
       const slug = createdRecipe?.slug;
+
+      // Nếu người dùng chọn Xuất bản ngay, gọi API publish (FR-RCP-005)
+      if (shouldPublish && createdId) {
+        try {
+          await recipesApi.publish(createdId);
+        } catch (publishErr) {
+          console.warn('Lỗi khi kích hoạt xuất bản tự động:', publishErr);
+        }
+      }
+
       setSuccessSlug(slug || '');
 
-      // Tự động chuyển trang sau 2 giây
+      // Tự động chuyển trang sau 1.5 giây
       setTimeout(() => {
         if (slug) {
           router.push(`/dashboard/recipes/${createdRecipe.id}/preview`);
@@ -272,10 +314,39 @@ export default function CreateRecipePage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
-              Trạng thái: Bản nháp (Draft)
+          {/* Công tắc chọn chế độ Lưu nháp / Xuất bản ngay (FR-RCP-005 UI) */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2.5 bg-neutral-100/90 px-3.5 py-2 rounded-2xl border border-neutral-200">
+            <span className="text-xs font-semibold text-neutral-600">
+              Chế độ xuất bản:
             </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={shouldPublish}
+                onClick={handleTogglePublish}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                  shouldPublish ? 'bg-emerald-500' : 'bg-neutral-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    shouldPublish ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              {shouldPublish ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Xuất bản ngay
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 border border-amber-200">
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  Lưu bản nháp
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -286,7 +357,11 @@ export default function CreateRecipePage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
             <div>
-              <p className="font-semibold">Công thức đã được tạo thành công!</p>
+              <p className="font-semibold">
+                {shouldPublish
+                  ? 'Công thức đã được tạo và xuất bản công khai thành công!'
+                  : 'Công thức đã được lưu bản nháp thành công!'}
+              </p>
               <p className="text-xs text-emerald-700 mt-0.5">
                 Đang chuyển hướng sang trang chi tiết công thức...
               </p>
@@ -739,54 +814,96 @@ export default function CreateRecipePage() {
           </div>
 
           {/* NÚT THAO TÁC SUBMIT */}
-          <div className="flex items-center justify-end gap-3 pt-4">
-            <Link
-              href="/recipes"
-              className="px-5 py-2.5 rounded-xl border border-neutral-300 text-neutral-700 text-sm font-semibold hover:bg-neutral-100 transition"
-            >
-              Hủy bỏ
-            </Link>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-neutral-200">
+            <div className="flex items-center gap-3">
+              <span className="text-xs font-semibold text-neutral-600">
+                Xuất bản ngay sau khi lưu:
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={shouldPublish}
+                onClick={handleTogglePublish}
+                className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-orange-500 ${
+                  shouldPublish ? 'bg-emerald-500' : 'bg-neutral-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    shouldPublish ? 'translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+              <span className="text-xs font-medium text-neutral-700">
+                {shouldPublish ? (
+                  <span className="text-emerald-700 font-bold">Bật (Công khai)</span>
+                ) : (
+                  <span className="text-neutral-500">Tắt (Bản nháp)</span>
+                )}
+              </span>
+            </div>
 
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-white text-sm font-bold shadow-md shadow-orange-500/20 hover:from-amber-600 hover:to-orange-700 transition disabled:opacity-50 flex items-center gap-2"
-            >
-              {isSubmitting ? (
-                <>
-                  <svg
-                    className="animate-spin h-4 w-4 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  <span>Đang lưu công thức...</span>
-                </>
-              ) : (
-                <>
-                  <span>Lưu Bản Nháp</span>
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
-                </>
-              )}
-            </button>
+            <div className="flex items-center justify-end gap-3">
+              <Link
+                href="/recipes"
+                className="px-5 py-2.5 rounded-xl border border-neutral-300 text-neutral-700 text-sm font-semibold hover:bg-neutral-100 transition"
+              >
+                Hủy bỏ
+              </Link>
+
+              <button
+                type="submit"
+                disabled={isSubmitting}
+                className={`px-6 py-2.5 rounded-xl text-white text-sm font-bold shadow-md transition disabled:opacity-50 flex items-center gap-2 ${
+                  shouldPublish
+                    ? 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-600/20 hover:from-emerald-700 hover:to-teal-700'
+                    : 'bg-gradient-to-r from-amber-500 to-orange-600 shadow-orange-500/20 hover:from-amber-600 hover:to-orange-700'
+                }`}
+              >
+                {isSubmitting ? (
+                  <>
+                    <svg
+                      className="animate-spin h-4 w-4 text-white"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    <span>Đang xử lý...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{shouldPublish ? 'Xuất Bản Ngay' : 'Lưu Bản Nháp'}</span>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </form>
+
+        {/* Modal cảnh báo điều kiện D11 (FR-RCP-005 UI) */}
+        <PublishRequirementModal
+          isOpen={isD11ModalOpen}
+          onClose={() => setIsD11ModalOpen(false)}
+          ingredientCount={validIngredientsCount}
+          stepCount={validStepsCount}
+        />
       </div>
     </div>
   );
