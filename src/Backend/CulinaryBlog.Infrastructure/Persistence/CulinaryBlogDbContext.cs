@@ -20,6 +20,7 @@ public class CulinaryBlogDbContext : IdentityDbContext<ApplicationUser>, IApplic
     public DbSet<RecipeImage> RecipeImages => Set<RecipeImage>();
     public DbSet<Category> Categories => Set<Category>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<RecipeReview> RecipeReviews => Set<RecipeReview>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

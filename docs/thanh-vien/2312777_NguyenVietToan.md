@@ -1,6 +1,6 @@
 # Hướng Dẫn Chi Tiết & Phân Công Nhiệm Vụ
 ### Thành viên: Nguyễn Viết Toàn (MSSV: 2312777)
-### Vai trò: Category, Cache & Search Engine
+### Vai trò: Category, Cache, Search & Review
 
 ---
 
@@ -23,7 +23,7 @@
 | 4 | **FR-CAT-004** | Admin cập nhật danh mục (D12) | `Features/Categories/Commands/UpdateCategory/*` | Form sửa danh mục trong Admin |
 | 5 | **FR-CAT-005** | Admin xóa mềm danh mục (D1) | `Features/Categories/Commands/DeleteCategory/*` | Nút xóa có modal cảnh báo trong Admin |
 | 6 | **FR-SRCH-001** | Tìm kiếm toàn văn (PostgreSQL unaccent) | `Features/Recipes/Queries/SearchRecipes/*` | Trang kết quả tìm kiếm `/recipes?q=...` |
-| 7 | **FR-SRCH-002..004**<br>**FR-INT-001** | Lọc đa tiêu chí & Đánh giá sao | `Features/Recipes/Queries/GetRecipes/*`<br>`Features/Recipes/Commands/RateRecipe/*` | Sidebar bộ lọc `/recipes` & Component Rating |
+| 7 | **FR-SRCH-002..004**<br>**FR-INT-001** | Lọc đa tiêu chí, đánh giá sao & bình luận | `Features/Recipes/Queries/GetRecipes/*`<br>`Features/Recipes/Commands/AddRecipeReview/*` | Sidebar bộ lọc `/recipes` & Component Rating/Review |
 
 ---
 
@@ -53,8 +53,8 @@ Tuần 6 (Lab 6 - Tích hợp Redis Caching & Tối ưu hiệu năng):
   ✅ Đo lường benchmark: mean 2,74ms; p95 3,71ms (200 request, Release + Seq)
 
 Tuần 7 (Lab 7 - Đánh giá sao & Bình luận):
-  🔲 FR-INT-001 — Đánh giá sao công thức (Rating 1-5 sao, tính điểm trung bình và số lượt đánh giá)
-  🔲 Component gắn sao ⭐ tương tác tại trang chi tiết món và hiển thị rating trên RecipeCard
+  ✅ FR-INT-001 — Đánh giá sao công thức (Rating 1-5 sao, tính điểm trung bình và số lượt đánh giá)
+  ✅ Component gắn sao ⭐ tương tác, bình luận tại trang chi tiết món và hiển thị rating trên RecipeCard
 
 Tuần 8 (Lab 8 - Tối ưu hóa Database & Nghiệm thu):
   🔲 Tối ưu hóa chỉ mục CSDL PostgreSQL (EXPLAIN ANALYZE), rà soát chuẩn RFC 7807 ProblemDetails
@@ -251,6 +251,7 @@ git checkout -b 2312777-NguyenVietToan-buoi4
 
 ### 📅 Tuần 7 (Lab 7): Đánh giá công thức (Rating 1-5 sao) & Bình luận ẩm thực
 * **Nhánh làm việc**: `2312777-NguyenVietToan-buoi7`
+* **Báo cáo nghiệm thu**: [Bao_Cao_Lab_07_2312777_NguyenVietToan.md](Bao_Cao_Lab_07_2312777_NguyenVietToan.md)
 * **Nhiệm vụ trọng tâm**:
   1. Hiện thực `FR-INT-001`: Tính năng Đánh giá sao công thức và Bình luận:
      - Backend: Tạo entity `RecipeReview`, các lệnh `AddRecipeReviewCommand` và truy vấn `GetRecipeReviewsQuery`.

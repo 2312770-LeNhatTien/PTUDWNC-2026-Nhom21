@@ -17,6 +17,8 @@ import type {
   RecipeStepDto,
   RecipeIngredientDto,
   RecipeImageDto,
+  RecipeReviewsDto,
+  RecipeReviewDto,
   MyRecipeDto, RecipeEditDto, RecipeStatus, UpdateRecipeRequest, PaginationMeta,
 } from "@/types/api";
 
@@ -77,6 +79,18 @@ export const recipesApi = {
     } catch {
       return null;
     }
+  },
+
+  // FR-INT-001: Lấy điểm trung bình và danh sách bình luận.
+  getReviews: async (recipeId: string): Promise<RecipeReviewsDto> => {
+    const res = await apiClient.get<ApiResponse<RecipeReviewsDto>>(`/recipes/${recipeId}/reviews`);
+    return res.data.data;
+  },
+
+  // FR-INT-001: Mỗi tài khoản được đánh giá một lần cho mỗi công thức.
+  addReview: async (recipeId: string, data: { rating: number; comment: string }): Promise<RecipeReviewDto> => {
+    const res = await apiClient.post<ApiResponse<RecipeReviewDto>>(`/recipes/${recipeId}/reviews`, data);
+    return res.data.data;
   },
 
   // ==========================================================================

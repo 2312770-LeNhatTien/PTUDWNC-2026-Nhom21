@@ -14,6 +14,8 @@ public interface IApplicationDbContext
     DbSet<RecipeImage> RecipeImages { get; }
     DbSet<Category> Categories { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
+    DbSet<RecipeReview> RecipeReviews { get; }
+    DbSet<ApplicationUser> Users { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

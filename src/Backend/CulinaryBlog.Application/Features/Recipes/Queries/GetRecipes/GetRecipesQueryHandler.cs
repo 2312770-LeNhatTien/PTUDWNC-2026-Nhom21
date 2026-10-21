@@ -85,7 +85,11 @@ public class GetRecipesQueryHandler : IRequestHandler<GetRecipesQuery, PagedResu
                 r.Images.FirstOrDefault(i => i.IsPrimary) != null ? r.Images.FirstOrDefault(i => i.IsPrimary)!.OriginalUrl : null,
                 r.Category != null ? r.Category.Name : "Khác",
                 r.Author != null ? r.Author.DisplayName : "Đầu bếp",
-                r.PublishedAt
+                r.PublishedAt,
+                r.Reviews.Count(review => !review.IsDeleted) == 0
+                    ? 0
+                    : (decimal)r.Reviews.Where(review => !review.IsDeleted).Average(review => review.Rating),
+                r.Reviews.Count(review => !review.IsDeleted)
             ))
             .ToListAsync(ct);
 

@@ -107,7 +107,9 @@ public class GetRecipeBySlugQueryHandler : IRequestHandler<GetRecipeBySlugQuery,
                 i.AltText,
                 i.IsPrimary,
                 i.OrderIndex
-            )).ToList()
+            )).ToList(),
+            AverageRating: recipe.Reviews.Count == 0 ? 0 : Math.Round((decimal)recipe.Reviews.Average(review => review.Rating), 2),
+            ReviewCount: recipe.Reviews.Count
         );
     }
 }
