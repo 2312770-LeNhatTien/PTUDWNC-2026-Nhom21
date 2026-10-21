@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { recipesApi } from '@/lib/api/recipes';
 import IngredientChecklist from '@/components/recipes/IngredientChecklist';
 import RecipeOwnerActions from '@/components/recipes/RecipeOwnerActions';
+import RecipeReviews from '@/components/recipes/RecipeReviews';
 import type { RecipeDifficulty, RecipeImageDto } from '@/types/api';
 
 interface RecipeDetailPageProps {
@@ -469,6 +470,11 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
           </div>
         </div>
       </div>
+      <RecipeReviews
+        recipeId={recipe.id}
+        initialAverageRating={recipe.averageRating}
+        initialReviewCount={recipe.reviewCount}
+      />
     </div>
   );
 }

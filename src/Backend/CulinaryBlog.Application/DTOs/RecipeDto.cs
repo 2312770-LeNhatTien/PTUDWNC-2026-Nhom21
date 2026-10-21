@@ -14,7 +14,9 @@ public record RecipeListItemDto(
     string? PrimaryImageUrl,
     string CategoryName,
     string AuthorDisplayName,
-    DateTime? PublishedAt
+    DateTime? PublishedAt,
+    decimal AverageRating = 0,
+    int ReviewCount = 0
 );
 
 // Dùng cho chi tiết công thức (FR-RCP-002) - kèm steps, ingredients, images, nutrition.
@@ -38,7 +40,9 @@ public record RecipeDetailDto(
     IReadOnlyList<RecipeImageDto> Images,
     byte[]? RowVersion = null,
     DateTime? CreatedAt = null,
-    DateTime? UpdatedAt = null
+    DateTime? UpdatedAt = null,
+    decimal AverageRating = 0,
+    int ReviewCount = 0
 );
 
 public record CategoryRefDto(Guid Id, string Name, string Slug);

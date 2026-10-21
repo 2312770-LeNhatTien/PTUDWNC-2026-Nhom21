@@ -68,6 +68,11 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
           </svg>
           <span>{recipe.servings} người</span>
         </div>
+        {recipe.reviewCount ? (
+          <div className="absolute bottom-3 right-3 rounded-full bg-black/55 px-2 py-1 text-xs font-bold text-white backdrop-blur-sm">
+            ⭐ {recipe.averageRating?.toFixed(1)} ({recipe.reviewCount})
+          </div>
+        ) : null}
       </Link>
 
       {/* Body Content */}

@@ -24,7 +24,8 @@ public class RecipeRepository : Repository<Recipe>, IRecipeRepository
             .Include(r => r.Author)
             .Include(r => r.Steps.OrderBy(s => s.StepNumber))
             .Include(r => r.Ingredients.OrderBy(i => i.OrderIndex))
-            .Include(r => r.Images.OrderBy(i => i.OrderIndex));
+            .Include(r => r.Images.OrderBy(i => i.OrderIndex))
+            .Include(r => r.Reviews);
 
     public async Task<bool> SlugExistsAsync(string slug, CancellationToken ct = default)
         => await Db.Recipes.AnyAsync(r => r.Slug == slug, ct);
@@ -40,6 +41,7 @@ public class RecipeRepository : Repository<Recipe>, IRecipeRepository
             .Include(r => r.Category)
             .Include(r => r.Author)
             .Include(r => r.Images)
+            .Include(r => r.Reviews)
             .Where(r => r.Status == Domain.Enums.RecipeStatus.Published && !r.IsDeleted)
             .AsQueryable();
 

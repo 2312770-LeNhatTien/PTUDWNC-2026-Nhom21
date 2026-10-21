@@ -40,6 +40,31 @@ public static class RecipesEndpoints
         .WithName("SearchRecipes")
         .WithSummary("Tìm kiếm toàn văn không dấu (FR-SRCH-001)");
 
+        // FR-INT-001: Đánh giá sao và bình luận công thức.
+        group.MapGet("/{id:guid}/reviews", async (Guid id, ISender sender, CancellationToken ct) =>
+        {
+            var result = await sender.Send(
+                new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipeReviews.GetRecipeReviewsQuery(id), ct);
+            return Results.Ok(ApiResponse.Ok(result));
+        })
+        .WithName("GetRecipeReviews")
+        .WithSummary("Xem điểm trung bình và bình luận của công thức (FR-INT-001)");
+
+        group.MapPost("/{id:guid}/reviews", async (
+            Guid id,
+            AddRecipeReviewRequest request,
+            ISender sender,
+            CancellationToken ct) =>
+        {
+            var result = await sender.Send(
+                new CulinaryBlog.Application.Features.Recipes.Commands.AddRecipeReview.AddRecipeReviewCommand(
+                    id, request.Rating, request.Comment), ct);
+            return Results.Created($"/api/v1/recipes/{id}/reviews/{result.Id}", ApiResponse.Ok(result));
+        })
+        .WithName("AddRecipeReview")
+        .WithSummary("Đánh giá 1–5 sao và bình luận công thức (FR-INT-001)")
+        .RequireAuthorization("AuthorOrAdmin");
+
         // FR-RCP-003: Tạo công thức mới (Đã hoàn thành bởi Lê Nhật Tiến)
         group.MapPost("/", async (CreateRecipeCommand command, ISender sender, CancellationToken ct) =>
         {
@@ -415,6 +440,11 @@ public record AddIngredientRequest(
     string? Notes = null,
     int? OrderIndex = null
 );
+
+/// <summary>
+/// Model nhận đánh giá và bình luận công thức (FR-INT-001).
+/// </summary>
+public record AddRecipeReviewRequest(int Rating, string Comment);
 
 /// <summary>
 /// Model nhận dữ liệu từ request body khi cập nhật nguyên liệu (D10: Quantity & Unit nullable).

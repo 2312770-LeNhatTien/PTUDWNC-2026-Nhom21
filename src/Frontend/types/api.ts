@@ -77,6 +77,25 @@ export interface RecipeListItemDto {
   categoryName: string;
   authorDisplayName: string;
   publishedAt?: string;
+  averageRating?: number;
+  reviewCount?: number;
+}
+
+export interface RecipeReviewDto {
+  id: string;
+  authorId: string;
+  authorDisplayName: string;
+  authorAvatarUrl?: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface RecipeReviewsDto {
+  averageRating: number;
+  reviewCount: number;
+  reviews: RecipeReviewDto[];
 }
 
 export interface RecipeStepDto {
@@ -132,6 +151,8 @@ export interface RecipeDetailDto {
   steps: RecipeStepDto[];
   ingredients: RecipeIngredientDto[];
   images: RecipeImageDto[];
+  averageRating?: number;
+  reviewCount?: number;
 }
 
 export interface MyRecipeDto {

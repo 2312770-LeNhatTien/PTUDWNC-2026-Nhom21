@@ -32,6 +32,7 @@ public class Recipe : BaseEntity
     public ICollection<RecipeStep> Steps { get; private set; } = new List<RecipeStep>();
     public ICollection<RecipeIngredient> Ingredients { get; private set; } = new List<RecipeIngredient>();
     public ICollection<RecipeImage> Images { get; private set; } = new List<RecipeImage>();
+    public ICollection<RecipeReview> Reviews { get; private set; } = new List<RecipeReview>();
 
     protected Recipe() { }
 
