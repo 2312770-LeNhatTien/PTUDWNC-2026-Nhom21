@@ -24,3 +24,6 @@ Thumbs.db
 
 playwright-report/
 test-results/
+
+# Generated SEO files (FR-JOB-003), never source-controlled
+src/Backend/CulinaryBlog.API/public/seo/

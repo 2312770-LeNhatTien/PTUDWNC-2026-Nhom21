@@ -1,4 +1,5 @@
 using CulinaryBlog.API.Middleware;
+using CulinaryBlog.API.Authorization;
 
 namespace CulinaryBlog.API;
 
@@ -7,7 +8,7 @@ namespace CulinaryBlog.API;
 public static class DependencyInjection
 {
     public static IServiceCollection AddPresentation(
-        this IServiceCollection services, IConfiguration configuration)
+        this IServiceCollection services, IConfiguration configuration, IHostEnvironment environment)
     {
         services.AddOpenApi();
         services.ConfigureHttpJsonOptions(options =>
@@ -18,6 +19,11 @@ public static class DependencyInjection
         // CONS-005: mọi lỗi trả về theo RFC 7807.
         services.AddExceptionHandler<GlobalExceptionMiddleware>();
         services.AddProblemDetails();
+
+        services.AddAuthentication().AddCookie(HangfireAuthorizationFilter.Scheme, options =>
+            HangfireAuthorizationFilter.ConfigureCookie(options, environment.IsDevelopment()));
+        services.AddAuthorizationBuilder().AddPolicy(HangfireAuthorizationFilter.Scheme, policy =>
+            policy.AddAuthenticationSchemes(HangfireAuthorizationFilter.Scheme).RequireAuthenticatedUser().RequireRole("Admin"));
 
         // ── CORS (SRS mục 5.2) ───────────────────────────────────────────────
         services.AddCors(options =>

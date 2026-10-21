@@ -14,7 +14,7 @@ if (builder.Configuration.GetSection("Seq").Exists())
 // ── Đăng ký service theo từng tầng (SRS mục 6.2) ──────────────────────────
 builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
-builder.Services.AddPresentation(builder.Configuration);
+builder.Services.AddPresentation(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
 
@@ -59,12 +59,6 @@ app.MapRecipesEndpoints();     // FR-RCP + FR-SRCH (SRS mục 8.3 - 8.6)
 app.MapFilesEndpoints();       // FR-FILE-001 + FR-FILE-002 (Upload/Delete MinIO)
 
 // TODO (người phụ trách FR-OBS-001): map endpoint kiểm tra sức khỏe tại /health
-// ── Hangfire Dashboard & Background Job Endpoints (FR-JOB) ─────────────────
-app.UseHangfireDashboard("/hangfire", new DashboardOptions
-{
-    Authorization = new[] { new HangfireAuthorizationFilter() },
-    DashboardTitle = "Culinary Blog - Hangfire Dashboard"
-});
-app.MapJobsEndpoints(); // FR-JOB-002 (Nén & resize ảnh thumbnail 300x300)
+app.MapJobsEndpoints();       // FR-JOB-002 (Nén ảnh thumbnail) + FR-JOB-003 (Sitemap) + Dashboard Admin
 
 app.Run();

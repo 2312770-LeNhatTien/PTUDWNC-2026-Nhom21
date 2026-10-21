@@ -161,3 +161,23 @@ Bổ sung trong thay đổi quản lý công thức cá nhân; review cùng migr
 - Trigger là chi tiết persistence ở Infrastructure. Không đặt SQL/PostgreSQL vào Domain hoặc API. Migration Down gỡ trigger/ràng buộc và giữ dữ liệu.
 
 **Kiểm chứng:** Integration test gửi đồng thời hai PUT cùng phiên bản, chỉ một lần lưu thành công; lần còn lại trả 409. Thay đổi nguyên liệu làm token bài cha thay đổi. Kiểm thử dùng database riêng.
+
+---
+
+## D14 - Hangfire Dashboard và file SEO giữa API/Next.js
+
+- Hangfire/PostgreSQL đặt ở Infrastructure, dùng schema `hangfire` cùng database; query URL
+  qua MediatR ở Application. Domain/Application không phụ thuộc scheduler hay filesystem.
+- Lịch sitemap theo SRS 3.6: `0 2 * * *`, UTC (09:00 Việt Nam), retry 2 lần.
+- API quản lý thư mục `public/seo` cấu hình được và chỉ phục vụ hai URL gốc sitemap/robots.
+  Next.js rewrite sang API vì hai ứng dụng deploy độc lập; không ghi vào source Frontend/public.
+- Trình duyệt mở dashboard không tự gắn Bearer. Endpoint Admin cấp cookie chuyên biệt
+  HttpOnly, Path `/hangfire`, tối đa 15 phút/không quá hạn JWT, Secure production.
+  `HangfireAuthorizationFilter` kết hợp policy cookie; mỗi request xác minh lại Admin,
+  tài khoản hoạt động và refresh token chưa thu hồi. Giữ JWT mặc định cho API;
+  không đưa token lên URL. Logout và refresh rotation thu hồi phiên dashboard.
+- Google đã bỏ ping không xác thực. Dùng Search Console `sitemaps.submit` qua ADC khi có
+  domain public đã xác minh/quyền phù hợp; mặc định tắt, không gửi thật ở local.
+  Lỗi submit được retry, không xóa sitemap hợp lệ. Robots luôn khai báo sitemap.
+
+Cấu hình, cách chạy và kiểm thử nằm trong `Infrastructure/Jobs/README_JOBS.md`.

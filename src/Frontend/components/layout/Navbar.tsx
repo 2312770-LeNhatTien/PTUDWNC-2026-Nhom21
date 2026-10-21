@@ -335,6 +335,8 @@ export default function Navbar() {
                       <span>Công thức của tôi</span>
                     </Link>
 
+                    {isAdmin && <Link href="/admin/jobs" onClick={() => setIsUserMenuOpen(false)}
+                      className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-purple-700 hover:bg-purple-50 font-semibold">Tác vụ nền</Link>}
                     {/* Lối tắt dành riêng cho Quản trị viên (Admin Panel) */}
                     {isAdmin && (
                       <Link
@@ -443,6 +445,10 @@ export default function Navbar() {
             </Link>
             {isAdmin && (
               <>
+                <Link href="/admin/jobs" onClick={() => setIsMobileMenuOpen(false)}
+                  className="px-3 py-2 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-colors">
+                  Tác vụ nền
+                </Link>
                 <Link
                   href="/recipes/steps-test"
                   onClick={() => setIsMobileMenuOpen(false)}
