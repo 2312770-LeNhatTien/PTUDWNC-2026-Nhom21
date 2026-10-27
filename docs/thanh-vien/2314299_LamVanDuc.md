@@ -37,25 +37,27 @@ Tuần 3 (Đã hoàn thành & merge main):
   ✅ FR-AUTH-002 — Đăng nhập Email/Mật khẩu + Cấu hình Rate Limiting 5 req/phút chống Brute-Force
 
 Tuần 4 (Lab 4 - Hoàn thành 100% Backend API Endpoints):
-  🔲 FR-AUTH-005 — POST /auth/logout (Đăng xuất tài khoản & Thu hồi Refresh Token trong CSDL)
-  🔲 FR-AUTH-004 — POST /auth/refresh (Làm mới Access Token: Rotation & Reuse Detection phát hiện tấn công)
-  🔲 FR-AUTH-003 — POST /auth/google (Đăng nhập Google OAuth 2.0 xác thực Google JWT ID Token)
-  🔲 FR-RCP-005 — PATCH /recipes/{id}/publish & /unpublish (Xuất bản công thức kiểm tra điều kiện D11)
+  ✅ FR-AUTH-005 — POST /auth/logout (Đăng xuất tài khoản & Thu hồi Refresh Token trong CSDL)
+  ✅ FR-AUTH-004 — POST /auth/refresh (Làm mới Access Token: Rotation & Reuse Detection phát hiện tấn công)
+  ✅ FR-AUTH-003 — POST /auth/google (Đăng nhập Google OAuth 2.0 xác thực Google JWT ID Token)
+  ✅ FR-RCP-005 — PATCH /recipes/{id}/publish & /unpublish (Xuất bản công thức kiểm tra điều kiện D11)
 
 Tuần 5 (Lab 5 - Frontend Integration & Auth UI):
-  🔲 Giao diện Đăng nhập và Đăng ký chuyên nghiệp (Validation form, UX rõ ràng)
-  🔲 Nút Đăng nhập một chạm Google OAuth 2.0 tích hợp Google Identity Services SDK
-  🔲 Axios Interceptor trong client.ts bắt HTTP 401 tự động refresh token ngầm (Silent Refresh)
-  🔲 Dropdown Menu tài khoản trên Navbar với nút Đăng xuất an toàn
+  ✅ Giao diện Đăng nhập và Đăng ký chuyên nghiệp (Validation form, UX rõ ràng)
+  ✅ Nút Đăng nhập một chạm Google OAuth 2.0 tích hợp Google Identity Services SDK
+  ✅ Axios Interceptor trong client.ts bắt HTTP 401 tự động refresh token ngầm (Silent Refresh)
+  ✅ Dropdown Menu tài khoản trên Navbar với nút Đăng xuất an toàn
 
 Tuần 6 (Lab 6 - Luồng Xuất bản & Phân quyền Next.js):
-  🔲 Công tắc (toggle switch) Publish / Unpublish trên giao diện soạn bài
-  🔲 Modal kiểm tra và cảnh báo điều kiện D11 (bắt buộc >= 1 bước nấu và >= 1 nguyên liệu)
-  🔲 Cấu hình Next.js middleware.ts bảo vệ các route riêng tư (/admin/*, /dashboard/*, /profile) theo Role
+  ✅ Công tắc (toggle switch) Publish / Unpublish trên giao diện soạn bài
+  ✅ Modal kiểm tra và cảnh báo điều kiện D11 (bắt buộc >= 1 bước nấu và >= 1 nguyên liệu)
+  ✅ Cấu hình Next.js middleware.ts bảo vệ các route riêng tư (/admin/*, /dashboard/*, /profile) theo Role
 
 Tuần 7 (Lab 7 - Hangfire Background Job Email):
-  🔲 FR-JOB-001 — Hangfire background job gửi email chào mừng (Welcome Email) qua MailKit + Docker MailHog
-  🔲 Thiết kế Template Email HTML thương hiệu Culinary Blog
+  ✅ FR-JOB-001 — Hangfire background job gửi email chào mừng (Welcome Email) qua MailKit + Docker MailHog
+  ✅ Thiết kế Template Email HTML thương hiệu Culinary Blog
+  ✅ Cấu hình chính sách Retry 3 lần (1m, 5m, 30m) theo chuẩn SRS mục 3.6
+  ✅ Tích hợp Hangfire Dashboard tại /hangfire và kích hoạt tự động khi Register / Google Login
 
 Tuần 8 (Lab 8 - Kiểm thử tự động E2E & Nghiệm thu):
   🔲 Xây dựng bộ kịch bản kiểm thử tích hợp tự động E2E bằng Postman Collection / Newman
