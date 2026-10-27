@@ -15,6 +15,9 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Hangfire;
+using Hangfire.PostgreSql;
+using CulinaryBlog.Infrastructure.Jobs;
 
 namespace CulinaryBlog.Infrastructure;
 
@@ -125,6 +128,23 @@ public static class DependencyInjection
         // ── SMTP Email Service (FR-JOB-001) ─────────────────────────────────
         services.Configure<SmtpSettings>(configuration.GetSection(SmtpSettings.SectionName));
         services.AddScoped<IEmailService, MailKitEmailService>();
+
+        // ── Hangfire Background Jobs (FR-JOB-001 / SRS mục 3.6 & 8.7) ─────────
+        var dbConnectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Thiếu connection string DefaultConnection cho Hangfire.");
+
+        services.AddHangfire(config => config
+            .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+            .UseSimpleAssemblyNameTypeSerializer()
+            .UseRecommendedSerializerSettings()
+            .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(dbConnectionString)));
+
+        services.AddHangfireServer(options =>
+        {
+            options.WorkerCount = Math.Max(2, Environment.ProcessorCount);
+        });
+
+        services.AddScoped<IWelcomeEmailJob, WelcomeEmailJob>();
 
         return services;
     }

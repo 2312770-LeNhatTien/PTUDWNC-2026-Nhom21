@@ -5,6 +5,7 @@ using CulinaryBlog.Infrastructure;
 using CulinaryBlog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
 if (builder.Configuration.GetSection("Seq").Exists())
@@ -58,6 +59,20 @@ app.MapRecipesEndpoints();     // FR-RCP + FR-SRCH (SRS mục 8.3 - 8.6)
 app.MapFilesEndpoints();       // FR-FILE-001 + FR-FILE-002 (Upload/Delete MinIO)
 
 // TODO (người phụ trách FR-OBS-001): map endpoint kiểm tra sức khỏe tại /health
-// TODO (người phụ trách FR-JOB): map dashboard Hangfire tại /hangfire
+// FR-JOB-001 / FR-JOB: Map dashboard Hangfire tại /hangfire để giám sát background jobs
+app.UseHangfireDashboard("/hangfire", new DashboardOptions
+{
+    DashboardTitle = "Culinary Blog - Hangfire Dashboard",
+    Authorization = new[] { new HangfireDevAuthorizationFilter() }
+});
 
 app.Run();
+
+/// <summary>
+/// Bộ lọc cho phép truy cập Hangfire Dashboard trong môi trường phát triển (Development).
+/// Phục vụ giám sát các background jobs (FR-JOB-001 Welcome Email, FR-JOB-002 Thumbnail).
+/// </summary>
+public class HangfireDevAuthorizationFilter : Hangfire.Dashboard.IDashboardAuthorizationFilter
+{
+    public bool Authorize(Hangfire.Dashboard.DashboardContext context) => true;
+}

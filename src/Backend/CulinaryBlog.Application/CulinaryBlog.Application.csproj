@@ -15,6 +15,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="10.0.12" />
     <!-- Phải cùng version với gói Identity bên Domain, lệch sẽ lỗi NU1605 -->
     <PackageReference Include="Microsoft.Extensions.Identity.Core" Version="10.0.12" />
+    <PackageReference Include="Hangfire.Core" Version="1.8.18" />
   </ItemGroup>
 
   <ItemGroup>

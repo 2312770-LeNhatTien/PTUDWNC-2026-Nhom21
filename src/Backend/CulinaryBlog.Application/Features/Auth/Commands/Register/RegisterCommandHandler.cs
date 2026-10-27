@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.AspNetCore.Identity;
+using Hangfire;
 using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.DTOs;
@@ -7,7 +8,7 @@ using CulinaryBlog.Domain.Entities;
 
 namespace CulinaryBlog.Application.Features.Auth.Commands.Register;
 
-// FR-AUTH-001 - Đăng ký tài khoản mới.
+// FR-AUTH-001 - Đăng ký tài khoản mới & kích hoạt Hangfire Welcome Email (FR-JOB-001).
 public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthResponseDto>
 {
     // TODO: chưa xác nhận được JwtSettings:RefreshTokenExpiryDays trong appsettings.
@@ -17,15 +18,18 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthRespo
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IJwtService _jwtService;
     private readonly IApplicationDbContext _context;
+    private readonly IBackgroundJobClient _backgroundJobClient;
 
     public RegisterCommandHandler(
         UserManager<ApplicationUser> userManager,
         IJwtService jwtService,
-        IApplicationDbContext context)
+        IApplicationDbContext context,
+        IBackgroundJobClient backgroundJobClient)
     {
         _userManager = userManager;
         _jwtService = jwtService;
         _context = context;
+        _backgroundJobClient = backgroundJobClient;
     }
 
     public async Task<AuthResponseDto> Handle(RegisterCommand request, CancellationToken cancellationToken)
@@ -61,6 +65,10 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthRespo
 
         _context.RefreshTokens.Add(refreshTokenEntity);
         await _context.SaveChangesAsync(cancellationToken);
+
+        // Kích hoạt tác vụ nền Hangfire gửi email chào mừng (Fire-and-forget - FR-JOB-001)
+        _backgroundJobClient.Enqueue<IWelcomeEmailJob>(job =>
+            job.ExecuteAsync(user.Email!, user.DisplayName, CancellationToken.None));
 
         return new AuthResponseDto(
             AccessToken: accessToken,

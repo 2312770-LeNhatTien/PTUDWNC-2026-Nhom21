@@ -3,6 +3,7 @@ using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.DTOs;
 using CulinaryBlog.Domain.Entities;
 using Google.Apis.Auth;
+using Hangfire;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 
@@ -12,7 +13,7 @@ namespace CulinaryBlog.Application.Features.Auth.Commands.GoogleLogin;
 /// Handler xử lý đăng nhập Google OAuth 2.0 (FR-AUTH-003).
 /// Quy tắc:
 /// 1. Xác thực Google ID Token với máy chủ Google qua GoogleJsonWebSignature.
-/// 2. Nếu email chưa có ➔ Tự động tạo tài khoản mới với vai trò Author và EmailConfirmed = true.
+/// 2. Nếu email chưa có ➔ Tự động tạo tài khoản mới với vai trò Author, EmailConfirmed = true và gửi email chào mừng qua Hangfire (FR-JOB-001).
 /// 3. Nếu đã có ➔ Kiểm tra tài khoản không bị vô hiệu hóa (IsActive).
 /// 4. Cấp cặp Access Token (JWT 15 phút) và Refresh Token (7 ngày lưu CSDL).
 /// </summary>
@@ -23,15 +24,18 @@ public class GoogleLoginCommandHandler : IRequestHandler<GoogleLoginCommand, Aut
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IJwtService _jwtService;
     private readonly IApplicationDbContext _context;
+    private readonly IBackgroundJobClient _backgroundJobClient;
 
     public GoogleLoginCommandHandler(
         UserManager<ApplicationUser> userManager,
         IJwtService jwtService,
-        IApplicationDbContext context)
+        IApplicationDbContext context,
+        IBackgroundJobClient backgroundJobClient)
     {
         _userManager = userManager;
         _jwtService = jwtService;
         _context = context;
+        _backgroundJobClient = backgroundJobClient;
     }
 
     public async Task<AuthResponseDto> Handle(GoogleLoginCommand request, CancellationToken cancellationToken)
@@ -53,9 +57,11 @@ public class GoogleLoginCommandHandler : IRequestHandler<GoogleLoginCommand, Aut
         }
 
         // 2. Tìm người dùng theo Email
+        var isNewUser = false;
         var user = await _userManager.FindByEmailAsync(payload.Email);
         if (user is null)
         {
+            isNewUser = true;
             // Tự động tạo tài khoản mới cho người dùng Google lần đầu
             var displayName = !string.IsNullOrWhiteSpace(payload.Name)
                 ? payload.Name.Trim()
@@ -111,6 +117,13 @@ public class GoogleLoginCommandHandler : IRequestHandler<GoogleLoginCommand, Aut
 
         _context.RefreshTokens.Add(refreshTokenEntity);
         await _context.SaveChangesAsync(cancellationToken);
+
+        // 6. Nếu là người dùng mới tạo từ Google, kích hoạt gửi email chào mừng qua Hangfire (FR-JOB-001)
+        if (isNewUser)
+        {
+            _backgroundJobClient.Enqueue<IWelcomeEmailJob>(job =>
+                job.ExecuteAsync(user.Email!, user.DisplayName, CancellationToken.None));
+        }
 
         return new AuthResponseDto(
             AccessToken: accessToken,
