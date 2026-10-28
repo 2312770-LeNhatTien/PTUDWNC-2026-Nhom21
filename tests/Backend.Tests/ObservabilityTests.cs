@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using System.Net;
+using System.Net.Http.Json;
+using System.Text.Json;
 using Amazon.S3;
 using Amazon.S3.Model;
 using CulinaryBlog.Infrastructure.Health;
@@ -49,6 +51,29 @@ public sealed class ObservabilityTests(ApiFixture app)
         invalid.Headers.Add("X-Correlation-ID", new string('x', 100));
         var replaced = await app.Guest.SendAsync(invalid);
         Assert.Equal(32, replaced.Headers.GetValues("X-Correlation-ID").Single().Length);
+    }
+
+    [Fact]
+    public async Task Auth_errors_and_rate_limit_surface_rfc7807_with_security_headers()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/recipes/mine");
+        request.Headers.Add("X-Correlation-ID", "p02-auth-check");
+        var unauthorized = await app.Guest.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthorized.StatusCode);
+        Assert.Equal("application/problem+json", unauthorized.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("p02-auth-check", unauthorized.Headers.GetValues("X-Correlation-ID").Single());
+        Assert.Equal("DENY", unauthorized.Headers.GetValues("X-Frame-Options").Single());
+        Assert.Equal("nosniff", unauthorized.Headers.GetValues("X-Content-Type-Options").Single());
+        var problem = await unauthorized.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("UNAUTHORIZED", problem.GetProperty("errorCode").GetString());
+        Assert.Equal("p02-auth-check", problem.GetProperty("correlationId").GetString());
+
+        var forbidden = await app.Owner.PostAsJsonAsync("/api/v1/categories", new { name = "P02 " + Guid.NewGuid().ToString("N") });
+        Assert.Equal(HttpStatusCode.Forbidden, forbidden.StatusCode);
+        Assert.Equal("application/problem+json", forbidden.Content.Headers.ContentType?.MediaType);
+        var forbiddenProblem = await forbidden.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("FORBIDDEN", forbiddenProblem.GetProperty("errorCode").GetString());
     }
 
     [Fact]

@@ -54,6 +54,7 @@ if (app.Environment.IsDevelopment())
 
 // ── Middleware pipeline - THỨ TỰ RẤT QUAN TRỌNG, đừng đảo lộn ─────────────
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseExceptionHandler();
 
 // Dev chạy HTTP cổng 5000 (SRS mục 5.2). Production mới dùng HTTPS và do

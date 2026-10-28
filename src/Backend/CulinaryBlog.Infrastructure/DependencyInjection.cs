@@ -15,7 +15,9 @@ using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.Infrastructure.Persistence.Repositories;
 using CulinaryBlog.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -95,6 +97,28 @@ public static class DependencyInjection
                 ValidAudience = jwtSettings.Audience,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.Key)),
                 ClockSkew = TimeSpan.Zero,
+            };
+            options.Events = new JwtBearerEvents
+            {
+                OnChallenge = context =>
+                {
+                    context.HandleResponse();
+                    return WriteAuthProblemAsync(
+                        context.HttpContext,
+                        StatusCodes.Status401Unauthorized,
+                        "Chưa xác thực.",
+                        "Bạn cần đăng nhập để thực hiện thao tác này.",
+                        "UNAUTHORIZED");
+                },
+                OnForbidden = context =>
+                {
+                    return WriteAuthProblemAsync(
+                        context.HttpContext,
+                        StatusCodes.Status403Forbidden,
+                        "Không có quyền truy cập.",
+                        "Bạn không có quyền thực hiện thao tác này.",
+                        "FORBIDDEN");
+                }
             };
         });
 
@@ -180,5 +204,34 @@ public static class DependencyInjection
         else services.AddScoped<IBackgroundJobService, DisabledBackgroundJobService>();
 
         return services;
+    }
+
+    private static async Task WriteAuthProblemAsync(
+        HttpContext context,
+        int status,
+        string title,
+        string detail,
+        string errorCode)
+    {
+        if (context.Response.HasStarted) return;
+
+        var problem = new ProblemDetails
+        {
+            Type = "about:blank",
+            Title = title,
+            Status = status,
+            Detail = detail,
+            Instance = context.Request.Path
+        };
+        problem.Extensions["errorCode"] = errorCode;
+        if (context.Items.TryGetValue("CorrelationId", out var correlationId))
+        {
+            problem.Extensions["correlationId"] = correlationId;
+            context.Response.Headers["X-Correlation-ID"] = correlationId?.ToString();
+        }
+
+        context.Response.StatusCode = status;
+        context.Response.ContentType = "application/problem+json";
+        await context.Response.WriteAsJsonAsync(problem, context.RequestAborted);
     }
 }
