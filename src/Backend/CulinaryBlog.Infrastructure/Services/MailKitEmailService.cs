@@ -81,11 +81,7 @@ public class MailKitEmailService : IEmailService
         }
         catch (Exception ex)
         {
-            _logger.LogError(
-                ex,
-                "Lỗi xảy ra khi gửi email '{Subject}' tới {Recipient} qua SMTP {Host}:{Port}: {Message}",
-                subject, to, _smtpSettings.Host, _smtpSettings.Port, ex.Message);
-            throw;
+            throw new InvalidOperationException($"Không gửi được email qua SMTP {_smtpSettings.Host}:{_smtpSettings.Port}.", ex);
         }
         finally
         {

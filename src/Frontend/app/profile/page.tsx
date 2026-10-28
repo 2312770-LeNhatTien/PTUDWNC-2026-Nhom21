@@ -14,6 +14,7 @@ import React, { useState, useEffect, useRef, ChangeEvent } from 'react';
 import Link from 'next/link';
 import { authApi } from '@/lib/api/auth';
 import { filesApi } from '@/lib/api/files';
+import { getApiError } from '@/lib/api/errors';
 import FallbackImage from '@/components/ui/FallbackImage';
 import type { UserDto } from '@/types/api';
 
@@ -63,7 +64,7 @@ export default function ProfilePage() {
       } catch (err: unknown) {
         // Nếu chưa đăng nhập hoặc lỗi kết nối
         console.error('Lỗi khi tải hồ sơ:', err);
-        setErrorMsg('Không thể tải thông tin hồ sơ. Vui lòng đảm bảo bạn đã đăng nhập.');
+        setErrorMsg(getApiError(err, 'Không thể tải thông tin hồ sơ. Vui lòng thử lại.').message);
       } finally {
         setIsLoading(false);
       }
@@ -84,9 +85,9 @@ export default function ProfilePage() {
     }
 
     // Kiểm tra định dạng
-    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+    const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/avif'];
     if (!allowed.includes(file.type)) {
-      showToast('Chỉ chấp nhận các định dạng ảnh: JPEG, PNG, WebP, GIF.', true);
+      showToast('Chỉ chấp nhận các định dạng ảnh: JPEG, PNG, WebP, AVIF.', true);
       return;
     }
 
@@ -140,8 +141,7 @@ export default function ProfilePage() {
       setAvatarPreview(null);
       showToast('Cập nhật hồ sơ cá nhân và ảnh đại diện thành công!');
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Cập nhật hồ sơ thất bại.';
-      showToast(msg, true);
+      showToast(getApiError(err, 'Cập nhật hồ sơ thất bại.').message, true);
     } finally {
       setIsUploadingAvatar(false);
       setIsSubmitting(false);
@@ -234,7 +234,7 @@ export default function ProfilePage() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  accept="image/jpeg,image/png,image/webp,image/avif"
                   onChange={handleSelectAvatarFile}
                   className="hidden"
                 />

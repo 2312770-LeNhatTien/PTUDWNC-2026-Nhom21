@@ -10,8 +10,7 @@ namespace CulinaryBlog.Application.Features.Auth.Commands.Register;
 // FR-AUTH-001 - Đăng ký tài khoản mới.
 public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthResponseDto>
 {
-    // TODO: chưa xác nhận được JwtSettings:RefreshTokenExpiryDays trong appsettings.
-    // Tạm để 7 ngày - đổi thành lấy từ IConfiguration/IOptions<JwtSettings> khi có file config thật.
+    // CONS-004 quy định refresh token có hiệu lực 7 ngày.
     private const int RefreshTokenExpiryDays = 7;
 
     private readonly UserManager<ApplicationUser> _userManager;
@@ -37,6 +36,9 @@ public class RegisterCommandHandler : IRequestHandler<RegisterCommand, AuthRespo
         }
 
         var user = ApplicationUser.Create(request.Email, request.DisplayName, request.UserName);
+
+        // UserManager lưu user và ý định gửi thư trong cùng SaveChanges.
+        _context.PendingJobs.Add(PendingJob.Welcome(user.Id));
 
         var result = await _userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)

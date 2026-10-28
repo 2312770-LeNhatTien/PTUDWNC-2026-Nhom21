@@ -217,12 +217,6 @@ export default function LoginPage() {
                 >
                   Mật khẩu <span className="text-red-500">*</span>
                 </label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs font-semibold text-orange-600 hover:text-orange-700 transition-colors"
-                >
-                  Quên mật khẩu?
-                </Link>
               </div>
               <div className="relative">
                 <input

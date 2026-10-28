@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // CHỨC NĂNG: FR-AUTH-007 - Cập nhật hồ sơ cá nhân & ảnh đại diện
 // THÀNH VIÊN: Nguyễn Đình Tuấn (MSSV: 2312792)
 // HỖ TRỢ CẬP NHẬT: DisplayName, Bio, AvatarUrl (liên kết với MinIO)
@@ -51,7 +51,7 @@ public class UpdateProfileCommandValidator : AbstractValidator<UpdateProfileComm
         When(x => !string.IsNullOrWhiteSpace(x.AvatarUrl), () =>
         {
             RuleFor(x => x.AvatarUrl)
-                .MaximumLength(1000).WithMessage("Đường dẫn ảnh đại diện không được vượt quá 1000 ký tự.");
+                .MaximumLength(500).WithMessage("Đường dẫn ảnh đại diện không được vượt quá 500 ký tự.");
         });
     }
 }
@@ -63,13 +63,15 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
 {
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ICurrentUser _currentUser;
+    private readonly IFileStorageService _files;
 
     public UpdateProfileCommandHandler(
         UserManager<ApplicationUser> userManager,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser, IFileStorageService files)
     {
         _userManager = userManager;
         _currentUser = currentUser;
+        _files = files;
     }
 
     public async Task<UserProfileDto> Handle(UpdateProfileCommand request, CancellationToken cancellationToken)
@@ -95,6 +97,8 @@ public class UpdateProfileCommandHandler : IRequestHandler<UpdateProfileCommand,
         }
 
         // 4. Áp dụng các thay đổi hồ sơ vào Entity
+        if (!string.IsNullOrWhiteSpace(request.AvatarUrl) && request.AvatarUrl != user.AvatarUrl)
+            await _files.EnsureOwnedUploadAsync(request.AvatarUrl, cancellationToken);
         user.UpdateProfile(request.DisplayName, request.AvatarUrl, request.Bio);
 
         // 5. Cập nhật vào cơ sở dữ liệu thông qua UserManager

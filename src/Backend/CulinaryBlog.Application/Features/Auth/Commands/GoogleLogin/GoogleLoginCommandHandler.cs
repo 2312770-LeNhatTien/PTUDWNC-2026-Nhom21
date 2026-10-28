@@ -2,7 +2,6 @@ using CulinaryBlog.Application.Common.Exceptions;
 using CulinaryBlog.Application.Common.Interfaces;
 using CulinaryBlog.Application.DTOs;
 using CulinaryBlog.Domain.Entities;
-using Google.Apis.Auth;
 using MediatR;
 using Microsoft.AspNetCore.Identity;
 
@@ -11,7 +10,7 @@ namespace CulinaryBlog.Application.Features.Auth.Commands.GoogleLogin;
 /// <summary>
 /// Handler xử lý đăng nhập Google OAuth 2.0 (FR-AUTH-003).
 /// Quy tắc:
-/// 1. Xác thực Google ID Token với máy chủ Google qua GoogleJsonWebSignature.
+/// 1. Xác thực Google ID Token qua IGoogleTokenValidator, SDK nằm ở Infrastructure.
 /// 2. Nếu email chưa có ➔ Tự động tạo tài khoản mới với vai trò Author và EmailConfirmed = true.
 /// 3. Nếu đã có ➔ Kiểm tra tài khoản không bị vô hiệu hóa (IsActive).
 /// 4. Cấp cặp Access Token (JWT 15 phút) và Refresh Token (7 ngày lưu CSDL).
@@ -23,29 +22,23 @@ public class GoogleLoginCommandHandler : IRequestHandler<GoogleLoginCommand, Aut
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly IJwtService _jwtService;
     private readonly IApplicationDbContext _context;
+    private readonly IGoogleTokenValidator _google;
 
     public GoogleLoginCommandHandler(
         UserManager<ApplicationUser> userManager,
         IJwtService jwtService,
-        IApplicationDbContext context)
+        IApplicationDbContext context, IGoogleTokenValidator google)
     {
         _userManager = userManager;
         _jwtService = jwtService;
         _context = context;
+        _google = google;
     }
 
     public async Task<AuthResponseDto> Handle(GoogleLoginCommand request, CancellationToken cancellationToken)
     {
         // 1. Xác thực Google ID Token trực tiếp từ public keys của Google
-        GoogleJsonWebSignature.Payload payload;
-        try
-        {
-            payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken);
-        }
-        catch (Exception)
-        {
-            throw new ValidationException("IdToken", "Token Google không hợp lệ hoặc đã hết hạn.");
-        }
+        var payload = await _google.ValidateAsync(request.IdToken, cancellationToken);
 
         if (string.IsNullOrWhiteSpace(payload.Email))
         {
@@ -53,9 +46,12 @@ public class GoogleLoginCommandHandler : IRequestHandler<GoogleLoginCommand, Aut
         }
 
         // 2. Tìm người dùng theo Email
-        var user = await _userManager.FindByEmailAsync(payload.Email);
+        // Google sub ổn định; không tự ghép vào tài khoản local chỉ vì email trùng.
+        var user = await _userManager.FindByLoginAsync("Google", payload.Subject);
         if (user is null)
         {
+            if (await _userManager.FindByEmailAsync(payload.Email) is not null)
+                throw new ConflictException("Email đã có tài khoản. Vui lòng dùng cách đăng nhập đã đăng ký.", "GOOGLE_ACCOUNT_LINK_REQUIRED");
             // Tự động tạo tài khoản mới cho người dùng Google lần đầu
             var displayName = !string.IsNullOrWhiteSpace(payload.Name)
                 ? payload.Name.Trim()
@@ -66,6 +62,8 @@ public class GoogleLoginCommandHandler : IRequestHandler<GoogleLoginCommand, Aut
                 displayName: displayName,
                 avatarUrl: payload.Picture);
 
+            _context.PendingJobs.Add(PendingJob.Welcome(user.Id));
+
             var createResult = await _userManager.CreateAsync(user);
             if (!createResult.Succeeded)
             {
@@ -74,6 +72,8 @@ public class GoogleLoginCommandHandler : IRequestHandler<GoogleLoginCommand, Aut
             }
 
             await _userManager.AddToRoleAsync(user, "Author");
+            var linked = await _userManager.AddLoginAsync(user, new UserLoginInfo("Google", payload.Subject, "Google"));
+            if (!linked.Succeeded) throw new ConflictException("Không thể liên kết tài khoản Google.", "GOOGLE_LINK_FAILED");
         }
         else
         {

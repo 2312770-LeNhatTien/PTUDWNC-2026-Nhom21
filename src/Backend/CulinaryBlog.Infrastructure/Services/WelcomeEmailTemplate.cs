@@ -17,7 +17,7 @@ public static class WelcomeEmailTemplate
     /// <param name="displayName">Tên hiển thị của người dùng</param>
     /// <param name="exploreUrl">Đường dẫn trang chủ hoặc trang khám phá món ăn (mặc định: http://localhost:3000)</param>
     /// <returns>Chuỗi HTML định dạng sẵn với inline CSS tương thích đa nền tảng email</returns>
-    public static string BuildHtml(string displayName, string exploreUrl = "http://localhost:3000")
+    public static string BuildHtml(string displayName, string exploreUrl)
     {
         var safeName = System.Net.WebUtility.HtmlEncode(displayName);
         var safeUrl = System.Net.WebUtility.HtmlEncode(exploreUrl);

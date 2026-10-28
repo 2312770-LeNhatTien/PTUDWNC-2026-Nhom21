@@ -22,6 +22,8 @@ public class CurrentUserService : ICurrentUser
 
     public bool IsAdmin => User?.IsInRole("Admin") ?? false;
 
-    public IReadOnlyList<string> Roles =>
-        User?.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList() ?? new List<string>();
+    public IReadOnlyList<string> Roles => GetRoles();
+
+    private IReadOnlyList<string> GetRoles() =>
+        User?.FindAll(ClaimTypes.Role).Select(c => c.Value).ToArray() ?? [];
 }
