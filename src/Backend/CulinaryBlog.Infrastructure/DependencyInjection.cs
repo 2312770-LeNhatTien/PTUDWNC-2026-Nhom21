@@ -1,3 +1,6 @@
+using Hangfire;
+using Hangfire.PostgreSql;
+using CulinaryBlog.Infrastructure.Jobs;
 using System.Text;
 using StackExchange.Redis;
 using Amazon.S3;
@@ -122,7 +125,37 @@ public static class DependencyInjection
         services.AddHttpContextAccessor();
         services.AddScoped<ICurrentUser, CurrentUserService>();
         services.AddScoped<IFileStorageService, MinioFileStorageService>();
+        // ── SMTP Email Service (FR-JOB-001) ─────────────────────────────────
+        services.Configure<SmtpSettings>(configuration.GetSection(SmtpSettings.SectionName));
         services.AddScoped<IEmailService, MailKitEmailService>();
+
+        services.AddOptions<SitemapOptions>().Bind(configuration.GetSection("Sitemap"))
+            .Validate(o => o.IsValid(), "Sitemap requires an absolute website origin, output directory and cron; Google submission requires a public HTTPS site.")
+            .ValidateOnStart();
+        services.AddHttpClient("SearchConsole", client => client.Timeout = TimeSpan.FromSeconds(30));
+        services.AddHttpClient();
+
+        if (configuration.GetValue("Jobs:Enabled", true))
+        {
+            var defaultConn = configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("Thiếu connection string DefaultConnection cho Hangfire.");
+
+            services.AddHangfire(options => options
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UsePostgreSqlStorage(pg => pg.UseNpgsqlConnection(defaultConn)));
+
+            services.AddHangfireServer(options =>
+            {
+                options.WorkerCount = Math.Max(2, Environment.ProcessorCount);
+                options.Queues = new[] { "default", "images" };
+            });
+
+            services.AddScoped<SitemapJob>();
+            services.AddScoped<IImageResizeJob, ImageResizeJob>();
+            services.AddScoped<IBackgroundJobService, HangfireBackgroundJobService>();
+        }
 
         return services;
     }

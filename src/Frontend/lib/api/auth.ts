@@ -37,7 +37,7 @@ export const authApi = {
 
   // FR-AUTH-005: POST /api/v1/auth/logout
   logout: async (refreshToken: string): Promise<void> => {
-    try { await apiClient.post("/auth/logout", { refreshToken }); }
+    try { await apiClient.post("/auth/logout", { refreshToken }, { withCredentials: true }); }
     finally { useAuthStore.getState().clearSession(); }
   },
 

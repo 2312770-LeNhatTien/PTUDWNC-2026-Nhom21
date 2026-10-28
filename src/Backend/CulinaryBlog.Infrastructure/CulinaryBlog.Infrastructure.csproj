@@ -16,15 +16,21 @@
   <ItemGroup>
     <PackageReference Include="AWSSDK.S3" Version="4.0.103.3" />
     <PackageReference Include="Bogus" Version="35.6.5" />
+    <PackageReference Include="Google.Apis.Auth" Version="1.77.0" />
+    <PackageReference Include="Hangfire.AspNetCore" Version="1.8.25" />
+    <PackageReference Include="Hangfire.NetCore" Version="1.8.25" />
+    <PackageReference Include="Hangfire.PostgreSql" Version="1.21.1" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="10.0.0" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.0" />
+    <PackageReference Include="MailKit" Version="4.11.0" />
+    <PackageReference Include="SixLabors.ImageSharp" Version="3.1.7" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CulinaryBlog.Application\CulinaryBlog.Application.csproj" />
+    <ProjectReference Include="../CulinaryBlog.Application/CulinaryBlog.Application.csproj" />
   </ItemGroup>
 
 </Project>

@@ -44,11 +44,16 @@ public class AddRecipeImageCommandHandler : IRequestHandler<AddRecipeImageComman
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUser _currentUser;
+    private readonly IBackgroundJobService _backgroundJobService;
 
-    public AddRecipeImageCommandHandler(IApplicationDbContext context, ICurrentUser currentUser)
+    public AddRecipeImageCommandHandler(
+        IApplicationDbContext context,
+        ICurrentUser currentUser,
+        IBackgroundJobService backgroundJobService)
     {
         _context = context;
         _currentUser = currentUser;
+        _backgroundJobService = backgroundJobService;
     }
 
     public async Task<RecipeImageDto> Handle(AddRecipeImageCommand request, CancellationToken ct)
@@ -94,6 +99,9 @@ public class AddRecipeImageCommandHandler : IRequestHandler<AddRecipeImageComman
 
         _context.RecipeImages.Add(newImage);
         await _context.SaveChangesAsync(ct);
+
+        // FR-JOB-002: Kích hoạt Hangfire Background Job tự động nén & resize ảnh thumbnail 300x300
+        _backgroundJobService.Enqueue<IImageResizeJob>(job => job.ProcessRecipeImageAsync(newImage.Id, CancellationToken.None));
 
         return new RecipeImageDto(
             newImage.Id,

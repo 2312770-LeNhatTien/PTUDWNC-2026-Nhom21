@@ -4,6 +4,8 @@
 
 Web chia sẻ công thức nấu ăn chuẩn vị Việt Nam. Backend .NET 10 (Clean Architecture) và Frontend Next.js 15 (App Router) là hai ứng dụng tách rời, giao tiếp qua REST API. Toàn bộ yêu cầu và quyết định kỹ thuật lấy từ [SRS v1.0.0](./docs/SRS_Culinary_Blog_v1.0.0.md) và [DECISIONS.md](./docs/DECISIONS.md).
 
+**Cập nhật phân công 28/10/2026:** đọc [hướng dẫn khắc phục sau rà soát toàn dự án](./docs/HUONG_DAN_KHAC_PHUC_SAU_RA_SOAT.md). Mỗi file trong `docs/thanh-vien/` đã có phần việc sửa trước buổi 8, người phối hợp và tiêu chí kiểm tra. Danh sách dựa trên `main@e2cb966`, phân biệt lỗi/tích hợp còn tồn với nhiệm vụ làm mới buổi 8; đây là việc cần làm, chưa phải xác nhận đã khắc phục.
+
 ---
 
 ## 🏛️ MA TRẬN PHÂN CÔNG THEO TẦNG KỸ THUẬT VÀ THÀNH VIÊN
