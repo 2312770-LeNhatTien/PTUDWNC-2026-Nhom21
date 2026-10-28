@@ -24,15 +24,12 @@ export default function FallbackImage({
   }, [src]);
 
   const handleError = () => {
-    if (!hasError) {
-      setHasError(true);
-      if (fallbackSrc) {
-        setCurrentSrc(fallbackSrc);
-      }
-    }
+    // Nếu cả ảnh chính và ảnh dự phòng lỗi, dừng thử và hiện placeholder.
+    if (fallbackSrc && currentSrc !== fallbackSrc) setCurrentSrc(fallbackSrc);
+    else setHasError(true);
   };
 
-  if (hasError && !fallbackSrc) {
+  if (hasError) {
     return (
       <div
         className={`flex flex-col items-center justify-center bg-gradient-to-br from-amber-50 to-orange-100/60 border border-orange-200/60 text-slate-500 rounded-2xl p-4 text-center select-none ${className}`}

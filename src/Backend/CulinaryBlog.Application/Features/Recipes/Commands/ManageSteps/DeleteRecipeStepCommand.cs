@@ -51,12 +51,16 @@ public class DeleteRecipeStepCommandHandler : IRequestHandler<DeleteRecipeStepCo
         _currentUser = currentUser;
     }
 
-    public async Task<bool> Handle(DeleteRecipeStepCommand request, CancellationToken ct)
+    public async Task<bool> Handle(DeleteRecipeStepCommand request, CancellationToken cancellationToken)
     {
+        // Handler cũng kiểm tra xác thực khi được gọi trực tiếp ngoài HTTP.
+        if (!_currentUser.IsAuthenticated)
+            throw new UnauthorizedException("Vui lòng đăng nhập.");
+
         // 1. Tải công thức kèm danh sách toàn bộ các bước nấu
         var recipe = await _dbContext.Recipes
             .Include(r => r.Steps)
-            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, cancellationToken);
 
         if (recipe == null)
         {
@@ -64,14 +68,11 @@ public class DeleteRecipeStepCommandHandler : IRequestHandler<DeleteRecipeStepCo
         }
 
         // 2. Kiểm tra phân quyền: Chỉ tác giả công thức hoặc Admin mới có quyền xóa bước nấu
-        if (_currentUser.IsAuthenticated)
+        var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
+        var isAdmin = _currentUser.IsAdmin;
+        if (!isAuthor && !isAdmin)
         {
-            var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
-            var isAdmin = _currentUser.IsAdmin;
-            if (!isAuthor && !isAdmin)
-            {
-                throw new ForbiddenException("Bạn không có quyền xóa bước nấu của công thức này.");
-            }
+            throw new ForbiddenException("Bạn không có quyền xóa bước nấu của công thức này.");
         }
 
         // 3. Tìm bước nấu cần xóa
@@ -82,33 +83,36 @@ public class DeleteRecipeStepCommandHandler : IRequestHandler<DeleteRecipeStepCo
         }
 
         // 4. Xóa bước này khỏi CSDL và lưu trước để giải phóng StepNumber
-        _dbContext.RecipeSteps.Remove(stepToDelete);
-        await _dbContext.SaveChangesAsync(ct);
-
-        // 5. Tự động đánh lại số thứ tự (Renumber contiguously 1, 2, 3...) cho các bước còn lại
-        // SRS mục 7.3: Đảm bảo số thứ tự các bước luôn liên tục, không bị gián đoạn/khuyết bước
-        var remainingSteps = recipe.Steps
-            .Where(s => s.Id != request.StepId)
-            .OrderBy(s => s.StepNumber)
-            .ToList();
-
-        if (remainingSteps.Count > 0)
+        await _dbContext.ExecuteInTransactionAsync(async () =>
         {
-            // Giai đoạn 1: Gán offset tạm thời để tránh xung đột index
-            for (int i = 0; i < remainingSteps.Count; i++)
-            {
-                remainingSteps[i].Renumber(10000 + (i + 1));
-            }
-            await _dbContext.SaveChangesAsync(ct);
+            _dbContext.RecipeSteps.Remove(stepToDelete);
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
-            // Giai đoạn 2: Đánh lại số thứ tự chuẩn tuần tự 1, 2, 3...
-            for (int i = 0; i < remainingSteps.Count; i++)
-            {
-                remainingSteps[i].Renumber(i + 1);
-            }
-            await _dbContext.SaveChangesAsync(ct);
-        }
+            // 5. Tự động đánh lại số thứ tự (Renumber contiguously 1, 2, 3...) cho các bước còn lại
+            // SRS mục 7.3: Đảm bảo số thứ tự các bước luôn liên tục, không bị gián đoạn/khuyết bước
+            var remainingSteps = recipe.Steps
+                .Where(s => s.Id != request.StepId)
+                .OrderBy(s => s.StepNumber)
+                .ToList();
 
+            if (remainingSteps.Count > 0)
+            {
+                // Giai đoạn 1: Gán offset tạm thời để tránh xung đột index
+                for (int i = 0; i < remainingSteps.Count; i++)
+                {
+                    remainingSteps[i].Renumber(10000 + (i + 1));
+                }
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                // Giai đoạn 2: Đánh lại số thứ tự chuẩn tuần tự 1, 2, 3...
+                for (int i = 0; i < remainingSteps.Count; i++)
+                {
+                    remainingSteps[i].Renumber(i + 1);
+                }
+                await _dbContext.SaveChangesAsync(cancellationToken);
+            }
+
+        }, cancellationToken);
         return true;
     }
 }

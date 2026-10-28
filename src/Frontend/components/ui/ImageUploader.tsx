@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, ChangeEvent, DragEvent } from 'react';
 import { filesApi } from '@/lib/api/files';
+import { getApiError } from '@/lib/api/errors';
 import FallbackImage from './FallbackImage';
 
 interface ImageUploaderProps {
@@ -22,7 +23,6 @@ export default function ImageUploader({
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
-  const [uploadMethod, setUploadMethod] = useState<'presigned' | 'proxy' | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +65,6 @@ export default function ImageUploader({
     setSelectedFile(file);
     setPreviewUrl(blobUrl);
     setUploadedUrl(null);
-    setUploadMethod(null);
   };
 
   const onInputChange = (e: ChangeEvent<HTMLInputElement>) => {
@@ -102,21 +101,19 @@ export default function ImageUploader({
     setUploadProgress(0);
 
     try {
-      // Thực hiện Smart Upload (Thử Presigned URL trực tiếp -> Fallback Server Proxy)
+      // Ảnh đi qua API để server kiểm tra nội dung trước khi cấp URL.
       const result = await filesApi.uploadImage(selectedFile, folder, (percent) => {
         setUploadProgress(percent);
       });
 
       setUploadedUrl(result.url);
-      setUploadMethod(result.method);
       setUploadProgress(100);
 
       if (onUploadSuccess) {
         onUploadSuccess(result.url);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra khi kết nối máy chủ MinIO.';
-      setError(msg);
+      setError(getApiError(err, 'Có lỗi xảy ra khi tải ảnh. Vui lòng thử lại.').message);
       setUploadProgress(0);
     } finally {
       setIsLoading(false);
@@ -133,7 +130,8 @@ export default function ImageUploader({
     setError(null);
 
     try {
-      await filesApi.deleteFile(uploadedUrl);
+      // Giữ trạng thái ảnh khi server chưa chấp nhận xóa, cho phép người dùng thử lại.
+      if (!await filesApi.deleteFile(uploadedUrl)) throw new Error('Chưa xóa được ảnh. Vui lòng thử lại.');
 
       if (previewUrl && previewUrl.startsWith('blob:')) {
         URL.revokeObjectURL(previewUrl);
@@ -142,7 +140,6 @@ export default function ImageUploader({
       setSelectedFile(null);
       setPreviewUrl(null);
       setUploadProgress(0);
-      setUploadMethod(null);
 
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
@@ -151,8 +148,7 @@ export default function ImageUploader({
         onDeleteSuccess();
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Có lỗi xảy ra khi xóa file.';
-      setError(msg);
+      setError(getApiError(err, 'Có lỗi xảy ra khi xóa file. Vui lòng thử lại.').message);
     } finally {
       setIsLoading(false);
     }
@@ -173,7 +169,6 @@ export default function ImageUploader({
     setPreviewUrl(null);
     setUploadedUrl(null);
     setUploadProgress(0);
-    setUploadMethod(null);
     setError(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
@@ -291,11 +286,6 @@ export default function ImageUploader({
               <div className="flex items-center justify-between text-xs font-bold text-emerald-800">
                 <span className="flex items-center gap-1.5">
                   <span>✅</span> Tải ảnh lên MinIO thành công!
-                  {uploadMethod === 'presigned' && (
-                    <span className="ml-1 px-2 py-0.5 rounded-full bg-emerald-200 text-emerald-800 text-[10px]">
-                      Presigned URL Direct
-                    </span>
-                  )}
                 </span>
                 <button
                   type="button"

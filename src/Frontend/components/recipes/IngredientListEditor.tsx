@@ -11,7 +11,10 @@
 
 import React, { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import { recipesApi } from '@/lib/api/recipes';
+import { getApiError } from '@/lib/api/errors';
+import { parseQuantity } from '@/lib/quantity';
 import type { RecipeIngredientDto } from '@/types/api';
+const emptyIngredients: RecipeIngredientDto[] = [];
 
 export interface IngredientListEditorProps {
   recipeId?: string; // ID món ăn nếu đang ở chế độ gọi API trực tiếp
@@ -22,7 +25,7 @@ export interface IngredientListEditorProps {
 
 export default function IngredientListEditor({
   recipeId,
-  initialIngredients = [],
+  initialIngredients = emptyIngredients,
   onIngredientsChange,
   readOnly = false,
 }: IngredientListEditorProps) {
@@ -56,9 +59,7 @@ export default function IngredientListEditor({
 
   // Đồng bộ initialIngredients nếu props thay đổi từ ngoài
   useEffect(() => {
-    if (initialIngredients && initialIngredients.length > 0) {
-      setIngredients(initialIngredients);
-    }
+    setIngredients(initialIngredients);
   }, [initialIngredients]);
 
   // Thông báo toast tự tắt sau 3 giây
@@ -70,30 +71,6 @@ export default function IngredientListEditor({
       setSuccessMsg(msg);
       setTimeout(() => setSuccessMsg(null), 3000);
     }
-  };
-
-  // Trích xuất thông báo lỗi chi tiết từ Backend (RFC 7807)
-  const extractError = (err: unknown, defaultMsg: string) => {
-    const errObj = err as {
-      response?: {
-        status?: number;
-        data?: { detail?: string; title?: string; message?: string };
-      };
-      message?: string;
-    };
-    if (errObj.response?.status === 403) {
-      return (
-        errObj.response?.data?.detail ||
-        "Bạn không có quyền chỉnh sửa công thức này. Hãy đăng nhập tài khoản Admin (admin@culinary.local / Admin@123) hoặc Tác giả món ăn."
-      );
-    }
-    return (
-      errObj.response?.data?.detail ||
-      errObj.response?.data?.title ||
-      errObj.response?.data?.message ||
-      errObj.message ||
-      defaultMsg
-    );
   };
 
   // Cập nhật state nội bộ và bắn callback ra ngoài
@@ -119,7 +96,8 @@ export default function IngredientListEditor({
     }
 
     // Nếu là gia vị nêm nếm hoặc để trống -> gửi null
-    const parsedQty = isTasteSeasoning || !quantity.trim() ? null : parseFloat(quantity.trim());
+    const parsedQty = isTasteSeasoning ? null : parseQuantity(quantity);
+    if (Number.isNaN(parsedQty)) { showToast('Định lượng không hợp lệ, ví dụ 0.5 hoặc 1/2.', true); return; }
     const parsedUnit = isTasteSeasoning || !unit.trim() ? null : unit.trim();
     const parsedNotes = notes.trim() ? notes.trim() : null;
 
@@ -161,7 +139,7 @@ export default function IngredientListEditor({
         nameInputRef.current?.focus();
       }, 50);
     } catch (err: unknown) {
-      const msg = extractError(err, 'Lỗi khi thêm nguyên liệu.');
+      const msg = getApiError(err, 'Lỗi khi thêm nguyên liệu.').message;
       showToast(msg, true);
     } finally {
       setIsLoading(false);
@@ -194,7 +172,8 @@ export default function IngredientListEditor({
       return;
     }
 
-    const parsedQty = editIsTasteSeasoning || !editQuantity.trim() ? null : parseFloat(editQuantity.trim());
+    const parsedQty = editIsTasteSeasoning ? null : parseQuantity(editQuantity);
+    if (Number.isNaN(parsedQty)) { showToast('Định lượng không hợp lệ, ví dụ 0.5 hoặc 1/2.', true); return; }
     const parsedUnit = editIsTasteSeasoning || !editUnit.trim() ? null : editUnit.trim();
     const parsedNotes = editNotes.trim() ? editNotes.trim() : null;
 
@@ -226,7 +205,7 @@ export default function IngredientListEditor({
       setEditingId(null);
       showToast('Đã cập nhật nguyên liệu thành công!');
     } catch (err: unknown) {
-      const msg = extractError(err, 'Lỗi khi cập nhật nguyên liệu.');
+      const msg = getApiError(err, 'Lỗi khi cập nhật nguyên liệu.').message;
       showToast(msg, true);
     } finally {
       setIsLoading(false);
@@ -260,7 +239,7 @@ export default function IngredientListEditor({
       updateList(filtered);
       showToast(`Đã xóa nguyên liệu "${itemName}".`);
     } catch (err: unknown) {
-      const msg = extractError(err, 'Lỗi khi xóa nguyên liệu.');
+      const msg = getApiError(err, 'Lỗi khi xóa nguyên liệu.').message;
       showToast(msg, true);
     } finally {
       setIsLoading(false);
@@ -268,7 +247,7 @@ export default function IngredientListEditor({
   };
 
   // Di chuyển thứ tự (Lên / Xuống)
-  const handleMoveOrder = (index: number, direction: 'up' | 'down') => {
+  const handleMoveOrder = async (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= ingredients.length) return;
 
@@ -277,7 +256,20 @@ export default function IngredientListEditor({
     reordered.splice(targetIndex, 0, moved);
 
     const updated = reordered.map((ing, idx) => ({ ...ing, orderIndex: idx + 1 }));
-    updateList(updated);
+    setIsLoading(true);
+    try {
+      // Server tự đánh lại toàn bộ thứ tự sau khi chuyển một nguyên liệu.
+      if (recipeId) {
+        const item = updated[targetIndex];
+        await recipesApi.updateIngredient(recipeId, item.id, { name: item.name, quantity: item.quantity,
+          unit: item.unit, notes: item.notes, orderIndex: item.orderIndex });
+      }
+      updateList(updated);
+    } catch (err) {
+      showToast(getApiError(err, 'Không đổi được thứ tự nguyên liệu.').message, true);
+      // Có thể request đầu đã lưu; trang cha phải tải lại phiên bản thực trên server.
+      onIngredientsChange?.(ingredients);
+    } finally { setIsLoading(false); }
   };
 
   return (
@@ -360,8 +352,8 @@ export default function IngredientListEditor({
                       <div className="md:col-span-2">
                         <label className="text-[11px] font-semibold text-neutral-600">Số lượng</label>
                         <input
-                          type="number"
-                          step="0.1"
+                          type="text"
+                          inputMode="decimal"
                           disabled={editIsTasteSeasoning}
                           value={editQuantity}
                           onChange={(e) => setEditQuantity(e.target.value)}
@@ -468,7 +460,7 @@ export default function IngredientListEditor({
                         <button
                           type="button"
                           onClick={() => handleMoveOrder(index, 'up')}
-                          disabled={index === 0}
+                          disabled={isLoading || index === 0}
                           title="Di chuyển lên"
                           className="p-1 text-neutral-400 hover:text-neutral-700 disabled:opacity-30 disabled:hover:text-neutral-400"
                         >
@@ -477,7 +469,7 @@ export default function IngredientListEditor({
                         <button
                           type="button"
                           onClick={() => handleMoveOrder(index, 'down')}
-                          disabled={index === ingredients.length - 1}
+                          disabled={isLoading || index === ingredients.length - 1}
                           title="Di chuyển xuống"
                           className="p-1 text-neutral-400 hover:text-neutral-700 disabled:opacity-30 disabled:hover:text-neutral-400"
                         >
@@ -552,8 +544,8 @@ export default function IngredientListEditor({
             <div className="sm:col-span-2">
               <input
                 ref={quantityInputRef}
-                type="number"
-                step="0.1"
+                type="text"
+                inputMode="decimal"
                 disabled={isTasteSeasoning}
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}

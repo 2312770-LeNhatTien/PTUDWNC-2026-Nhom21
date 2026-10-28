@@ -36,17 +36,21 @@ public class GetRecipeStepsQueryValidator : AbstractValidator<GetRecipeStepsQuer
 public class GetRecipeStepsQueryHandler : IRequestHandler<GetRecipeStepsQuery, IReadOnlyList<RecipeStepDto>>
 {
     private readonly IApplicationDbContext _dbContext;
+    private readonly ICurrentUser _currentUser;
 
-    public GetRecipeStepsQueryHandler(IApplicationDbContext dbContext)
+    public GetRecipeStepsQueryHandler(IApplicationDbContext dbContext, ICurrentUser currentUser)
     {
         _dbContext = dbContext;
+        _currentUser = currentUser;
     }
 
-    public async Task<IReadOnlyList<RecipeStepDto>> Handle(GetRecipeStepsQuery request, CancellationToken ct)
+    public async Task<IReadOnlyList<RecipeStepDto>> Handle(GetRecipeStepsQuery request, CancellationToken cancellationToken)
     {
         // 1. Kiểm tra công thức có tồn tại trong hệ thống hay không
         var exists = await _dbContext.Recipes
-            .AnyAsync(r => r.Id == request.RecipeId, ct);
+            .AnyAsync(r => r.Id == request.RecipeId &&
+                (r.Status == CulinaryBlog.Domain.Enums.RecipeStatus.Published ||
+                 (_currentUser.IsAuthenticated && (_currentUser.IsAdmin || r.AuthorId == _currentUser.UserId))), cancellationToken);
 
         if (!exists)
         {
@@ -66,7 +70,7 @@ public class GetRecipeStepsQueryHandler : IRequestHandler<GetRecipeStepsQuery, I
                 s.TimerMinutes,
                 s.ImageUrl
             ))
-            .ToListAsync(ct);
+            .ToListAsync(cancellationToken);
 
         return steps;
     }

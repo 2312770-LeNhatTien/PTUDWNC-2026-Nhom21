@@ -72,21 +72,27 @@ public class AddRecipeStepCommandHandler : IRequestHandler<AddRecipeStepCommand,
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly ICurrentUser _currentUser;
+    private readonly IFileStorageService _files;
 
     public AddRecipeStepCommandHandler(
         IApplicationDbContext dbContext,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser, IFileStorageService files)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
+        _files = files;
     }
 
-    public async Task<RecipeStepDto> Handle(AddRecipeStepCommand request, CancellationToken ct)
+    public async Task<RecipeStepDto> Handle(AddRecipeStepCommand request, CancellationToken cancellationToken)
     {
+        // Handler cũng kiểm tra xác thực khi được gọi trực tiếp ngoài HTTP.
+        if (!_currentUser.IsAuthenticated)
+            throw new UnauthorizedException("Vui lòng đăng nhập.");
+
         // 1. Tải công thức kèm danh sách toàn bộ các bước hiện tại từ CSDL
         var recipe = await _dbContext.Recipes
             .Include(r => r.Steps)
-            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, cancellationToken);
 
         // 2. Nếu công thức không tồn tại, trả về lỗi 404 NotFound
         if (recipe == null)
@@ -95,15 +101,15 @@ public class AddRecipeStepCommandHandler : IRequestHandler<AddRecipeStepCommand,
         }
 
         // 3. Kiểm tra quyền sở hữu: Chỉ tác giả của công thức hoặc Admin mới được phép thêm bước
-        if (_currentUser.IsAuthenticated)
+        var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
+        var isAdmin = _currentUser.IsAdmin;
+        if (!isAuthor && !isAdmin)
         {
-            var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
-            var isAdmin = _currentUser.IsAdmin;
-            if (!isAuthor && !isAdmin)
-            {
-                throw new ForbiddenException("Bạn không có quyền chỉnh sửa bước nấu của công thức này.");
-            }
+            throw new ForbiddenException("Bạn không có quyền chỉnh sửa bước nấu của công thức này.");
         }
+
+        if (!string.IsNullOrWhiteSpace(request.ImageUrl))
+            await _files.EnsureOwnedUploadAsync(request.ImageUrl, cancellationToken);
 
         // 4. Áp dụng Quyết định kiến trúc D9: Xác định số thứ tự bước (StepNumber)
         int targetStepNumber;
@@ -147,7 +153,7 @@ public class AddRecipeStepCommandHandler : IRequestHandler<AddRecipeStepCommand,
 
         // 6. Thêm vào tập hợp Steps và lưu thay đổi vào CSDL
         _dbContext.RecipeSteps.Add(newStep);
-        await _dbContext.SaveChangesAsync(ct);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         // 7. Ánh xạ sang RecipeStepDto và trả về kết quả cho Client
         return new RecipeStepDto(

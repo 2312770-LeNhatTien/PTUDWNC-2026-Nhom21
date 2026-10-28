@@ -1,8 +1,17 @@
 import { test, expect } from '@playwright/test';
+import { encode } from 'next-auth/jwt';
 
 const category = { id: '11111111-1111-1111-1111-111111111111', name: 'Món nước', slug: 'mon-nuoc', description: '', imageUrl: '', orderIndex: 0, recipeCount: 0 };
 
-test.beforeEach(async ({ page }) => {
+test.beforeEach(async ({ page, context }) => {
+  // Middleware chạy ở server: API mock vẫn cần một phiên Admin thật sự có thể giải mã.
+  const token = await encode({ secret: 'lab05-local-browser-test-secret-only', salt: 'authjs.session-token',
+    token: { userId: 'ui-admin', roles: ['Admin'], name: 'UI Admin', email: 'admin@example.test' } });
+  await context.addCookies([{ name: 'authjs.session-token', value: token, url: 'http://localhost:3105', httpOnly: true, sameSite: 'Lax' }]);
+  await context.addInitScript(() => {
+    localStorage.setItem('user', JSON.stringify({ id: 'ui-admin', roles: ['Admin'], displayName: 'UI Admin', email: 'admin@example.test' }));
+    localStorage.setItem('accessToken', 'ui-test-only');
+  });
   await page.route('**/api/auth/session', route => route.fulfill({ json: {} }));
   await page.route('**/api/v1/categories', route => route.fulfill({ json: { data: [category] } }));
   await page.route('**/api/v1/recipes**', route => route.fulfill({ json: { data: [], meta: { total: 25, page: 1, pageSize: 12, totalPages: 3 } } }));

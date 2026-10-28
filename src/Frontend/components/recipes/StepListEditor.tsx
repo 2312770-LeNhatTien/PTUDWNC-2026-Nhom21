@@ -7,11 +7,13 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import Image from 'next/image';
 import ImageUploader from '@/components/ui/ImageUploader';
 import { recipesApi } from '@/lib/api/recipes';
+import { getApiError } from '@/lib/api/errors';
 import type { RecipeStepDto } from '@/types/api';
+const emptySteps: RecipeStepDto[] = [];
 
 /**
  * Thuộc tính nhận vào của Component StepListEditor
@@ -24,11 +26,12 @@ interface StepListEditorProps {
 
 export default function StepListEditor({
   recipeId,
-  initialSteps = [],
+  initialSteps = emptySteps,
   onStepsChange,
 }: StepListEditorProps) {
   // 1. Quản lý danh sách các bước nấu trong State
   const [steps, setSteps] = useState<RecipeStepDto[]>(initialSteps);
+  useEffect(() => setSteps(initialSteps), [initialSteps]);
 
   // 2. Trạng thái Form thêm bước mới
   const [isAdding, setIsAdding] = useState(false);
@@ -99,8 +102,7 @@ export default function StepListEditor({
       setIsAdding(false);
       showToast('Đã thêm bước nấu mới thành công!');
     } catch (err: unknown) {
-      const errObj = err as { response?: { data?: { detail?: string; title?: string } }; message?: string };
-      setErrorMessage(errObj.response?.data?.detail || errObj.response?.data?.title || errObj.message || 'Thêm bước nấu thất bại.');
+      setErrorMessage(getApiError(err, 'Thêm bước nấu thất bại.').message);
     } finally {
       setIsLoading(false);
     }
@@ -168,8 +170,7 @@ export default function StepListEditor({
       handleCancelEdit();
       showToast('Đã lưu thay đổi bước nấu thành công!');
     } catch (err: unknown) {
-      const errObj = err as { response?: { data?: { detail?: string; title?: string } }; message?: string };
-      setErrorMessage(errObj.response?.data?.detail || errObj.response?.data?.title || errObj.message || 'Lỗi khi cập nhật bước.');
+      setErrorMessage(getApiError(err, 'Lỗi khi cập nhật bước.').message);
     } finally {
       setIsLoading(false);
     }
@@ -210,8 +211,7 @@ export default function StepListEditor({
 
       showToast('Đã gỡ bỏ ảnh minh họa thành công!');
     } catch (err: unknown) {
-      const errObj = err as { response?: { data?: { detail?: string; title?: string } }; message?: string };
-      setErrorMessage(errObj.response?.data?.detail || errObj.message || 'Gỡ ảnh thất bại.');
+      setErrorMessage(getApiError(err, 'Gỡ ảnh thất bại.').message);
     } finally {
       setIsLoading(false);
     }
@@ -239,8 +239,7 @@ export default function StepListEditor({
 
       showToast(`Đã xóa Bước ${stepNumber} thành công!`);
     } catch (err: unknown) {
-      const errObj = err as { response?: { data?: { detail?: string; title?: string } }; message?: string };
-      setErrorMessage(errObj.response?.data?.detail || errObj.message || 'Xóa bước nấu thất bại.');
+      setErrorMessage(getApiError(err, 'Xóa bước nấu thất bại.').message);
     } finally {
       setIsLoading(false);
     }
@@ -275,8 +274,7 @@ export default function StepListEditor({
       onStepsChange?.(refreshed);
       showToast('Đã cập nhật lại thứ tự các bước!');
     } catch (err: unknown) {
-      const errObj = err as { response?: { data?: { detail?: string; title?: string } }; message?: string };
-      setErrorMessage(errObj.response?.data?.detail || errObj.message || 'Không thể đổi thứ tự bước.');
+      setErrorMessage(getApiError(err, 'Không thể đổi thứ tự bước.').message);
     } finally {
       setIsLoading(false);
     }

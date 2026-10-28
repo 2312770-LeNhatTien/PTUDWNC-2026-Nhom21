@@ -22,18 +22,22 @@ public record GetRecipeIngredientsQuery(Guid RecipeId) : IRequest<IReadOnlyList<
 public class GetRecipeIngredientsQueryHandler : IRequestHandler<GetRecipeIngredientsQuery, IReadOnlyList<RecipeIngredientDto>>
 {
     private readonly IApplicationDbContext _dbContext;
+    private readonly ICurrentUser _currentUser;
 
-    public GetRecipeIngredientsQueryHandler(IApplicationDbContext dbContext)
+    public GetRecipeIngredientsQueryHandler(IApplicationDbContext dbContext, ICurrentUser currentUser)
     {
         _dbContext = dbContext;
+        _currentUser = currentUser;
     }
 
-    public async Task<IReadOnlyList<RecipeIngredientDto>> Handle(GetRecipeIngredientsQuery request, CancellationToken ct)
+    public async Task<IReadOnlyList<RecipeIngredientDto>> Handle(GetRecipeIngredientsQuery request, CancellationToken cancellationToken)
     {
         // 1. Kiểm tra sự tồn tại của công thức
         var recipeExists = await _dbContext.Recipes
             .AsNoTracking()
-            .AnyAsync(r => r.Id == request.RecipeId, ct);
+            .AnyAsync(r => r.Id == request.RecipeId &&
+                (r.Status == CulinaryBlog.Domain.Enums.RecipeStatus.Published ||
+                 (_currentUser.IsAuthenticated && (_currentUser.IsAdmin || r.AuthorId == _currentUser.UserId))), cancellationToken);
 
         if (!recipeExists)
         {
@@ -53,7 +57,7 @@ public class GetRecipeIngredientsQueryHandler : IRequestHandler<GetRecipeIngredi
                 i.Notes,
                 i.OrderIndex
             ))
-            .ToListAsync(ct);
+            .ToListAsync(cancellationToken);
 
         return ingredients;
     }

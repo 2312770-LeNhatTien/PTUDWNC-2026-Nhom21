@@ -51,12 +51,15 @@ public class DeleteRecipeIngredientCommandHandler : IRequestHandler<DeleteRecipe
         _currentUser = currentUser;
     }
 
-    public async Task<bool> Handle(DeleteRecipeIngredientCommand request, CancellationToken ct)
+    public async Task<bool> Handle(DeleteRecipeIngredientCommand request, CancellationToken cancellationToken)
     {
+        // Từ chối Guest trước truy vấn khi handler được gọi trực tiếp.
+        if (!_currentUser.IsAuthenticated)
+            throw new UnauthorizedException("Vui lòng đăng nhập.");
         // 1. Tải công thức kèm danh sách toàn bộ các nguyên liệu hiện có
         var recipe = await _dbContext.Recipes
             .Include(r => r.Ingredients)
-            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, cancellationToken);
 
         if (recipe == null)
         {
@@ -64,14 +67,11 @@ public class DeleteRecipeIngredientCommandHandler : IRequestHandler<DeleteRecipe
         }
 
         // 2. Kiểm tra phân quyền: Chỉ tác giả công thức hoặc Admin mới có quyền xóa
-        if (_currentUser.IsAuthenticated)
+        var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
+        var isAdmin = _currentUser.IsAdmin;
+        if (!isAuthor && !isAdmin)
         {
-            var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
-            var isAdmin = _currentUser.IsAdmin;
-            if (!isAuthor && !isAdmin)
-            {
-                throw new ForbiddenException("Bạn không có quyền xóa nguyên liệu của công thức này.");
-            }
+            throw new ForbiddenException("Bạn không có quyền xóa nguyên liệu của công thức này.");
         }
 
         // 3. Tìm nguyên liệu cần xóa
@@ -96,7 +96,7 @@ public class DeleteRecipeIngredientCommandHandler : IRequestHandler<DeleteRecipe
         }
 
         // 6. Lưu các thay đổi vào CSDL
-        await _dbContext.SaveChangesAsync(ct);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return true;
     }
