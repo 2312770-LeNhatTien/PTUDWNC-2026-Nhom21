@@ -14,15 +14,15 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
         _categoryRepository = categoryRepository;
     }
 
-    public async Task<CategoryDto> Handle(UpdateCategoryCommand request, CancellationToken ct)
+    public async Task<CategoryDto> Handle(UpdateCategoryCommand request, CancellationToken cancellationToken)
     {
-        var category = await _categoryRepository.GetByIdAsync(request.Id, ct)
+        var category = await _categoryRepository.GetByIdAsync(request.Id, cancellationToken)
                        ?? throw new NotFoundException("Không tìm thấy danh mục.");
 
         // Nếu đổi tên khác, cần check xem tên mới đã bị ai dùng chưa
-        if (!string.IsNullOrWhiteSpace(request.Name) && 
-            request.Name != category.Name && 
-            await _categoryRepository.NameExistsAsync(request.Name.Trim(), excludeId: request.Id, ct: ct))
+        if (!string.IsNullOrWhiteSpace(request.Name) &&
+            request.Name != category.Name &&
+            await _categoryRepository.NameExistsAsync(request.Name.Trim(), excludeId: request.Id, ct: cancellationToken))
         {
             throw new ConflictException("Tên danh mục đã tồn tại.");
         }
@@ -30,7 +30,7 @@ public class UpdateCategoryCommandHandler : IRequestHandler<UpdateCategoryComman
         category.Update(request.Name, request.Description, request.ImageUrl, request.OrderIndex);
 
         _categoryRepository.Update(category);
-        await _categoryRepository.SaveChangesAsync(ct);
+        await _categoryRepository.SaveChangesAsync(cancellationToken);
 
         return new CategoryDto(
             category.Id,

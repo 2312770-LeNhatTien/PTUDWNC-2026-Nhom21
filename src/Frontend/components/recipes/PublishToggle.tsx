@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { recipesApi } from '@/lib/api/recipes';
 import PublishRequirementModal from './PublishRequirementModal';
+import { errorMessage, problemOf } from '@/lib/api/errors';
 
 /**
  * Các thuộc tính cấu hình cho công tắc Publish / Unpublish
@@ -47,6 +48,7 @@ export default function PublishToggle({
 }: PublishToggleProps) {
   // Trạng thái cục bộ của công tắc
   const [currentStatus, setCurrentStatus] = useState<string>(initialStatus);
+  useEffect(() => setCurrentStatus(initialStatus), [initialStatus]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<{ text: string; isError: boolean } | null>(null);
@@ -87,8 +89,8 @@ export default function PublishToggle({
       } catch (err: unknown) {
         console.error('Lỗi khi xuất bản công thức:', err);
         // Kiểm tra xem backend có trả về lỗi vi phạm D11 hay không
-        const errMsg = err instanceof Error ? err.message : '';
-        if (errMsg.includes('RECIPE_PUBLISH_INCOMPLETE') || errMsg.includes('ít nhất 1 nguyên liệu')) {
+        const errMsg = errorMessage(err);
+        if (problemOf(err).errorCode === 'RECIPE_PUBLISH_INCOMPLETE') {
           setIsModalOpen(true);
         } else {
           showToast(errMsg || 'Không thể xuất bản công thức. Vui lòng thử lại sau.', true);
@@ -110,7 +112,7 @@ export default function PublishToggle({
       }
     } catch (err: unknown) {
       console.error('Lỗi khi gỡ xuất bản:', err);
-      const errMsg = err instanceof Error ? err.message : '';
+      const errMsg = errorMessage(err);
       showToast(errMsg || 'Không thể gỡ xuất bản. Vui lòng thử lại sau.', true);
     } finally {
       setIsLoading(false);

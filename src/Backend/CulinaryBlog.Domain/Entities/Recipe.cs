@@ -71,7 +71,7 @@ public class Recipe : BaseEntity
         if (!string.IsNullOrWhiteSpace(title))
         {
             Title = title.Trim();
-            if (Status != RecipeStatus.Published)
+            if (PublishedAt is null && Status != RecipeStatus.Published)
                 Slug = SlugVO.Create(title);
         }
 

@@ -35,7 +35,7 @@ public class AddRecipeImageCommandValidator : AbstractValidator<AddRecipeImageCo
         When(x => !string.IsNullOrWhiteSpace(x.AltText), () =>
         {
             RuleFor(x => x.AltText!)
-                .MaximumLength(300).WithMessage("Văn bản thay thế (AltText) không được vượt quá 300 ký tự.");
+                .MaximumLength(200).WithMessage("Văn bản thay thế (AltText) không được vượt quá 200 ký tự.");
         });
     }
 }
@@ -44,23 +44,23 @@ public class AddRecipeImageCommandHandler : IRequestHandler<AddRecipeImageComman
 {
     private readonly IApplicationDbContext _context;
     private readonly ICurrentUser _currentUser;
-    private readonly IBackgroundJobService _backgroundJobService;
+    private readonly IFileStorageService _files;
 
     public AddRecipeImageCommandHandler(
         IApplicationDbContext context,
         ICurrentUser currentUser,
-        IBackgroundJobService backgroundJobService)
+        IFileStorageService files)
     {
         _context = context;
         _currentUser = currentUser;
-        _backgroundJobService = backgroundJobService;
+        _files = files;
     }
 
-    public async Task<RecipeImageDto> Handle(AddRecipeImageCommand request, CancellationToken ct)
+    public async Task<RecipeImageDto> Handle(AddRecipeImageCommand request, CancellationToken cancellationToken)
     {
         var recipe = await _context.Recipes
             .Include(r => r.Images)
-            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, cancellationToken);
 
         if (recipe == null || recipe.IsDeleted)
         {
@@ -76,6 +76,7 @@ public class AddRecipeImageCommandHandler : IRequestHandler<AddRecipeImageComman
         }
 
         var existingImages = recipe.Images.Where(i => !i.IsDeleted).ToList();
+        await _files.EnsureOwnedUploadAsync(request.OriginalUrl, cancellationToken);
         var shouldBePrimary = request.IsPrimary || existingImages.Count == 0;
 
         // Nếu ảnh này là Primary, chuyển các ảnh cũ về false
@@ -97,11 +98,14 @@ public class AddRecipeImageCommandHandler : IRequestHandler<AddRecipeImageComman
             orderIndex: orderIndex
         );
 
-        _context.RecipeImages.Add(newImage);
-        await _context.SaveChangesAsync(ct);
-
-        // FR-JOB-002: Kích hoạt Hangfire Background Job tự động nén & resize ảnh thumbnail 300x300
-        _backgroundJobService.Enqueue<IImageResizeJob>(job => job.ProcessRecipeImageAsync(newImage.Id, CancellationToken.None));
+        await _context.ExecuteInTransactionAsync(async () =>
+        {
+            // Gỡ primary cũ trước INSERT để không phụ thuộc thứ tự SQL EF chọn.
+            if (shouldBePrimary && existingImages.Count > 0) await _context.SaveChangesAsync(cancellationToken);
+            _context.RecipeImages.Add(newImage);
+            _context.PendingJobs.Add(PendingJob.Resize(newImage.Id));
+            await _context.SaveChangesAsync(cancellationToken);
+        }, cancellationToken);
 
         return new RecipeImageDto(
             newImage.Id,

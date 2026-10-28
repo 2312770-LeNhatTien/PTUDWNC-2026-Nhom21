@@ -72,21 +72,27 @@ public class UpdateRecipeStepCommandHandler : IRequestHandler<UpdateRecipeStepCo
 {
     private readonly IApplicationDbContext _dbContext;
     private readonly ICurrentUser _currentUser;
+    private readonly IFileStorageService _files;
 
     public UpdateRecipeStepCommandHandler(
         IApplicationDbContext dbContext,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser, IFileStorageService files)
     {
         _dbContext = dbContext;
         _currentUser = currentUser;
+        _files = files;
     }
 
-    public async Task<RecipeStepDto> Handle(UpdateRecipeStepCommand request, CancellationToken ct)
+    public async Task<RecipeStepDto> Handle(UpdateRecipeStepCommand request, CancellationToken cancellationToken)
     {
+        // Handler cũng kiểm tra xác thực khi được gọi trực tiếp ngoài HTTP.
+        if (!_currentUser.IsAuthenticated)
+            throw new UnauthorizedException("Vui lòng đăng nhập.");
+
         // 1. Tìm công thức kèm danh sách toàn bộ các bước để kiểm tra quyền và cấu trúc thứ tự
         var recipe = await _dbContext.Recipes
             .Include(r => r.Steps)
-            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, cancellationToken);
 
         if (recipe == null)
         {
@@ -94,14 +100,11 @@ public class UpdateRecipeStepCommandHandler : IRequestHandler<UpdateRecipeStepCo
         }
 
         // 2. Kiểm tra phân quyền: Chỉ tác giả của công thức hoặc Admin mới có quyền sửa
-        if (_currentUser.IsAuthenticated)
+        var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
+        var isAdmin = _currentUser.IsAdmin;
+        if (!isAuthor && !isAdmin)
         {
-            var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
-            var isAdmin = _currentUser.IsAdmin;
-            if (!isAuthor && !isAdmin)
-            {
-                throw new ForbiddenException("Bạn không có quyền chỉnh sửa bước nấu của công thức này.");
-            }
+            throw new ForbiddenException("Bạn không có quyền chỉnh sửa bước nấu của công thức này.");
         }
 
         // 3. Tìm bước nấu cần chỉnh sửa trong danh sách Steps của công thức
@@ -111,50 +114,57 @@ public class UpdateRecipeStepCommandHandler : IRequestHandler<UpdateRecipeStepCo
             throw new NotFoundException("Bước nấu", request.StepId);
         }
 
+        if (!string.IsNullOrWhiteSpace(request.ImageUrl) && request.ImageUrl != step.ImageUrl)
+            await _files.EnsureOwnedUploadAsync(request.ImageUrl, cancellationToken);
+
         // 4. Xử lý trường hợp người dùng muốn thay đổi số thứ tự (StepNumber) của bước
-        if (request.StepNumber.HasValue && request.StepNumber.Value != step.StepNumber)
+        // Các pha offset/renumber cùng transaction để lỗi giữa chừng không lưu số tạm.
+        await _dbContext.ExecuteInTransactionAsync(async () =>
         {
-            var newPos = request.StepNumber.Value;
-            var allSteps = recipe.Steps.OrderBy(s => s.StepNumber).ToList();
-
-            // Rút bước hiện tại ra khỏi danh sách
-            allSteps.Remove(step);
-
-            // Giới hạn vị trí mới trong khoảng hợp lệ [1, allSteps.Count + 1]
-            if (newPos < 1) newPos = 1;
-            if (newPos > allSteps.Count + 1) newPos = allSteps.Count + 1;
-
-            // Chèn bước vào vị trí mong muốn mới
-            allSteps.Insert(newPos - 1, step);
-
-            // Giai đoạn 1: Gán số thứ tự tạm thời (offset 10000) để phá vỡ vòng lặp phụ thuộc (circular dependency)
-            // trên Unique Composite Index { RecipeId, StepNumber } của Entity Framework Core
-            for (int i = 0; i < allSteps.Count; i++)
+            if (request.StepNumber.HasValue && request.StepNumber.Value != step.StepNumber)
             {
-                allSteps[i].Renumber(10000 + (i + 1));
+                var newPos = request.StepNumber.Value;
+                var allSteps = recipe.Steps.OrderBy(s => s.StepNumber).ToList();
+
+                // Rút bước hiện tại ra khỏi danh sách
+                allSteps.Remove(step);
+
+                // Giới hạn vị trí mới trong khoảng hợp lệ [1, allSteps.Count + 1]
+                if (newPos < 1) newPos = 1;
+                if (newPos > allSteps.Count + 1) newPos = allSteps.Count + 1;
+
+                // Chèn bước vào vị trí mong muốn mới
+                allSteps.Insert(newPos - 1, step);
+
+                // Giai đoạn 1: Gán số thứ tự tạm thời (offset 10000) để phá vỡ vòng lặp phụ thuộc (circular dependency)
+                // trên Unique Composite Index { RecipeId, StepNumber } của Entity Framework Core
+                for (int i = 0; i < allSteps.Count; i++)
+                {
+                    allSteps[i].Renumber(10000 + (i + 1));
+                }
+                await _dbContext.SaveChangesAsync(cancellationToken);
+
+                // Giai đoạn 2: Đánh lại số thứ tự chuẩn tuần tự (1, 2, 3...) cho toàn bộ danh sách
+                for (int i = 0; i < allSteps.Count; i++)
+                {
+                    allSteps[i].Renumber(i + 1);
+                }
             }
-            await _dbContext.SaveChangesAsync(ct);
 
-            // Giai đoạn 2: Đánh lại số thứ tự chuẩn tuần tự (1, 2, 3...) cho toàn bộ danh sách
-            for (int i = 0; i < allSteps.Count; i++)
-            {
-                allSteps[i].Renumber(i + 1);
-            }
-        }
+            // 5. Cập nhật các trường thông tin nội dung của bước nấu (Title, Description, Timer, Image)
+            step.Update(
+                stepNumber: null, // Đã xử lý renumber ở trên nếu có đổi
+                title: request.Title,
+                description: request.Description,
+                timerMinutes: request.TimerMinutes,
+                imageUrl: request.ImageUrl
+            );
 
-        // 5. Cập nhật các trường thông tin nội dung của bước nấu (Title, Description, Timer, Image)
-        step.Update(
-            stepNumber: null, // Đã xử lý renumber ở trên nếu có đổi
-            title: request.Title,
-            description: request.Description,
-            timerMinutes: request.TimerMinutes,
-            imageUrl: request.ImageUrl
-        );
+            // 6. Lưu vào cơ sở dữ liệu
+            await _dbContext.SaveChangesAsync(cancellationToken);
 
-        // 6. Lưu vào cơ sở dữ liệu
-        await _dbContext.SaveChangesAsync(ct);
-
-        // 7. Trả về DTO kết quả
+            // 7. Trả về DTO kết quả
+        }, cancellationToken);
         return new RecipeStepDto(
             Id: step.Id,
             StepNumber: step.StepNumber,

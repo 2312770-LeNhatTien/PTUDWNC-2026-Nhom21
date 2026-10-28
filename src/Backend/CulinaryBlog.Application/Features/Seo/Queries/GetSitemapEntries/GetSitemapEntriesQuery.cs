@@ -11,13 +11,13 @@ public record GetSitemapEntriesQuery : IRequest<IReadOnlyList<SitemapEntry>>;
 public class GetSitemapEntriesHandler(IApplicationDbContext db)
     : IRequestHandler<GetSitemapEntriesQuery, IReadOnlyList<SitemapEntry>>
 {
-    public async Task<IReadOnlyList<SitemapEntry>> Handle(GetSitemapEntriesQuery request, CancellationToken ct)
+    public async Task<IReadOnlyList<SitemapEntry>> Handle(GetSitemapEntriesQuery request, CancellationToken cancellationToken)
     {
         // Global query filters preserve D1. Read all public URLs, without API pagination/cache.
         var recipes = await db.Recipes.AsNoTracking().Where(r => r.Status == RecipeStatus.Published)
-            .Select(r => new { r.Slug, Modified = r.UpdatedAt ?? r.PublishedAt ?? r.CreatedAt }).ToListAsync(ct);
+            .Select(r => new { r.Slug, Modified = r.UpdatedAt ?? r.PublishedAt ?? r.CreatedAt }).ToListAsync(cancellationToken);
         var categories = await db.Categories.AsNoTracking()
-            .Select(c => new { c.Slug, Modified = c.UpdatedAt ?? c.CreatedAt }).ToListAsync(ct);
+            .Select(c => new { c.Slug, Modified = c.UpdatedAt ?? c.CreatedAt }).ToListAsync(cancellationToken);
         return new[] { new SitemapEntry("/", null), new("/recipes", null), new("/categories", null) }
             .Concat(recipes.Select(r => new SitemapEntry("/recipes/" + Uri.EscapeDataString(r.Slug), ValidDate(r.Modified))))
             .Concat(categories.Select(c => new SitemapEntry("/categories/" + Uri.EscapeDataString(c.Slug), ValidDate(c.Modified))))

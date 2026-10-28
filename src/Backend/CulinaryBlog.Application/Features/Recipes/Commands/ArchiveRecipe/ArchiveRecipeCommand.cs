@@ -35,10 +35,10 @@ public class ArchiveRecipeCommandHandler : IRequestHandler<ArchiveRecipeCommand>
         _currentUser = currentUser;
     }
 
-    public async Task Handle(ArchiveRecipeCommand request, CancellationToken ct)
+    public async Task Handle(ArchiveRecipeCommand request, CancellationToken cancellationToken)
     {
         var recipe = await _context.Recipes
-            .FirstOrDefaultAsync(r => r.Id == request.Id, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
 
         if (recipe == null || recipe.IsDeleted)
         {
@@ -54,6 +54,6 @@ public class ArchiveRecipeCommandHandler : IRequestHandler<ArchiveRecipeCommand>
         }
 
         recipe.Archive();
-        await _context.SaveChangesAsync(ct);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

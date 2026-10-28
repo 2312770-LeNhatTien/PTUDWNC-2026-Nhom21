@@ -1,4 +1,3 @@
-using CulinaryBlog.Application.Common.Models;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Amazon.S3.Util;
@@ -9,447 +8,188 @@ using Microsoft.Extensions.Logging;
 
 namespace CulinaryBlog.Infrastructure.Services;
 
-/// <summary>
-/// FR-FILE-001: Upload ảnh lên MinIO S3-compatible.
-/// FR-FILE-002: Xóa ảnh khỏi MinIO (idempotent).
-/// FR-FILE-003: Sinh Presigned Upload URL an toàn không lộ Secret Key.
-/// FR-JOB-002: Hỗ trợ lưu trữ thumbnail và tải dữ liệu ảnh xử lý nền.
-/// Tuân thủ CONS-007: Giới hạn 5MB, MIME type hợp lệ, kiểm tra magic bytes.
-/// </summary>
+// Mọi ảnh mới đi qua server: xác minh bytes trước khi cấp URL công khai.
 public class MinioFileStorageService : IFileStorageService
 {
-    private readonly IAmazonS3 _s3Client;
-    private readonly IConfiguration _configuration;
+    public const long MaxFileSizeBytes = 5 * 1024 * 1024;
+    private readonly IAmazonS3 _s3;
+    private readonly ICurrentUser _user;
     private readonly ILogger<MinioFileStorageService> _logger;
-    private readonly HttpClient _httpClient;
-    private readonly string _bucketName;
-    private readonly string _publicEndpoint;
-    private readonly bool _useSsl;
-    private readonly HashSet<string> _initializedBuckets = new(StringComparer.OrdinalIgnoreCase);
-    private readonly SemaphoreSlim _initLock = new(1, 1);
-
-    private static readonly HashSet<string> AllowedMimeTypes = new(StringComparer.OrdinalIgnoreCase)
+    private readonly string _bucket;
+    private readonly Uri _origin;
+    private readonly HashSet<string> _initialized = new(StringComparer.Ordinal);
+    private static readonly Dictionary<string, string> Extensions = new(StringComparer.OrdinalIgnoreCase)
     {
-        "image/jpeg",
-        "image/png",
-        "image/webp",
-        "image/avif"
+        ["image/jpeg"] = ".jpg",
+        ["image/png"] = ".png",
+        ["image/webp"] = ".webp",
+        ["image/avif"] = ".avif"
     };
 
-    private const long MaxFileSizeBytes = 5 * 1024 * 1024; // 5 MB (CONS-007)
-
-    public MinioFileStorageService(
-        IAmazonS3 s3Client,
-        IConfiguration configuration,
-        ILogger<MinioFileStorageService> logger,
-        IHttpClientFactory httpClientFactory)
+    public MinioFileStorageService(IAmazonS3 s3, IConfiguration configuration,
+        ILogger<MinioFileStorageService> logger, ICurrentUser user)
     {
-        _s3Client = s3Client;
-        _configuration = configuration;
+        _s3 = s3;
+        _user = user;
         _logger = logger;
-        _httpClient = httpClientFactory.CreateClient();
-        _bucketName = configuration["MinIO:Bucket"] ?? "culinary-blog";
-
-        var endpoint = configuration["MinIO:Endpoint"] ?? "localhost:9000";
-        var useSsl = configuration.GetValue<bool>("MinIO:UseSSL");
-        _useSsl = useSsl;
-        _publicEndpoint = $"http{(useSsl ? "s" : "")}://{endpoint}";
+        _bucket = configuration["MinIO:Bucket"] ?? "culinary-blog";
+        _origin = new Uri(configuration["MinIO:PublicUrl"] ??
+            $"http{(configuration.GetValue<bool>("MinIO:UseSSL") ? "s" : "")}://{configuration["MinIO:Endpoint"] ?? "localhost:9000"}");
     }
 
-    public async Task<string> UploadAsync(
-        Stream content,
-        string fileName,
-        string contentType,
-        string folder,
-        CancellationToken ct = default)
+    public async Task<string> UploadAsync(Stream content, string fileName, string contentType,
+        string folder, CancellationToken ct = default)
     {
-        // 1. Kiểm tra bucket mặc định đã tồn tại chưa
-        await EnsureBucketExistsAsync(_bucketName, ct);
+        if (!_user.IsAuthenticated || !Guid.TryParse(_user.UserId, out var owner))
+            throw new UnauthorizedException("Vui lòng đăng nhập trước khi tải ảnh.");
+        if (!Extensions.TryGetValue(contentType, out var extension))
+            throw new ValidationException("FILE_MIME_INVALID", "Chỉ nhận JPEG, PNG, WebP và AVIF.");
 
-        // 2. Validate định dạng MIME type và kích thước (CONS-007)
-        ValidateFile(content, fileName, contentType);
-
-        // 3. Sinh tên file duy nhất chống path traversal: {folder}/{uuid}{ext}
-        var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(ext))
-        {
-            ext = contentType.ToLowerInvariant() switch
-            {
-                "image/jpeg" => ".jpg",
-                "image/png" => ".png",
-                "image/webp" => ".webp",
-                "image/avif" => ".avif",
-                _ => ".jpg"
-            };
-        }
-
-        var sanitizedFolder = folder.Trim('/', '\\');
-        var objectKey = string.IsNullOrWhiteSpace(sanitizedFolder)
-            ? $"{Guid.NewGuid():N}{ext}"
-            : $"{sanitizedFolder}/{Guid.NewGuid():N}{ext}";
-
-        // 4. Đưa Stream về vị trí 0 trước khi đẩy lên S3
-        if (content.CanSeek)
-        {
-            content.Position = 0;
-        }
-
-        var putRequest = new PutObjectRequest
-        {
-            BucketName = _bucketName,
-            Key = objectKey,
-            InputStream = content,
-            ContentType = contentType,
-            AutoCloseStream = false
-        };
-
-        try
-        {
-            await _s3Client.PutObjectAsync(putRequest, ct);
-            _logger.LogInformation("FR-FILE-001: Upload thành công lên MinIO: {ObjectKey}", objectKey);
-            return $"{_publicEndpoint}/{_bucketName}/{objectKey}";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "FR-FILE-001: Lỗi khi upload file lên MinIO: {ObjectKey}", objectKey);
-            throw new InvalidOperationException("Không thể lưu trữ tệp tin vào máy chủ MinIO.", ex);
-        }
+        using var validated = await ReadBoundedAsync(content, ct);
+        ValidateSignature(validated.ToArray(), contentType);
+        using var verified = ImageSafety.ReadVerified(validated, contentType);
+        // Owner nằm trong key do server cấp, client không được chọn user/bucket tùy ý.
+        var purpose = "recipes";
+        if (folder.Equals("avatars", StringComparison.OrdinalIgnoreCase)) purpose = "avatars";
+        else if (folder.Contains("steps", StringComparison.OrdinalIgnoreCase)) purpose = "steps";
+        var key = $"users/{owner:D}/{purpose}/{Guid.NewGuid():N}{extension}";
+        return await PutAsync(validated, contentType, _bucket, key, ct);
     }
 
-    public async Task<string> UploadToBucketAsync(
-        Stream content,
-        string fileName,
-        string contentType,
-        string bucketName,
-        string? folder = null,
-        CancellationToken ct = default)
+    public async Task EnsureOwnedUploadAsync(string fileUrl, CancellationToken ct = default)
     {
-        await EnsureBucketExistsAsync(bucketName, ct);
-
-        var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(ext))
+        if (!_user.IsAuthenticated || !Guid.TryParse(_user.UserId, out var owner))
+            throw new UnauthorizedException("Vui lòng đăng nhập.");
+        var (bucket, key) = ParseManagedUrl(fileUrl);
+        var parts = key.Split('/');
+        if (bucket != _bucket || parts.Length != 4 || parts[0] != "users" ||
+            !Guid.TryParse(parts[1], out _) || (!_user.IsAdmin && parts[1] != owner.ToString("D")) ||
+            parts[2] is not ("recipes" or "avatars" or "steps") ||
+            !Guid.TryParseExact(Path.GetFileNameWithoutExtension(parts[3]), "N", out _))
+            throw new ForbiddenException("Ảnh không thuộc quyền quản lý của bạn.");
+        // Chỉ object đã được upload thành công qua server mới được gắn vào bài/profile.
+        GetObjectMetadataResponse metadata;
+        try { metadata = await _s3.GetObjectMetadataAsync(bucket, key, ct); }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            ext = contentType.ToLowerInvariant() switch
-            {
-                "image/webp" => ".webp",
-                "image/jpeg" => ".jpg",
-                "image/png" => ".png",
-                _ => ".webp"
-            };
+            throw new ValidationException("FILE_NOT_FOUND", "Ảnh chưa được tải lên hoặc đã bị xóa. Vui lòng tải lại ảnh.");
         }
+        if (metadata.ContentLength <= 0 || metadata.ContentLength > MaxFileSizeBytes)
+            throw new ValidationException("FILE_INVALID", "Ảnh không hợp lệ.");
+    }
 
-        var sanitizedFolder = folder?.Trim('/', '\\') ?? "";
-        var objectKey = string.IsNullOrWhiteSpace(sanitizedFolder)
-            ? $"{Guid.NewGuid():N}{ext}"
-            : $"{sanitizedFolder}/{Guid.NewGuid():N}{ext}";
+    public IReadOnlyList<string> GetGeneratedImageUrls(Guid recipeId, Guid imageId)
+        => new[] { "300x300", "800x600" }.Select(size =>
+            $"{_origin.GetLeftPart(UriPartial.Authority)}/recipe-thumbnails/recipes/{recipeId}/{recipeId}_{imageId}_{size}.webp").ToArray();
 
-        if (content.CanSeek)
-        {
-            content.Position = 0;
-        }
-
-        var putRequest = new PutObjectRequest
-        {
-            BucketName = bucketName,
-            Key = objectKey,
-            InputStream = content,
-            ContentType = contentType,
-            AutoCloseStream = false
-        };
-
-        try
-        {
-            await _s3Client.PutObjectAsync(putRequest, ct);
-            _logger.LogInformation("FR-JOB-002: Đã lưu trữ file vào bucket {BucketName}: {ObjectKey}", bucketName, objectKey);
-            return $"{_publicEndpoint}/{bucketName}/{objectKey}";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "FR-JOB-002: Lỗi khi upload file vào bucket {BucketName}: {ObjectKey}", bucketName, objectKey);
-            throw new InvalidOperationException($"Không thể lưu trữ tệp tin vào bucket {bucketName}.", ex);
-        }
+    public Task<string> UploadToBucketAsync(Stream content, string fileName, string contentType,
+        string bucketName, string? folder = null, CancellationToken ct = default)
+    {
+        if (bucketName != "recipe-thumbnails" || Path.GetFileName(fileName) != fileName ||
+            string.IsNullOrEmpty(folder) || !folder.StartsWith("recipes/", StringComparison.Ordinal) ||
+            !Guid.TryParse(folder["recipes/".Length..], out _))
+            throw new ValidationException("FILE_KEY_INVALID", "Đường dẫn ảnh sinh tự động không hợp lệ.");
+        // Key ổn định giúp retry ghi đè đúng phiên bản, không sinh thêm object rác.
+        return PutAsync(content, contentType, bucketName, $"{folder}/{fileName}", ct);
     }
 
     public async Task<(Stream Stream, long Length, string ContentType)> DownloadFileAsync(
-        string fileUrl,
-        CancellationToken ct = default)
+        string fileUrl, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(fileUrl))
-        {
-            throw new ArgumentException("URL tệp không được để trống.", nameof(fileUrl));
-        }
-
-        // Kiểm tra xem đây có phải là file lưu trên MinIO không
-        if (Uri.TryCreate(fileUrl, UriKind.Absolute, out var uri))
-        {
-            var segments = uri.AbsolutePath.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-            if (segments.Length >= 2)
-            {
-                var bucket = segments[0];
-                var objectKey = string.Join('/', segments.Skip(1));
-
-                try
-                {
-                    var response = await _s3Client.GetObjectAsync(bucket, objectKey, ct);
-                    var memStream = new MemoryStream();
-                    await response.ResponseStream.CopyToAsync(memStream, ct);
-                    memStream.Position = 0;
-                    return (memStream, memStream.Length, response.Headers.ContentType ?? "image/jpeg");
-                }
-                catch (AmazonS3Exception ex)
-                {
-                    _logger.LogWarning(ex, "Không thể đọc trực tiếp từ S3 {Bucket}/{Key}, thử fallback qua HTTP", bucket, objectKey);
-                }
-            }
-        }
-
-        // Tải qua HTTP (cho cả ảnh MinIO hoặc ảnh nguồn bên ngoài như Unsplash)
-        try
-        {
-            var res = await _httpClient.GetAsync(fileUrl, ct);
-            res.EnsureSuccessStatusCode();
-
-            var memStream = new MemoryStream();
-            await res.Content.CopyToAsync(memStream, ct);
-            memStream.Position = 0;
-            var contentType = res.Content.Headers.ContentType?.MediaType ?? "image/jpeg";
-            return (memStream, memStream.Length, contentType);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Lỗi khi tải ảnh từ URL: {Url}", fileUrl);
-            throw new InvalidOperationException($"Không thể tải tệp ảnh từ {fileUrl}", ex);
-        }
-    }
-
-    public async Task<PresignedUploadResult> GetPresignedUploadUrlAsync(
-        string fileName,
-        string contentType,
-        string folder,
-        TimeSpan? expiry = null,
-        CancellationToken ct = default)
-    {
-        await EnsureBucketExistsAsync(_bucketName, ct);
-
-        if (!AllowedMimeTypes.Contains(contentType))
-        {
-            throw new ValidationException("FILE_MIME_INVALID",
-                $"Định dạng file '{contentType}' không được hỗ trợ. Chỉ chấp nhận JPG, PNG, WebP, AVIF.");
-        }
-
-        var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(ext))
-        {
-            ext = contentType.ToLowerInvariant() switch
-            {
-                "image/jpeg" => ".jpg",
-                "image/png" => ".png",
-                "image/webp" => ".webp",
-                "image/avif" => ".avif",
-                _ => ".jpg"
-            };
-        }
-
-        var sanitizedFolder = folder.Trim('/', '\\');
-        var objectKey = string.IsNullOrWhiteSpace(sanitizedFolder)
-            ? $"{Guid.NewGuid():N}{ext}"
-            : $"{sanitizedFolder}/{Guid.NewGuid():N}{ext}";
-
-        var duration = expiry ?? TimeSpan.FromMinutes(15);
-        var preSignedRequest = new GetPreSignedUrlRequest
-        {
-            BucketName = _bucketName,
-            Key = objectKey,
-            Verb = HttpVerb.PUT,
-            Expires = DateTime.UtcNow.Add(duration),
-            ContentType = contentType,
-            Protocol = _useSsl ? Protocol.HTTPS : Protocol.HTTP
-        };
-
-        var uploadUrl = _s3Client.GetPreSignedURL(preSignedRequest);
-        if (!_useSsl && uploadUrl.StartsWith("https://"))
-        {
-            uploadUrl = "http://" + uploadUrl[8..];
-        }
-        var publicUrl = $"{_publicEndpoint}/{_bucketName}/{objectKey}";
-
-        _logger.LogInformation("FR-FILE-003: Đã sinh Presigned Upload URL cho {ObjectKey}, hết hạn sau {Minutes} phút",
-            objectKey, duration.TotalMinutes);
-
-        return new PresignedUploadResult(
-            uploadUrl,
-            publicUrl,
-            objectKey,
-            (int)duration.TotalMinutes);
+        var (bucket, key) = ParseManagedUrl(fileUrl);
+        // Không có HTTP fallback: URL do người dùng nhập không được dùng để gọi mạng nội bộ.
+        using var response = await _s3.GetObjectAsync(bucket, key, ct);
+        if (response.ContentLength > MaxFileSizeBytes)
+            throw new ValidationException("FILE_TOO_LARGE", "Ảnh vượt giới hạn 5 MB.");
+        var data = await ReadBoundedAsync(response.ResponseStream, ct);
+        return (data, data.Length, response.Headers.ContentType ?? "application/octet-stream");
     }
 
     public async Task DeleteAsync(string fileUrl, CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(fileUrl))
+        if (string.IsNullOrWhiteSpace(fileUrl)) return;
+        (string bucket, string key) managed;
+        try { managed = ParseManagedUrl(fileUrl); }
+        catch (ValidationException ex) when (ex.Errors.ContainsKey("FILE_SOURCE_INVALID"))
         {
+            // Bản ghi cũ có thể dùng ảnh bên ngoài; hệ thống chỉ dọn object mình quản lý.
             return;
         }
+        var (bucket, key) = managed;
+        await _s3.DeleteObjectAsync(new DeleteObjectRequest { BucketName = bucket, Key = key }, ct);
+    }
 
-        var (bucket, objectKey) = ExtractBucketAndKey(fileUrl);
-        if (string.IsNullOrWhiteSpace(objectKey))
+    private (string Bucket, string Key) ParseManagedUrl(string value)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
+            uri.Scheme != _origin.Scheme || uri.Authority != _origin.Authority ||
+            !string.IsNullOrEmpty(uri.Query) || !string.IsNullOrEmpty(uri.Fragment) ||
+            !string.IsNullOrEmpty(uri.UserInfo))
+            throw new ValidationException("FILE_SOURCE_INVALID", "Chỉ được sử dụng ảnh lưu trên hệ thống.");
+        var segments = Uri.UnescapeDataString(uri.AbsolutePath).Trim('/').Split('/');
+        if (segments.Length < 2 || (segments[0] != _bucket && segments[0] != "recipe-thumbnails") ||
+            segments.Any(s => s is "" or "." or ".." || s.Contains('\\')))
+            throw new ValidationException("FILE_KEY_INVALID", "Bucket hoặc object key không hợp lệ.");
+        return (segments[0], string.Join('/', segments.Skip(1)));
+    }
+
+    private async Task<string> PutAsync(Stream content, string contentType, string bucket, string key, CancellationToken ct)
+    {
+        if (!_initialized.Contains(bucket) && !await AmazonS3Util.DoesS3BucketExistV2Async(_s3, bucket))
         {
-            return;
+            await _s3.PutBucketAsync(new PutBucketRequest { BucketName = bucket }, ct);
+            await _s3.PutBucketPolicyAsync(new PutBucketPolicyRequest
+            {
+                BucketName = bucket,
+                Policy = $$"""{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":"*","Action":["s3:GetObject"],"Resource":["arn:aws:s3:::{{bucket}}/*"]}]}"""
+            }, ct);
         }
+        _initialized.Add(bucket);
+        if (content.CanSeek) content.Position = 0;
+        await _s3.PutObjectAsync(new PutObjectRequest
+        {
+            BucketName = bucket,
+            Key = key,
+            ContentType = contentType,
+            InputStream = content,
+            AutoCloseStream = false
+        }, ct);
+        _logger.LogInformation("Lưu ảnh vào {Bucket}/{Key}", bucket, key);
+        return $"{_origin.GetLeftPart(UriPartial.Authority)}/{bucket}/{key}";
+    }
 
+    private static async Task<MemoryStream> ReadBoundedAsync(Stream source, CancellationToken ct)
+    {
+        var result = new MemoryStream();
         try
         {
-            var deleteRequest = new DeleteObjectRequest
+            var buffer = new byte[81920];
+            int count;
+            while ((count = await source.ReadAsync(buffer, ct)) > 0)
             {
-                BucketName = bucket ?? _bucketName,
-                Key = objectKey
-            };
-
-            await _s3Client.DeleteObjectAsync(deleteRequest, ct);
-            _logger.LogInformation("FR-FILE-002: Đã xóa thành công file khỏi MinIO: {ObjectKey}", objectKey);
-        }
-        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
-        {
-            _logger.LogWarning("FR-FILE-002: File không tồn tại trên MinIO, bỏ qua: {ObjectKey}", objectKey);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "FR-FILE-002: Lỗi khi xóa file khỏi MinIO: {ObjectKey}", objectKey);
-            throw;
-        }
-    }
-
-    private (string? Bucket, string? Key) ExtractBucketAndKey(string fileUrl)
-    {
-        var path = fileUrl;
-        if (Uri.TryCreate(fileUrl, UriKind.Absolute, out var uri))
-        {
-            path = uri.AbsolutePath;
-        }
-
-        var segments = path.Trim('/').Split('/', StringSplitOptions.RemoveEmptyEntries);
-        if (segments.Length >= 2)
-        {
-            return (segments[0], string.Join('/', segments.Skip(1)));
-        }
-
-        return (null, path.Trim('/'));
-    }
-
-    private async Task EnsureBucketExistsAsync(string bucketName, CancellationToken ct)
-    {
-        if (_initializedBuckets.Contains(bucketName))
-        {
-            return;
-        }
-
-        await _initLock.WaitAsync(ct);
-        try
-        {
-            if (_initializedBuckets.Contains(bucketName))
-            {
-                return;
+                if (result.Length + count > MaxFileSizeBytes)
+                    throw new ValidationException("FILE_TOO_LARGE", "Ảnh vượt giới hạn 5 MB.");
+                await result.WriteAsync(buffer.AsMemory(0, count), ct);
             }
-
-            var exists = await AmazonS3Util.DoesS3BucketExistV2Async(_s3Client, bucketName);
-            if (!exists)
-            {
-                _logger.LogInformation("Tạo bucket mới trên MinIO: {BucketName}", bucketName);
-                await _s3Client.PutBucketAsync(new PutBucketRequest { BucketName = bucketName }, ct);
-
-                // Cấu hình Bucket Policy Anonymous Read
-                var policy = $$"""
-                {
-                    "Version": "2012-10-17",
-                    "Statement": [
-                        {
-                            "Sid": "PublicRead",
-                            "Effect": "Allow",
-                            "Principal": "*",
-                            "Action": ["s3:GetObject"],
-                            "Resource": ["arn:aws:s3:::{{bucketName}}/*"]
-                        }
-                    ]
-                }
-                """;
-
-                try
-                {
-                    await _s3Client.PutBucketPolicyAsync(new PutBucketPolicyRequest
-                    {
-                        BucketName = bucketName,
-                        Policy = policy
-                    }, ct);
-                    _logger.LogInformation("Đã cấu hình policy Anonymous Read cho bucket {BucketName}", bucketName);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Không thể cấu hình policy public-read cho bucket {BucketName}", bucketName);
-                }
-            }
-
-            _initializedBuckets.Add(bucketName);
+            if (result.Length == 0) throw new ValidationException("FILE_EMPTY", "Tệp ảnh không được rỗng.");
+            result.Position = 0;
+            return result;
         }
-        finally
-        {
-            _initLock.Release();
-        }
+        catch { await result.DisposeAsync(); throw; }
     }
 
-    private static void ValidateFile(Stream content, string fileName, string contentType)
+    private static void ValidateSignature(byte[] bytes, string type)
     {
-        if (content == null || content.Length == 0)
+        var valid = bytes.Length >= 12 && (type.ToLowerInvariant() switch
         {
-            throw new ValidationException("FILE_EMPTY", "Tệp tin tải lên không được rỗng.");
-        }
-
-        if (content.Length > MaxFileSizeBytes)
-        {
-            throw new ValidationException("FILE_TOO_LARGE",
-                $"Dung lượng tệp tin ({content.Length / 1024 / 1024:F2} MB) vượt quá giới hạn cho phép (5 MB).");
-        }
-
-        if (!AllowedMimeTypes.Contains(contentType))
-        {
-            throw new ValidationException("FILE_MIME_INVALID",
-                $"Định dạng file '{contentType}' không được hỗ trợ. Chỉ chấp nhận JPG, PNG, WebP, AVIF.");
-        }
-
-        ValidateMagicBytes(content, contentType);
-    }
-
-    private static void ValidateMagicBytes(Stream content, string contentType)
-    {
-        if (!content.CanSeek)
-        {
-            return;
-        }
-
-        var originalPosition = content.Position;
-        content.Position = 0;
-
-        var header = new byte[12];
-        var bytesRead = content.Read(header, 0, header.Length);
-        content.Position = originalPosition;
-
-        if (bytesRead < 4)
-        {
-            throw new ValidationException("FILE_CORRUPTED", "Tệp tin bị hỏng hoặc không thể đọc.");
-        }
-
-        var isValid = contentType.ToLowerInvariant() switch
-        {
-            "image/jpeg" => header[0] == 0xFF && header[1] == 0xD8 && header[2] == 0xFF,
-            "image/png" => header[0] == 0x89 && header[1] == 0x50 && header[2] == 0x4E && header[3] == 0x47,
-            "image/webp" => header[0] == 0x52 && header[1] == 0x49 && header[2] == 0x46 && header[3] == 0x46 &&
-                            bytesRead >= 12 && header[8] == 0x57 && header[9] == 0x45 && header[10] == 0x42 && header[11] == 0x50,
-            "image/avif" => bytesRead >= 12 && header[4] == 0x66 && header[5] == 0x74 && header[6] == 0x79 && header[7] == 0x70,
-            _ => true
-        };
-
-        if (!isValid)
-        {
-            throw new ValidationException("FILE_SIGNATURE_MISMATCH",
-                "Chữ ký nhị phân (magic bytes) của tệp tin không khớp với định dạng được khai báo.");
-        }
+            "image/jpeg" => bytes[0] == 255 && bytes[1] == 216 && bytes[2] == 255,
+            "image/png" => bytes.AsSpan(0, 8).SequenceEqual(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }),
+            "image/webp" => System.Text.Encoding.ASCII.GetString(bytes, 0, 4) == "RIFF" &&
+                System.Text.Encoding.ASCII.GetString(bytes, 8, 4) == "WEBP",
+            "image/avif" => System.Text.Encoding.ASCII.GetString(bytes, 4, 4) == "ftyp" &&
+                (System.Text.Encoding.ASCII.GetString(bytes, 8, 4) is "avif" or "avis"),
+            _ => false
+        });
+        if (!valid) throw new ValidationException("FILE_SIGNATURE_MISMATCH", "Nội dung ảnh không khớp định dạng đã khai báo.");
     }
 }

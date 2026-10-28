@@ -14,5 +14,9 @@ public record GetRecipesQuery(
     Guid? CategoryId = null,
     RecipeDifficulty? Difficulty = null,
     int? MaxCookTime = null,    // lọc theo thời gian nấu (CookTime)
-    int? MaxTotalTime = null   // lọc theo tổng thời gian (PrepTime + CookTime)
-) : IRequest<PagedResult<RecipeListItemDto>>;
+    int? MaxTotalTime = null,   // lọc theo tổng thời gian (PrepTime + CookTime)
+    int? MinServings = null
+) : IRequest<PagedResult<RecipeListItemDto>>, CulinaryBlog.Application.Common.Interfaces.ICacheableQuery
+{
+    public TimeSpan CacheDuration => TimeSpan.FromMinutes(5);
+}

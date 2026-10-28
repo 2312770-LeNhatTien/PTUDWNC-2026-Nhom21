@@ -285,38 +285,6 @@ git checkout -b 2312792-NguyenDinhTuan-buoi4
      - Lưu ảnh thumbnail vào bucket `recipe-thumbnails` trên MinIO.
   2. Đo lường kích thước ảnh thumbnail giảm hơn 70% so với ảnh gốc, giúp trang chủ Next.js tải siêu mượt.
 
-### Bổ sung trước Buổi 8 — Khắc phục sau rà soát toàn dự án (28/10/2026)
-
-Đọc [hướng dẫn khắc phục chung](../HUONG_DAN_KHAC_PHUC_SAU_RA_SOAT.md), ưu tiên R01–R05 trước khi chạy public. Căn cứ rà là `main@e2cb966`, đã gồm resize buổi 7; lấy `main` mới nhất rồi kiểm tra lại. Dùng nhánh `2312792-NguyenDinhTuan-buoi8`; đây là sửa/tích hợp tồn từ trước, các ô dưới **chưa được xác nhận hoàn thành**.
-
-| Thứ tự | Tuấn chịu trách nhiệm | File/điểm bắt đầu | Cách làm, lý do và điều kiện xong |
-| --- | --- | --- | --- |
-| 1 | **R01 — Steps/ingredients, quyền đọc bài riêng** | `RecipesEndpoints.cs`, ManageSteps/Ingredients, query GET con | Xác thực/policy endpoint; từ chối Guest sớm, luôn check owner/Admin và ID con–cha. Guest không đọc Draft/Archived. Giữ D9/D10/D13, test mọi role. |
-| 2 | **R02 — File ownership** | `FilesEndpoints.cs`, MinIO service/contract | Auth presign/upload/delete, owner/bucket/key server kiểm soát; biết URL không có nghĩa có quyền. Giữ avatar hợp lệ, chặn object người khác/đang được tham chiếu. |
-| 3 | **R03 — Validate bytes thật** | Presign/proxy/finalize, `ImageUploader`, file API helper | Proxy validate hoặc staging + finalize; server kiểm bytes/MIME/5MB trước public/attach. Bàn giao object ID/key cho Tiến, test giả MIME/quá lớn/chưa finalize. |
-| 4 | **R04 — Quyền job API** | `JobsEndpoints.cs`, resize service/command | Batch/stats Admin, ảnh lẻ owner/Admin đúng recipeId/imageId. Bị chặn không enqueue; chốt limiter với Đức. |
-| 5 | **R05 — Nguồn ảnh/SSRF** | `AddRecipeImageCommand`, `DownloadFileAsync`, job | Chỉ tải object xác minh, bỏ HTTP fallback tùy ý nếu không cần; giới hạn bytes/pixel/decode. Test host/redirect giả lập, không thử mạng nội bộ thật. |
-| 6 | **R07/R09 — Dependency/retry/queue** | Package media, job interface/implementation/DI | Vá cùng Tiến theo advisory lúc sửa. Probe nhận retry 10, chưa phải 3; đặt filter/queue nơi có hiệu lực và kiểm tra storage, không chỉ attribute. |
-| 7 | **R10 — Batch/idempotency** | `ImageResizeJob`, `UploadToBucketAsync` | Theo dõi lỗi từng ảnh, key ổn định hoặc dọn bản cũ; chạy lại/worker song song/lỗi DB không sinh rác hay hồi sinh ảnh đã xóa. |
-| 8 | **R18 — Worker dọn ảnh** | Storage delete/job; Tiến ghép gallery command | Dọn original/medium/thumbnail đúng key, retry/idempotent, giữ ảnh khi soft-delete Recipe D1; xử lý ảnh dùng chung/race resize. |
-| 9 | **U01/U02 — Input/UX media** | Ingredient editor/new, profile/validators/config, uploader/detail | Parser phân số D10, MIME/độ dài UI–validator–DB khớp, xóa lỗi giữ UI/hiện lỗi; medium/thumbnail/fallback. Test biên và lỗi mạng. |
-
-**Phối hợp và bàn giao:**
-
-1. Tiến xác nhận contract attach sau R02/R03/R05 và ghép trang edit/gallery. Bàn giao editor nguyên liệu/bước với callback RowVersion, không sửa trùng toàn trang.
-2. Tiến làm R11 Jobs=false, Tuấn bàn giao job consumer/DI tương thích. Đức cần pattern retry/queue welcome và policy upload R20.
-3. Toàn làm P02/headers; cung cấp origin/bucket ảnh để CSP không chặn. P03 SEO thống nhất Tiến về slug/canonical/sitemap.
-4. README_JOBS/báo cáo media cập nhật theo test thật về retry/queue/quyền dashboard; thêm test Q02 cùng Đức chạy sau merge.
-
-**Checklist nghiệm thu phần Tuấn:**
-
-- [ ] R01–R05 có Guest/owner/Author khác/Admin, ID sai bài, object trái quyền; request bị chặn không đổi dữ liệu/job.
-- [ ] R09/R10/R18 có bằng chứng retry/queue, chạy lại/partial failure/race delete–resize, không sinh object rác.
-- [ ] R07 phần media và U01/U02 đạt cả UI/API/storage, giới hạn file thực kiểm tra phía server.
-- [ ] Bàn giao Tiến R11/R13/R18, phối hợp Đức R20 và test profile/upload.
-- [ ] Hoàn thành **P03**: metadata/JSON-LD/canonical, tối ưu ảnh và báo cáo production mobile/desktop.
-- [ ] Ghi đúng ca đã chạy, không suy ra toàn bộ hoàn tất từ resize một ảnh mẫu.
-
 ### 📅 Tuần 8 (Lab 8): Tối ưu hóa SEO Frontend (Schema.org) & Kiểm thử hiệu năng
 * **Nhánh làm việc**: `2312792-NguyenDinhTuan-buoi8`
 * **Nhiệm vụ trọng tâm**:

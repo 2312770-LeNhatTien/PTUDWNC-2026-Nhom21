@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // CHỨC NĂNG: FR-RCP-009 - Quản lý nguyên liệu (Cập nhật nguyên liệu trong công thức)
 // THÀNH VIÊN: Nguyễn Đình Tuấn (MSSV: 2312792)
 // QUYẾT ĐỊNH KIẾN TRÚC TUÂN THỦ: D10 (Quantity và Unit nullable cho nguyên liệu "vừa đủ")
@@ -84,12 +84,15 @@ public class UpdateRecipeIngredientCommandHandler : IRequestHandler<UpdateRecipe
         _currentUser = currentUser;
     }
 
-    public async Task<RecipeIngredientDto> Handle(UpdateRecipeIngredientCommand request, CancellationToken ct)
+    public async Task<RecipeIngredientDto> Handle(UpdateRecipeIngredientCommand request, CancellationToken cancellationToken)
     {
+        // Từ chối Guest trước truy vấn khi handler được gọi trực tiếp.
+        if (!_currentUser.IsAuthenticated)
+            throw new UnauthorizedException("Vui lòng đăng nhập.");
         // 1. Tìm công thức kèm danh sách nguyên liệu
         var recipe = await _dbContext.Recipes
             .Include(r => r.Ingredients)
-            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, cancellationToken);
 
         if (recipe == null)
         {
@@ -97,14 +100,11 @@ public class UpdateRecipeIngredientCommandHandler : IRequestHandler<UpdateRecipe
         }
 
         // 2. Kiểm tra phân quyền: Chỉ tác giả công thức hoặc Admin mới có quyền sửa
-        if (_currentUser.IsAuthenticated)
+        var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
+        var isAdmin = _currentUser.IsAdmin;
+        if (!isAuthor && !isAdmin)
         {
-            var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
-            var isAdmin = _currentUser.IsAdmin;
-            if (!isAuthor && !isAdmin)
-            {
-                throw new ForbiddenException("Bạn không có quyền chỉnh sửa nguyên liệu của công thức này.");
-            }
+            throw new ForbiddenException("Bạn không có quyền chỉnh sửa nguyên liệu của công thức này.");
         }
 
         // 3. Tìm nguyên liệu cần chỉnh sửa
@@ -142,7 +142,7 @@ public class UpdateRecipeIngredientCommandHandler : IRequestHandler<UpdateRecipe
         );
 
         // 6. Lưu vào cơ sở dữ liệu
-        await _dbContext.SaveChangesAsync(ct);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         // 7. Trả về DTO kết quả
         return new RecipeIngredientDto(

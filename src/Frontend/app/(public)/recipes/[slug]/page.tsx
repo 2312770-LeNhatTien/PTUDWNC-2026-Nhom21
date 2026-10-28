@@ -12,6 +12,8 @@ import IngredientChecklist from '@/components/recipes/IngredientChecklist';
 import RecipeOwnerActions from '@/components/recipes/RecipeOwnerActions';
 import RecipeReviews from '@/components/recipes/RecipeReviews';
 import type { RecipeDifficulty, RecipeImageDto } from '@/types/api';
+import { isAxiosError } from 'axios';
+import FallbackImage from '@/components/ui/FallbackImage';
 
 interface RecipeDetailPageProps {
   // Trong Next.js 15, params là một Promise cần được await
@@ -57,8 +59,9 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
   let recipe;
   try {
     recipe = await recipesApi.getBySlug(slug);
-  } catch {
-    recipe = null;
+  } catch (error) {
+    if (isAxiosError(error) && error.response?.status === 403) notFound();
+    throw error;
   }
 
   // 3. Nếu không tìm thấy công thức hoặc bị cấm xem (Draft của người khác), trả về 404
@@ -79,7 +82,7 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
   const primaryImg: RecipeImageDto | undefined =
     recipe.images.find((img) => img.isPrimary) || recipe.images[0];
   const primaryImageUrl =
-    primaryImg?.originalUrl ||
+    primaryImg?.mediumUrl || primaryImg?.originalUrl ||
     'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=1200&q=80';
 
   // Định dạng ngày đăng
@@ -236,8 +239,9 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
             {/* Cột phải: Ảnh đại diện lớn của món ăn */}
             <div className="lg:col-span-5">
               <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl shadow-lg border-4 border-white bg-neutral-100 group">
-                <img
+                <FallbackImage
                   src={primaryImageUrl}
+                  fallbackSrc={primaryImg?.originalUrl}
                   alt={primaryImg?.altText || recipe.title}
                   className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
@@ -350,8 +354,9 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
                       key={img.id}
                       className="group relative aspect-square overflow-hidden rounded-2xl border border-neutral-200 bg-neutral-100"
                     >
-                      <img
-                        src={img.originalUrl}
+                      <FallbackImage
+                        src={img.mediumUrl || img.originalUrl}
+                        fallbackSrc={img.originalUrl}
                         alt={img.altText || recipe.title}
                         className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                         loading="lazy"

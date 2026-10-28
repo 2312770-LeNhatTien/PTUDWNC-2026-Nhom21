@@ -14,12 +14,14 @@ public class SearchRecipesQueryHandler : IRequestHandler<SearchRecipesQuery, Pag
         _recipeRepository = recipeRepository;
     }
 
-    public async Task<PagedResult<RecipeListItemDto>> Handle(SearchRecipesQuery request, CancellationToken ct)
+    public async Task<PagedResult<RecipeListItemDto>> Handle(SearchRecipesQuery request, CancellationToken cancellationToken)
     {
         int page = request.Paging.Page is > 0 ? request.Paging.Page.Value : 1;
-        int pageSize = request.Paging.PageSize is > 0 ? request.Paging.PageSize.Value : 10;
+        int pageSize = request.Paging.PageSize ?? 12;
 
-        var (items, total) = await _recipeRepository.SearchAsync(request.Query, page, pageSize, ct, request.CategoryId, request.Difficulty, request.MaxCookTime, request.Paging.SortBy, request.Paging.IsDescending);
+        var (items, total) = await _recipeRepository.SearchAsync(request.Query, page, pageSize, cancellationToken, request.CategoryId,
+            request.Difficulty, request.MaxCookTime, request.Paging.SortBy, request.Paging.IsDescending,
+            request.MinServings, request.MaxTotalTime);
 
         var dtos = items.Select(r => new RecipeListItemDto(
             r.Id,
@@ -35,7 +37,7 @@ public class SearchRecipesQueryHandler : IRequestHandler<SearchRecipesQuery, Pag
             r.Category != null ? r.Category.Name : "Khác",
             r.Author != null ? r.Author.DisplayName : "Đầu bếp",
             r.PublishedAt,
-            r.Reviews.Count(review => !review.IsDeleted) == 0
+            !r.Reviews.Any(review => !review.IsDeleted)
                 ? 0
                 : (decimal)r.Reviews.Where(review => !review.IsDeleted).Average(review => review.Rating),
             r.Reviews.Count(review => !review.IsDeleted)

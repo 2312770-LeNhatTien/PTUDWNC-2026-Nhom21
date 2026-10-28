@@ -1,6 +1,9 @@
 using System.Linq.Expressions;
 using CulinaryBlog.Application.Common.Interfaces;
 using Hangfire;
+using Hangfire.Common;
+using Hangfire.States;
+using CulinaryBlog.Infrastructure.Jobs;
 
 namespace CulinaryBlog.Infrastructure.Services;
 
@@ -18,7 +21,11 @@ public class HangfireBackgroundJobService : IBackgroundJobService
 
     public string Enqueue<T>(Expression<Func<T, Task>> methodCall)
     {
-        return _backgroundJobClient.Enqueue(methodCall);
+        var job = Job.FromExpression(methodCall);
+        // Serialize implementation để Hangfire đọc đúng retry/queue thay vì method interface.
+        if (typeof(T) == typeof(IImageResizeJob))
+            job = new Job(typeof(ImageResizeJob), typeof(ImageResizeJob).GetMethod(job.Method.Name)!, job.Args);
+        return _backgroundJobClient.Create(job, new EnqueuedState(typeof(T) == typeof(IImageResizeJob) ? "images" : "default"));
     }
 
     public string Enqueue<T>(Expression<Action<T>> methodCall)

@@ -272,37 +272,6 @@ git checkout -b 2314299-LamVanDuc-buoi4
      - Tự động thử lại (retry) tối đa 3 lần nếu gặp sự cố mạng.
   3. Thiết kế Template Email HTML chào mừng chuyên nghiệp với thương hiệu Culinary Blog.
 
-### Bổ sung trước Buổi 8 — Khắc phục sau rà soát toàn dự án (28/10/2026)
-
-Đọc [hướng dẫn khắc phục chung](../HUONG_DAN_KHAC_PHUC_SAU_RA_SOAT.md), ưu tiên R06/R08/R19/R20/Q01/Q02/U03. Căn cứ rà là `main@e2cb966`; cập nhật `main` và kiểm tra lại. Dùng nhánh `2314299-LamVanDuc-buoi8`; đây là việc sửa/tích hợp tồn từ trước, không phải chỉ Lab 7, và **chưa được xác nhận hoàn thành**.
-
-| Thứ tự | Đức chịu trách nhiệm | File/điểm bắt đầu | Cách làm, lý do và điều kiện xong |
-| --- | --- | --- | --- |
-| 1 | **R06 — Google token/account linking** | `GoogleLoginCommandHandler.cs`, cấu hình/auth abstraction | Audience đúng Client ID, issuer/expiry, provider/sub và email verified/link tài khoản. Token đúng chữ ký chưa chắc dành cho app mình; test ca sai và đăng nhập lặp. |
-| 2 | **R07 — Dependency frontend/auth** | Package/lockfile, Auth.js/middleware/interceptor | Cùng Tiến chọn bản vá tương thích, test login Google/local, RBAC, silent refresh, production build; không gỡ middleware để test qua. |
-| 3 | **R08 — Welcome job thật** | Register/GoogleLogin tạo mới, job abstraction, MailKit/template | Enqueue sau lưu user, retry 3 lần 1/5/30 phút, không SMTP trong request. Test MailHog, SMTP/queue lỗi, chống gửi lặp và khôi phục ý định gửi sau commit. |
-| 4 | **R19 — Cạnh tranh refresh token** | Handler refresh, repository/entity/config | Viết test đồng thời trên DB riêng trước; rủi ro chưa được tái hiện ở lần rà. Token cũ tiêu thụ nguyên tử một lần, giữ reuse detection; kiểm tra family và silent refresh. |
-| 5 | **R20 — Rate limit** | DI Presentation, policy, middleware order | Giữ login 5/phút D7, thêm auth khác/API/upload; chốt jobs với Tuấn. Test 429/Retry-After/IP qua proxy, không tin header forwarded tùy ý. |
-| 6 | **U03/R13 — Publish/lỗi frontend** | `PublishToggle`, trang new, error helper | Cùng Toàn đọc ProblemDetails; tạo được Draft nhưng publish lỗi phải báo đúng. Bàn giao Tiến ghép edit/preview; test D11 và owner. |
-| 7 | **Q01 — Session test và suite** | `tests/lab05.spec.ts`, Playwright configs/fixtures | Ba CRUD Admin test thiếu session bị chuyển login. Tạo fixture đúng, giữ RBAC; tách suite jobs/recipes đúng port. Kiểm tra discovery và chạy thật. |
-| 8 | **Q02 — Test/coverage/E2E** | Backend tests, API scripts, Playwright | Mỗi người test phần mình, Đức điều phối ≥80% Application theo SRS và E2E thật. Dùng DB/bucket riêng, phân biệt mock/integration; chỉ ghi coverage khi có đo. |
-
-**Phối hợp và bàn giao:**
-
-1. Thống nhất enqueue với Tiến R11 trước welcome; đặt retry trên method Hangfire thực sự serialize, không chỉ implementation.
-2. Tuấn cung cấp upload/job policy; Toàn thống nhất RFC 7807/401/403/429 và parser; Tiến cấu hình proxy tin cậy.
-3. Tiến ghép edit/preview; Đức làm component publish/error và test để tránh sửa trùng trang.
-4. U04 phần link quên mật khẩu/newsletter cùng Toàn: ẩn/đổi CTA nếu chưa hỗ trợ, không tự mở thêm tính năng ngoài phạm vi.
-
-**Checklist nghiệm thu phần Đức:**
-
-- [ ] R06/R08/R19/R20, phần R07/U03 có ca hợp lệ và bị từ chối.
-- [ ] Đăng ký tạo welcome job, MailHog nhận thư; SMTP lỗi không mất tài khoản; retry/enqueue lỗi/gửi lặp có test.
-- [ ] Hai refresh cùng token chỉ tiêu thụ một lần; reuse/logout và dashboard D14 vẫn đúng.
-- [ ] Q01/Q02 chạy được, coverage đúng phạm vi; không gỡ quyền để test xanh.
-- [ ] E2E sau ghép: Auth → Draft → sửa nội dung/ảnh → publish → search/category/detail → review → archive/delete → logout; test user thứ hai, mobile/a11y.
-- [ ] Ghi lệnh/môi trường/số test/giới hạn, cập nhật báo cáo auth/email theo kết quả thật; cung cấp test cho Tiến Q03.
-
 ### 📅 Tuần 8 (Lab 8): Kiểm thử tự động E2E toàn bộ luồng Auth & Nghiệm thu
 * **Nhánh làm việc**: `2314299-LamVanDuc-buoi8`
 * **Nhiệm vụ trọng tâm**:

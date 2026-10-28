@@ -1,161 +1,99 @@
-# Hướng dẫn chạy dự án trên máy cá nhân
+# Chạy dự án trên máy cá nhân
 
-Làm tuần tự từ trên xuống. Các lệnh viết cho **PowerShell** trên Windows.
+Cập nhật 28/10/2026. Các lệnh dưới đây chạy bằng PowerShell từ thư mục gốc repo, trừ khi có `cd`.
 
-## 0. Cài sẵn
+## 1. Chuẩn bị và lấy code
 
-- .NET 10 SDK
-- Node.js 20+ và npm 10+
-- Docker Desktop (đang chạy)
-- Git
-
-Nếu máy đã cài sẵn PostgreSQL bản desktop, nhớ **tắt service đó đi** (hoặc gỡ),
-vì nó chiếm cổng 5432 làm container Docker không kết nối được.
-
-## 1. Build Backend
-
-Dự án đã có sẵn file solution `CulinaryBlog.slnx` ở thư mục gốc (chứa đủ 4 project Backend). Bạn chỉ cần restore và build:
+Cài .NET 10 SDK, Node.js 22 LTS, npm, Git và Docker Desktop. Kiểm tra cổng 5432/6379/9000 trước khi chạy; nếu đang dùng cho dự án khác, đổi mapping và connection string tương ứng.
 
 ```powershell
-dotnet restore CulinaryBlog.slnx
-dotnet build CulinaryBlog.slnx
-```
-
-
-Nếu báo lỗi version package không tồn tại: mở `.csproj` tương ứng, chạy
-`dotnet add package <TênGói>` để dotnet tự lấy bản mới nhất.
-
-## 3. Đặt JWT secret (không commit lên Git)
-
-```powershell
-cd src\Backend\CulinaryBlog.API
-dotnet user-secrets init
-dotnet user-secrets set "JwtSettings:Key" "doi-thanh-chuoi-bi-mat-cua-rieng-ban-toi-thieu-32-ky-tu"
-cd ..\..\..
-```
-
-## 4. Khởi chạy hạ tầng
-
-Bật Docker Desktop trước, rồi:
-
-```powershell
+git clone https://github.com/2312770-LeNhatTien/PTUDWNC-2026-Nhom21.git
+cd PTUDWNC-2026-Nhom21
 docker compose up -d
 docker compose ps
+dotnet restore CulinaryBlog.slnx
+dotnet build CulinaryBlog.slnx -c Release
 ```
 
-Phải thấy đủ 5 container ở trạng thái `Up`: postgres, redis, minio, seq, mailhog.
+Giữ version package đã ghim trong repo, không tự lấy bản mới nhất khi gặp lỗi restore. Kiểm tra SDK, mạng và nguồn NuGet trước.
 
-Các giao diện quản trị:
-- MinIO: http://localhost:9001 (minioadmin / minioadmin)
-- Seq (xem log): http://localhost:5341
-- Mailhog (xem mail): http://localhost:8025
+## 2. Khóa và cấu hình backend
 
-## 5. Tạo database
+Project API đã có UserSecretsId. Tạo JWT key riêng tối thiểu 32 ký tự và lưu bằng user-secrets:
 
 ```powershell
-dotnet tool install --global dotnet-ef
+dotnet user-secrets set 'JwtSettings:Key' '<chuoi-ngau-nhien-rieng-toi-thieu-32-ky-tu>' --project src/Backend/CulinaryBlog.API
 ```
 
-(bỏ qua nếu đã cài)
+`appsettings.Development.json` có connection PostgreSQL `culinary_blog` (pool tối đa40), Redis, MinIO, MailHog và Sitemap origin cho local. Khi deploy nhiều replica, chia ngân sách kết nối DB cho từng instance và Hangfire; không tăng pool tùy ý tới max_connections. Đây là cấu hình demo; không dùng mật khẩu demo cho production. Khóa thật dùng user-secrets hoặc biến môi trường, không commit `.env.local`, token hoặc file credentials.
+
+Google là tùy chọn: backend cần `Google:ClientId`, frontend cần Google client ID tương ứng. Chưa có domain/credentials Search Console thì giữ `Sitemap:SubmitToSearchConsole=false`. Đọc [hướng dẫn jobs](../src/Backend/CulinaryBlog.Infrastructure/Jobs/README_JOBS.md).
+
+## 3. Áp dụng migration đã có
+
+Không tạo lại `InitialCreate`, xóa migrations hoặc reset database đang dùng. `DesignTimeDbContextFactory` không đọc user-secrets/appsettings của API; vì vậy phải chỉ rõ connection khi dùng EF CLI:
 
 ```powershell
-dotnet ef migrations add InitialCreate `
-  --project src\Backend\CulinaryBlog.Infrastructure `
-  --startup-project src\Backend\CulinaryBlog.API `
-  --output-dir Persistence\Migrations
-
-dotnet ef database update `
-  --project src\Backend\CulinaryBlog.Infrastructure `
-  --startup-project src\Backend\CulinaryBlog.API
+dotnet tool install --global dotnet-ef --version '10.0.*'
+# Bỏ qua install nếu đã có dotnet-ef 10; kiểm tra bằng dotnet ef --version.
+$env:ConnectionStrings__DefaultConnection='Host=localhost;Port=5432;Database=culinary_blog;Username=postgres;Password=postgres'
+dotnet ef database update --project src/Backend/CulinaryBlog.Infrastructure --startup-project src/Backend/CulinaryBlog.API
+Remove-Item Env:ConnectionStrings__DefaultConnection
 ```
 
-Dấu `` ` `` cuối dòng là ký tự xuống dòng của PowerShell, gõ đúng như vậy.
-
-Khi nào cần Full-Text Search (FR-SRCH-001), bật thêm extension cho PostgreSQL:
+Migration hiện có bao gồm `unaccent`, concurrency token/trigger, full-text SearchVector/GIN, PendingJobs và CacheVersion. Không cần chạy SQL extension bằng tay. Khi chạy Development, API mặc định cũng migrate/seed; tắt bằng `Database__InitializeOnStartup=false` nếu chỉ muốn tự quản lý migration. Production phải apply migration riêng có kiểm soát; seeder tài khoản demo chỉ chạy Development.
 
 ```powershell
-docker exec -it culinaryblog-postgres psql -U postgres -d culinary_blog -c "CREATE EXTENSION IF NOT EXISTS unaccent;"
+dotnet run --project src/Backend/CulinaryBlog.API
 ```
 
-## 6. Chạy Backend
+API ở `http://localhost:5000/api/v1`, Scalar ở `/scalar/v1`. Các nghiệp vụ đã được hiện thực; 501 không phải kết quả bình thường cần bỏ qua.
+
+## 4. Frontend
+
+Mở terminal khác từ root:
 
 ```powershell
-dotnet run --project src\Backend\CulinaryBlog.API
-```
-
-- Tài liệu API: http://localhost:5000/scalar/v1
-- Health check: http://localhost:5000/health , `/health/live` , `/health/ready`
-
-Các endpoint nghiệp vụ sẽ trả lỗi **501 Not Implemented** kèm mã FR tương ứng —
-đó là đúng thiết kế, vì phần đó dành cho từng thành viên hiện thực.
-
-## 7. Chạy Frontend
-
-Mở terminal mới:
-
-```powershell
-cd src\Frontend
-copy .env.example .env.local
-```
-
-Mở `.env.local`, đổi `NEXTAUTH_SECRET` thành chuỗi ngẫu nhiên của riêng bạn.
-Sinh nhanh một chuỗi:
-
-```powershell
-[Convert]::ToBase64String((1..32 | ForEach-Object { Get-Random -Maximum 256 }))
-```
-
-Rồi:
-
-```powershell
-npm install
+cd src/Frontend
+Copy-Item .env.example .env.local
+# Điền AUTH_SECRET ngẫu nhiên riêng trong .env.local trước khi chạy.
+npm ci
 npm run dev
 ```
 
-Web chạy tại http://localhost:3000
+Mở `http://localhost:3000`. `API_URL` là địa chỉ backend cho Next.js server; `NEXT_PUBLIC_API_URL` là địa chỉ trình duyệt truy cập được. Cả hai mặc định `http://localhost:5000`; client tự chuẩn hóa `/api/v1`. Khi đổi cổng, cập nhật CORS và Auth URL tương ứng.
 
-Nếu PowerShell báo *"running scripts is disabled"*, chạy một lần:
+Tài khoản demo chỉ trên DB Development mới seed: `admin@culinary.local` / `Admin@123`, `bep_truong_an@culinary.local` / `Author@123`. Đừng đưa tài khoản demo lên môi trường public.
+
+## 5. Các cổng local
+
+| Dịch vụ | URL/cổng | Kiểm tra |
+| --- | --- | --- |
+| Frontend | http://localhost:3000 | Tạo/sửa Draft tại dashboard, preview riêng, Publish |
+| API | http://localhost:5000/scalar/v1 | GET/PATCH/POST cần JWT theo từng quyền |
+| Health | http://localhost:5000/health | PostgreSQL + Redis + MinIO |
+| Liveness | http://localhost:5000/health/live | Chỉ tiến trình API |
+| Readiness | http://localhost:5000/health/ready | PostgreSQL + Redis |
+| Hangfire | http://localhost:5000/hangfire | Cookie Admin được cấp từ chức năng mở dashboard |
+| PostgreSQL / Redis | 5432 / 6379 | Không có giao diện HTTP |
+| MinIO | http://localhost:9001 | `minioadmin` / `minioadmin`, S3 ở 9000 |
+| Seq | http://localhost:5341 | Log JSON, CorrelationId và thời gian handler/query |
+| MailHog | http://localhost:8025 | SMTP 1025, xem email thử không gửi ra ngoài |
+
+## 6. Kiểm thử trước PR
 
 ```powershell
-Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+dotnet test tests/Backend.Tests/Backend.Tests.csproj -c Release --collect:'XPlat Code Coverage' --results-directory artifacts/coverage
+dotnet run --project tests/Lab06.CacheChecks -c Release
+cd src/Frontend
+npm audit
+npx tsc --noEmit
+npm run build
+npx playwright install chromium
+npx playwright test
+npx playwright test --config playwright.recipes.config.ts recipe-management.ui.spec.ts
 ```
 
-## 8. Quy trình làm việc với Git
+Backend tests tạo/drop database ngẫu nhiên `culinary_tests_<guid>` bằng user test có quyền CREATEDB. Mặc định server local 5432, database quản trị `postgres`; đổi bằng `CULINARY_TEST_ADMIN_CONNECTION` để dùng instance riêng. Không chạy test bằng tài khoản production. Coverage gate CI đo line coverage Application >=80% từ unit + API integration tests; không gọi đây là coverage unit thuần.
 
-Mỗi thành viên làm việc trên **từng nhánh riêng cho mỗi chức năng** (cú pháp: `<MSSV>-<VietTatHoDemTen>-<Ten-Chuc-Nang>`).
-**Không tự merge vào `main`** — chỉ trưởng nhóm **Lê Nhật Tiến** mới được merge.
-
-```powershell
-# 1. Luôn cập nhật code mới nhất từ main trước khi tạo nhánh mới
-git checkout main
-git pull origin main
-
-# 2. Tự tạo nhánh cho chức năng bạn sắp làm
-# Ví dụ Tuấn làm upload MinIO:
-git checkout -b 2312792-NDTuan-Upload-Minio
-
-# Ví dụ Đức làm đăng ký:
-git checkout -b 2314299-LVDuc-Dang-Ky
-
-# 3. Code xong thì kiểm tra build và lint sạch lỗi
-dotnet build CulinaryBlog.slnx
-npm run lint    # trong thư mục src/Frontend
-
-# 4. Commit và push nhánh chức năng lên GitHub
-git add .
-git commit -m "file: upload anh len minio 5mb FR-FILE-001"
-git push -u origin 2312792-NDTuan-Upload-Minio
-
-# 5. Báo trưởng nhóm Tiến qua nhóm Zalo để Tiến review và merge vào main
-```
-
-
-
-
-## 9. Bắt đầu code từ đâu
-
-1. Mở `docs/DECISIONS.md` đọc trước — có mấy chỗ SRS mâu thuẫn đã được chốt sẵn.
-2. Tìm file Handler ứng với mã FR mình phụ trách (xem bảng phân công ở README).
-   Mỗi Handler đang là khung rỗng, bên trên có comment ghi rõ các bước cần làm.
-3. Xóa dòng `throw new NotImplementedException(...)` và viết logic vào.
-4. Test bằng Scalar tại http://localhost:5000/scalar/v1
+Playwright mặc định dùng API giả lập nhưng middleware/phiên thật. Suite jobs dùng backend thật và DB thử, xem hướng dẫn jobs; không chạy lên DB demo. Kiểm thử Google thật, Docker production/Nginx/HTTPS và Core Web Vitals trên deployment thuộc Buổi 8.

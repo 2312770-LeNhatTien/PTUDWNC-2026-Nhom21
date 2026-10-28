@@ -15,7 +15,8 @@ public class CategoryRepository : Repository<Category>, ICategoryRepository
     // excludeId dùng khi cập nhật: bỏ qua chính danh mục đang sửa.
     public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null, CancellationToken ct = default)
     {
-        var query = Db.Categories.Where(c => c.Name.ToLower() == name.ToLower().Trim());
+        // Bảo lưu tên/slug đã xóa mềm, khớp unique index và tránh tái dùng URL cũ.
+        var query = Db.Categories.IgnoreQueryFilters().Where(c => c.Name.ToLower() == name.ToLower().Trim());
         if (excludeId.HasValue)
             query = query.Where(c => c.Id != excludeId.Value);
         return await query.AnyAsync(ct);

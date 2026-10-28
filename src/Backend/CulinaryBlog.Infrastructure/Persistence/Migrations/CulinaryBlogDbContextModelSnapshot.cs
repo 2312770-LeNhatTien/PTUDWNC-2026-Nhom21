@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using NpgsqlTypes;
 
 #nullable disable
 
@@ -17,7 +18,7 @@ namespace CulinaryBlog.Infrastructure.Persistence.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.0")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -106,6 +107,31 @@ namespace CulinaryBlog.Infrastructure.Persistence.Migrations
                     b.ToTable("AspNetUsers", (string)null);
                 });
 
+            modelBuilder.Entity("CulinaryBlog.Domain.Entities.CacheVersion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Revision")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CacheVersion");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            Revision = "initial"
+                        });
+                });
+
             modelBuilder.Entity("CulinaryBlog.Domain.Entities.Category", b =>
                 {
                     b.Property<Guid>("Id")
@@ -161,6 +187,49 @@ namespace CulinaryBlog.Infrastructure.Persistence.Migrations
                     b.ToTable("Categories", (string)null);
                 });
 
+            modelBuilder.Entity("CulinaryBlog.Domain.Entities.PendingJob", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FileUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("HangfireJobId")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<Guid?>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique()
+                        .HasFilter("\"Kind\" = 'welcome'");
+
+                    b.HasIndex("CompletedAt", "HangfireJobId");
+
+                    b.ToTable("PendingJobs");
+                });
+
             modelBuilder.Entity("CulinaryBlog.Domain.Entities.Recipe", b =>
                 {
                     b.Property<Guid>("Id")
@@ -207,6 +276,11 @@ namespace CulinaryBlog.Infrastructure.Persistence.Migrations
                         .ValueGeneratedOnAddOrUpdate()
                         .HasColumnType("bytea");
 
+                    b.Property<NpgsqlTsVector>("SearchVector")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("tsvector")
+                        .HasDefaultValueSql("''::tsvector");
+
                     b.Property<int>("Servings")
                         .HasColumnType("integer");
 
@@ -244,6 +318,11 @@ namespace CulinaryBlog.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PublishedAt")
                         .HasDatabaseName("IDX_Recipe_PublishedAt");
+
+                    b.HasIndex("SearchVector")
+                        .HasDatabaseName("IDX_Recipe_SearchVector");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("SearchVector"), "GIN");
 
                     b.HasIndex("Slug")
                         .IsUnique()
@@ -507,6 +586,7 @@ namespace CulinaryBlog.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(64)");
 
                     b.Property<DateTime?>("RevokedAt")
+                        .IsConcurrencyToken()
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("TokenHash")

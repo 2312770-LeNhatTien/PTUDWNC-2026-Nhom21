@@ -15,8 +15,8 @@ export const categoriesApi = {
     return response.data.data;
   },
 
-  getBySlug: async (slug: string): Promise<CategoryDetailDto> => {
-    const response = await apiClient.get<ApiResponse<CategoryDetailDto>>(`/categories/${slug}`);
+  getBySlug: async (slug: string, params?: { page?: number; pageSize?: number; sortBy?: string; sortOrder?: string }): Promise<CategoryDetailDto> => {
+    const response = await apiClient.get<ApiResponse<CategoryDetailDto>>(`/categories/${slug}`, { params });
     return response.data.data;
   },
 

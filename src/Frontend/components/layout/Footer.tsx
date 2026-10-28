@@ -90,23 +90,11 @@ export default function Footer() {
 
           {/* Col 4: Newsletter */}
           <div>
-            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Bản Tin Ẩm Thực</h3>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-white">Khám phá món mới</h3>
             <p className="mt-4 text-xs text-neutral-400 leading-relaxed">
-              Nhận công thức nấu ăn mới và mẹo vặt nhà bếp hay nhất gửi đến hộp thư mỗi tuần.
+              Tìm công thức mới và những mẹo nấu ăn được cộng đồng chia sẻ.
             </p>
-            <form onSubmit={(e) => e.preventDefault()} className="mt-4 space-y-2">
-              <input
-                type="email"
-                placeholder="Nhập email của bạn..."
-                className="w-full rounded-lg bg-neutral-800 border border-neutral-700 px-3.5 py-2 text-sm text-white placeholder-neutral-500 outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500"
-              />
-              <button
-                type="submit"
-                className="w-full rounded-lg bg-orange-600 px-4 py-2 text-xs font-semibold text-white shadow hover:bg-orange-700 transition-colors"
-              >
-                Đăng ký nhận tin
-              </button>
-            </form>
+            <Link href="/recipes" className="mt-4 inline-block rounded-lg bg-orange-600 px-4 py-2 text-xs font-semibold text-white hover:bg-orange-700">Xem công thức</Link>
           </div>
         </div>
       </div>

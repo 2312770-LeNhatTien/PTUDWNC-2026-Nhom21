@@ -76,7 +76,7 @@ public class UpdateRecipeCommandHandler : IRequestHandler<UpdateRecipeCommand, R
         _currentUser = currentUser;
     }
 
-    public async Task<RecipeDetailDto> Handle(UpdateRecipeCommand request, CancellationToken ct)
+    public async Task<RecipeDetailDto> Handle(UpdateRecipeCommand request, CancellationToken cancellationToken)
     {
         // 1. Nạp Recipe kèm toàn bộ quan hệ
         var recipe = await _context.Recipes
@@ -85,7 +85,7 @@ public class UpdateRecipeCommandHandler : IRequestHandler<UpdateRecipeCommand, R
             .Include(r => r.Steps)
             .Include(r => r.Ingredients)
             .Include(r => r.Images)
-            .FirstOrDefaultAsync(r => r.Id == request.Id, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
 
         if (recipe == null || recipe.IsDeleted)
         {
@@ -104,7 +104,7 @@ public class UpdateRecipeCommandHandler : IRequestHandler<UpdateRecipeCommand, R
         if (request.CategoryId != recipe.CategoryId)
         {
             var categoryExists = await _context.Categories
-                .AnyAsync(c => c.Id == request.CategoryId && !c.IsDeleted, ct);
+                .AnyAsync(c => c.Id == request.CategoryId && !c.IsDeleted, cancellationToken);
             if (!categoryExists)
             {
                 throw new NotFoundException("Danh mục", request.CategoryId);
@@ -136,7 +136,7 @@ public class UpdateRecipeCommandHandler : IRequestHandler<UpdateRecipeCommand, R
             var baseSlug = recipe.Slug;
             var uniqueSlug = baseSlug;
             var counter = 2;
-            while (await _context.Recipes.AnyAsync(r => r.Slug == uniqueSlug && r.Id != recipe.Id && !r.IsDeleted, ct))
+            while (await _context.Recipes.IgnoreQueryFilters().AnyAsync(r => r.Slug == uniqueSlug && r.Id != recipe.Id, cancellationToken))
             {
                 uniqueSlug = $"{baseSlug}-{counter}";
                 counter++;
@@ -168,7 +168,7 @@ public class UpdateRecipeCommandHandler : IRequestHandler<UpdateRecipeCommand, R
         // 7. Lưu thay đổi và bắt ngoại lệ Concurrency
         try
         {
-            await _context.SaveChangesAsync(ct);
+            await _context.SaveChangesAsync(cancellationToken);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -177,7 +177,7 @@ public class UpdateRecipeCommandHandler : IRequestHandler<UpdateRecipeCommand, R
 
         // Reload without tracking: PostgreSQL generates the version and timestamps.
         var saved = await RecipeManagementQueries.Detail(_context)
-            .FirstAsync(r => r.Id == recipe.Id, ct);
+            .FirstAsync(r => r.Id == recipe.Id, cancellationToken);
         var result = RecipeManagementMapping.ToEditDto(saved);
         // Preserve the existing flat recipe response; version/audit fields are additive.
         return result.Recipe with { RowVersion = result.RowVersion, CreatedAt = result.CreatedAt, UpdatedAt = result.UpdatedAt };

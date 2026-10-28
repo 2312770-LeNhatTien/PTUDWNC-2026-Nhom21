@@ -96,7 +96,17 @@ public class RefreshTokenCommandHandler : IRequestHandler<RefreshTokenCommand, A
             createdByIp: request.ClientIp);
 
         _context.RefreshTokens.Add(newRefreshTokenEntity);
-        await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            // SaveChanges bao trọn revoke + insert; concurrency thất bại rollback cả token mới.
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            await _context.RefreshTokens.Where(t => t.UserId == token.UserId && t.RevokedAt == null)
+                .ExecuteUpdateAsync(set => set.SetProperty(t => t.RevokedAt, DateTime.UtcNow), cancellationToken);
+            throw new UnauthorizedException("Token đã được dùng ở phiên khác. Vui lòng đăng nhập lại.");
+        }
 
         return new AuthResponseDto(
             AccessToken: newAccessToken,

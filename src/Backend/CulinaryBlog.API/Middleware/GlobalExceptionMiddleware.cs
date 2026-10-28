@@ -3,6 +3,7 @@ using CulinaryBlog.Domain.Common;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using ValidationException = CulinaryBlog.Application.Common.Exceptions.ValidationException;
 
 namespace CulinaryBlog.API.Middleware;
@@ -18,18 +19,20 @@ public class GlobalExceptionMiddleware : IExceptionHandler
         => _logger = logger;
 
     public async ValueTask<bool> TryHandleAsync(
-        HttpContext httpContext, Exception exception, CancellationToken ct)
+        HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
         var (status, title) = exception switch
         {
-            ValidationException   => (StatusCodes.Status400BadRequest, "Dữ liệu không hợp lệ."),
+            ValidationException => (StatusCodes.Status400BadRequest, "Dữ liệu không hợp lệ."),
             UnauthorizedException => (StatusCodes.Status401Unauthorized, "Chưa xác thực."),
-            ForbiddenException    => (StatusCodes.Status403Forbidden, "Không có quyền truy cập."),
-            NotFoundException     => (StatusCodes.Status404NotFound, "Không tìm thấy tài nguyên."),
-            ConflictException     => (StatusCodes.Status409Conflict, "Xung đột dữ liệu."),
-            LockedException       => (StatusCodes.Status423Locked, "Tài khoản bị tạm khóa."),
+            ForbiddenException => (StatusCodes.Status403Forbidden, "Không có quyền truy cập."),
+            NotFoundException => (StatusCodes.Status404NotFound, "Không tìm thấy tài nguyên."),
+            ConflictException => (StatusCodes.Status409Conflict, "Xung đột dữ liệu."),
+            DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } }
+                => (StatusCodes.Status409Conflict, "Dữ liệu đã tồn tại. Vui lòng chọn giá trị khác."),
+            LockedException => (StatusCodes.Status423Locked, "Tài khoản bị tạm khóa."),
             // Vi phạm business rule của Domain -> 422 (Phụ lục A SRS).
-            DomainException       => (StatusCodes.Status422UnprocessableEntity, "Không thể xử lý yêu cầu."),
+            DomainException => (StatusCodes.Status422UnprocessableEntity, "Không thể xử lý yêu cầu."),
             // Hai người sửa cùng một recipe -> RowVersion không khớp (SRS mục 7.1).
             DbUpdateConcurrencyException => (StatusCodes.Status409Conflict,
                 "Dữ liệu đã bị người khác thay đổi. Vui lòng tải lại và thử lại."),
@@ -44,18 +47,32 @@ public class GlobalExceptionMiddleware : IExceptionHandler
             _logger.LogError(exception, "Lỗi chưa được xử lý tại {Path}", httpContext.Request.Path);
         }
 
+        var detail = exception is DbUpdateException ? title : exception.Message;
+        if (status >= 500) detail = "Dịch vụ tạm thời gặp sự cố. Vui lòng thử lại.";
         var problem = new ProblemDetails
         {
             Type = "about:blank",
             Title = title,
             Status = status,
-            Detail = exception.Message,
+            // Không trả thông tin SQL/connection string từ exception persistence ra client.
+            Detail = detail,
             Instance = httpContext.Request.Path,
         };
 
         // SRS mục 8: lỗi validation kèm chi tiết theo từng field.
         if (exception is ValidationException validationException)
+        {
             problem.Extensions["errors"] = validationException.Errors;
+            var code = validationException.Errors.Keys.FirstOrDefault(k => k.All(c => char.IsUpper(c) || c == '_'));
+            problem.Extensions["errorCode"] = code ?? "VALIDATION_FAILED";
+            problem.Detail = string.Join(" ", validationException.Errors.Values.SelectMany(x => x));
+        }
+        else
+        {
+            var code = status == 409 ? "RESOURCE_CONFLICT" : $"HTTP_{status}";
+            if (exception is DbUpdateConcurrencyException) code = "RECIPE_CONCURRENCY_CONFLICT";
+            problem.Extensions["errorCode"] = code;
+        }
 
         if (exception is ConflictException { ErrorCode: not null } conflict)
             problem.Extensions["errorCode"] = conflict.ErrorCode;
@@ -66,7 +83,7 @@ public class GlobalExceptionMiddleware : IExceptionHandler
 
         httpContext.Response.StatusCode = status;
         httpContext.Response.ContentType = "application/problem+json";
-        await httpContext.Response.WriteAsJsonAsync(problem, ct);
+        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
         return true;
     }
 }

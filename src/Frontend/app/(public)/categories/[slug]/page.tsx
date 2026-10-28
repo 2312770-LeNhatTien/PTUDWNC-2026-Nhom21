@@ -3,20 +3,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { categoriesApi } from "@/lib/api/categories";
 import RecipeCard from "@/components/recipes/RecipeCard";
+import { problemOf } from "@/lib/api/errors";
 
 interface CategoryDetailPageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ page?: string; sortBy?: string; sortOrder?: string }>;
 }
 
-export default async function CategoryDetailPage({ params }: CategoryDetailPageProps) {
+export default async function CategoryDetailPage({ params, searchParams }: CategoryDetailPageProps) {
   const { slug } = await params;
+  const filters = await searchParams;
 
   let categoryData;
   try {
-    categoryData = await categoriesApi.getBySlug(slug);
+    categoryData = await categoriesApi.getBySlug(slug, { page: Number(filters.page) || 1, pageSize: 12,
+      sortBy: filters.sortBy, sortOrder: filters.sortOrder });
   } catch (err: unknown) {
-    const error = err as { response?: { status?: number } };
-    if (error?.response?.status === 404) {
+    if (problemOf(err).status === 404) {
       notFound();
     }
     // Trường hợp server lỗi hoặc không kết nối được
@@ -166,6 +169,11 @@ export default async function CategoryDetailPage({ params }: CategoryDetailPageP
           </div>
         )}
       </section>
+      {categoryData.meta && categoryData.meta.totalPages > 1 && <nav aria-label="Phân trang" className="flex justify-center gap-6">
+        {categoryData.meta.hasPreviousPage && <Link href={`?page=${categoryData.meta.page - 1}`}>← Trang trước</Link>}
+        <span>Trang {categoryData.meta.page}/{categoryData.meta.totalPages}</span>
+        {categoryData.meta.hasNextPage && <Link href={`?page=${categoryData.meta.page + 1}`}>Trang sau →</Link>}
+      </nav>}
     </div>
   );
 }

@@ -9,6 +9,7 @@
 // ============================================================================
 
 import apiClient from "./client";
+import { isAxiosError } from "axios";
 import type {
   ApiResponse,
   RecipeListItemDto,
@@ -30,6 +31,7 @@ export interface GetRecipesParams {
   difficulty?: RecipeDifficulty;
   maxCookTime?: number;
   maxTotalTime?: number;
+  minServings?: number;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
   sort?: string;
@@ -63,12 +65,8 @@ export const recipesApi = {
   },
   // FR-RCP-001: GET /api/v1/recipes
   getAll: async (params?: GetRecipesParams): Promise<{ items: RecipeListItemDto[]; total: number }> => {
-    try {
-      const res = await apiClient.get<ApiResponse<RecipeListItemDto[]>>("/recipes", { params });
-      return { items: res.data?.data || [], total: res.data?.meta?.total || 0 };
-    } catch {
-      return { items: [], total: 0 };
-    }
+    const res = await apiClient.get<ApiResponse<RecipeListItemDto[]>>("/recipes", { params });
+    return { items: res.data.data, total: res.data.meta?.total ?? 0 };
   },
 
   // FR-RCP-002: GET /api/v1/recipes/{slug}
@@ -76,8 +74,9 @@ export const recipesApi = {
     try {
       const res = await apiClient.get<ApiResponse<RecipeDetailDto>>(`/recipes/${slug}`);
       return res.data?.data || null;
-    } catch {
-      return null;
+    } catch (error) {
+      if (isAxiosError(error) && error.response?.status === 404) return null;
+      throw error;
     }
   },
 

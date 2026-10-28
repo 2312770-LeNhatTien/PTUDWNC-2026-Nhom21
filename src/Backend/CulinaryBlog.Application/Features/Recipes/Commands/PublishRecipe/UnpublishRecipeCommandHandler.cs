@@ -15,19 +15,16 @@ public class UnpublishRecipeCommandHandler : IRequestHandler<UnpublishRecipeComm
 {
     private readonly IRecipeRepository _recipeRepository;
     private readonly ICurrentUser _currentUser;
-    private readonly ICacheService _cacheService;
 
     public UnpublishRecipeCommandHandler(
         IRecipeRepository recipeRepository,
-        ICurrentUser currentUser,
-        ICacheService cacheService)
+        ICurrentUser currentUser)
     {
         _recipeRepository = recipeRepository;
         _currentUser = currentUser;
-        _cacheService = cacheService;
     }
 
-    public async Task<RecipeDetailDto> Handle(UnpublishRecipeCommand request, CancellationToken ct)
+    public async Task<RecipeDetailDto> Handle(UnpublishRecipeCommand request, CancellationToken cancellationToken)
     {
         // 1. Kiểm tra xác thực người dùng
         if (!_currentUser.IsAuthenticated || string.IsNullOrWhiteSpace(_currentUser.UserId))
@@ -36,7 +33,7 @@ public class UnpublishRecipeCommandHandler : IRequestHandler<UnpublishRecipeComm
         }
 
         // 2. Tải công thức kèm danh sách quan hệ từ CSDL
-        var recipe = await _recipeRepository.GetDetailByIdAsync(request.Id, ct);
+        var recipe = await _recipeRepository.GetDetailByIdAsync(request.Id, cancellationToken);
         if (recipe == null)
         {
             throw new NotFoundException("Công thức", request.Id);
@@ -54,18 +51,10 @@ public class UnpublishRecipeCommandHandler : IRequestHandler<UnpublishRecipeComm
         recipe.Unpublish();
 
         // 5. Lưu vào cơ sở dữ liệu
-        await _recipeRepository.SaveChangesAsync(ct);
+        await _recipeRepository.SaveChangesAsync(cancellationToken);
 
         // 6. Xóa cache liên quan trên Redis (nếu RedisCacheService đã được hiện thực)
-        try
-        {
-            await _cacheService.RemoveByPrefixAsync("recipes", ct);
-            await _cacheService.RemoveByPrefixAsync("categories", ct);
-        }
-        catch (NotImplementedException)
-        {
-            // Bỏ qua nếu RedisCacheService chưa được bạn Toàn hiện thực
-        }
+        // CacheVersion được đổi cùng giao dịch DB; không gọi Redis sau commit.
 
         // 7. Trả về DTO chi tiết công thức sau khi gỡ xuất bản
         return MapToDetailDto(recipe);

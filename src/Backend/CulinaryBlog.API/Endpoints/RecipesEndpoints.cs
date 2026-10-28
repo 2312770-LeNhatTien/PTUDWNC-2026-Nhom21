@@ -23,18 +23,18 @@ public static class RecipesEndpoints
             .RequireAuthorization("AuthorOrAdmin").WithName("GetRecipeForEdit").WithSummary("Đọc công thức để sửa/xem trước, kèm RowVersion");
 
         // FR-RCP-001: Lấy danh sách công thức (hỗ trợ phân trang)
-        group.MapGet("/", async ([AsParameters] PagingParams paging, Guid? categoryId, RecipeDifficulty? difficulty, int? maxCookTime, int? maxTotalTime, ISender sender, CancellationToken ct) =>
+        group.MapGet("/", async ([AsParameters] PagingParams paging, Guid? categoryId, RecipeDifficulty? difficulty, int? maxCookTime, int? maxTotalTime, int? minServings, ISender sender, CancellationToken ct) =>
         {
-            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipes.GetRecipesQuery(paging, categoryId, difficulty, maxCookTime, maxTotalTime), ct);
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.GetRecipes.GetRecipesQuery(paging, categoryId, difficulty, maxCookTime, maxTotalTime, minServings), ct);
             return Results.Ok(ApiResponse.FromPaged(result));
         })
         .WithName("GetRecipes")
         .WithSummary("Lấy danh sách công thức nấu ăn (FR-RCP-001)");
 
         // FR-SRCH-001: Tìm kiếm toàn văn unaccent tsvector
-        group.MapGet("/search", async (string q, [AsParameters] PagingParams paging, Guid? categoryId, RecipeDifficulty? difficulty, int? maxCookTime, ISender sender, CancellationToken ct) =>
+        group.MapGet("/search", async (string q, [AsParameters] PagingParams paging, Guid? categoryId, RecipeDifficulty? difficulty, int? maxCookTime, int? minServings, int? maxTotalTime, ISender sender, CancellationToken ct) =>
         {
-            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.SearchRecipes.SearchRecipesQuery(q, paging, categoryId, difficulty, maxCookTime), ct);
+            var result = await sender.Send(new CulinaryBlog.Application.Features.Recipes.Queries.SearchRecipes.SearchRecipesQuery(q, paging, categoryId, difficulty, maxCookTime, minServings, maxTotalTime), ct);
             return Results.Ok(ApiResponse.FromPaged(result));
         })
         .WithName("SearchRecipes")
@@ -173,7 +173,8 @@ public static class RecipesEndpoints
             return Results.Created($"/api/v1/recipes/{id}/steps/{result.Id}", ApiResponse.Ok(result));
         })
         .WithName("AddRecipeStep")
-        .WithSummary("Thêm bước nấu mới vào công thức (FR-RCP-010)");
+        .WithSummary("Thêm bước nấu mới vào công thức (FR-RCP-010)")
+        .RequireAuthorization("AuthorOrAdmin");
 
         // 3. PUT /api/v1/recipes/{id}/steps/{stepId} - Cập nhật bước nấu đã có
         group.MapPut("/{id:guid}/steps/{stepId:guid}", async (
@@ -198,7 +199,8 @@ public static class RecipesEndpoints
             return Results.Ok(ApiResponse.Ok(result));
         })
         .WithName("UpdateRecipeStep")
-        .WithSummary("Cập nhật thông tin bước nấu của công thức (FR-RCP-010)");
+        .WithSummary("Cập nhật thông tin bước nấu của công thức (FR-RCP-010)")
+        .RequireAuthorization("AuthorOrAdmin");
 
         // 4. DELETE /api/v1/recipes/{id}/steps/{stepId} - Xóa bước nấu và tự động renumber
         group.MapDelete("/{id:guid}/steps/{stepId:guid}", async (
@@ -210,10 +212,11 @@ public static class RecipesEndpoints
             // Gửi DeleteRecipeStepCommand để xóa và renumber liên tục các bước còn lại
             var command = new CulinaryBlog.Application.Features.Recipes.Commands.ManageSteps.DeleteRecipeStepCommand(id, stepId);
             await sender.Send(command, ct);
-            return Results.Ok(ApiResponse.Ok("Đã xóa bước nấu thành công."));
+            return Results.NoContent();
         })
         .WithName("DeleteRecipeStep")
-        .WithSummary("Xóa bước nấu khỏi công thức và tự động renumber (FR-RCP-010)");
+        .WithSummary("Xóa bước nấu khỏi công thức và tự động renumber (FR-RCP-010)")
+        .RequireAuthorization("AuthorOrAdmin");
 
         // ====================================================================
         // FR-RCP-005: XUẤT BẢN / HỦY XUẤT BẢN CÔNG THỨC (LÂM VĂN ĐỨC - 2314299)
@@ -274,7 +277,7 @@ public static class RecipesEndpoints
             CancellationToken ct) =>
         {
             await sender.Send(new CulinaryBlog.Application.Features.Recipes.Commands.ManageImages.DeleteRecipeImageCommand(id, imageId), ct);
-            return Results.Ok(ApiResponse.Ok("Đã xóa ảnh khỏi công thức thành công."));
+            return Results.NoContent();
         })
         .WithName("DeleteRecipeImage")
         .WithSummary("Xóa ảnh khỏi bộ sưu tập công thức (FR-RCP-008)")
@@ -370,7 +373,7 @@ public static class RecipesEndpoints
         {
             var command = new CulinaryBlog.Application.Features.Recipes.Commands.ManageIngredients.DeleteRecipeIngredientCommand(id, ingredientId);
             await sender.Send(command, ct);
-            return Results.Ok(ApiResponse.Ok("Đã xóa nguyên liệu thành công."));
+            return Results.NoContent();
         })
         .WithName("DeleteRecipeIngredient")
         .WithSummary("Xóa nguyên liệu khỏi công thức và tự động renumber (FR-RCP-009)")

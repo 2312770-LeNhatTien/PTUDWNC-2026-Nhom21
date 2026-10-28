@@ -32,9 +32,9 @@ public class GetRecipeBySlugQueryHandler : IRequestHandler<GetRecipeBySlugQuery,
         _currentUser = currentUser;
     }
 
-    public async Task<RecipeDetailDto> Handle(GetRecipeBySlugQuery request, CancellationToken ct)
+    public async Task<RecipeDetailDto> Handle(GetRecipeBySlugQuery request, CancellationToken cancellationToken)
     {
-        var recipe = await _recipeRepository.GetDetailBySlugAsync(request.Slug, ct);
+        var recipe = await _recipeRepository.GetDetailBySlugAsync(request.Slug, cancellationToken);
 
         if (recipe == null || recipe.IsDeleted)
         {

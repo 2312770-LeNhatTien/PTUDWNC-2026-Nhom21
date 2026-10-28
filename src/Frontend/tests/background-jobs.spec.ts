@@ -60,9 +60,18 @@ test('Admin dashboard, cookie revocation, recurring trigger and public SEO rewri
     await expect(row).toContainText('0 2 * * *');
     await expect(row).toContainText('UTC');
     await row.getByRole('checkbox').check();
-    await page.getByRole('button', { name: /Trigger now/ }).click();
-    await expect(page.getByRole('button', { name: /Trigger now/ })).toBeEnabled();
+    // Hangfire reload cùng URL sau trigger; chờ trang mới trước khi evaluate DOM.
+    const [, triggered] = await Promise.all([
+      page.waitForEvent('domcontentloaded'),
+      page.waitForResponse(response => response.url().endsWith('/hangfire/recurring/trigger') && response.request().method() === 'POST'),
+      page.getByRole('button', { name: /Trigger now/ }).click(),
+    ]);
+    expect(triggered.ok()).toBe(true);
+    // Reload xóa lựa chọn checkbox, nên nút trigger trở về disabled.
+    await expect(row.getByRole('checkbox')).not.toBeChecked();
+    await expect(page.getByRole('button', { name: /Trigger now/ })).toBeDisabled();
     await expect(row).toBeVisible();
+    await page.waitForLoadState('load');
     const assets = await page.evaluate(() => performance.getEntriesByType('resource').filter(e => /\/hangfire\/(css|js)/.test(e.name)).length);
     expect(assets).toBeGreaterThan(0);
     const xml = await page.request.get('/sitemap.xml');

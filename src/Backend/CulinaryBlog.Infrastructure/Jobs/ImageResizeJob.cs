@@ -3,15 +3,14 @@ using CulinaryBlog.Application.Common.Interfaces;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using SixLabors.ImageSharp;
-using SixLabors.ImageSharp.Formats.Webp;
-using SixLabors.ImageSharp.Processing;
+using ImageMagick;
+using CulinaryBlog.Infrastructure.Services;
 
 namespace CulinaryBlog.Infrastructure.Jobs;
 
 /// <summary>
-/// FR-JOB-002: Hangfire Background Job tự động nén & resize ảnh thumbnail 300x300 (ImageSharp)
-/// Lưu ảnh thumbnail vào bucket recipe-thumbnails trên MinIO, giảm >70% dung lượng.
+/// FR-JOB-002: Hangfire tạo thumbnail 300x300 và medium tối đa 800x600 bằng Magick.NET.
+/// Mức giảm dung lượng được đo theo từng ảnh; ảnh gốc nhỏ có thể lớn hơn sau resize.
 /// Thành viên phụ trách: Nguyễn Đình Tuấn (MSSV: 2312792)
 /// </summary>
 public class ImageResizeJob : IImageResizeJob
@@ -19,6 +18,7 @@ public class ImageResizeJob : IImageResizeJob
     private readonly IApplicationDbContext _context;
     private readonly IFileStorageService _fileStorageService;
     private readonly ILogger<ImageResizeJob> _logger;
+    private readonly JobStorage _storage;
 
     public const string ThumbnailBucket = "recipe-thumbnails";
     public const int ThumbnailWidth = 300;
@@ -29,16 +29,20 @@ public class ImageResizeJob : IImageResizeJob
     public ImageResizeJob(
         IApplicationDbContext context,
         IFileStorageService fileStorageService,
-        ILogger<ImageResizeJob> logger)
+        ILogger<ImageResizeJob> logger, JobStorage storage)
     {
         _context = context;
         _fileStorageService = fileStorageService;
         _logger = logger;
+        _storage = storage;
     }
 
-    [AutomaticRetry(Attempts = 3)]
+    [Queue("images"), AutomaticRetry(Attempts = 3)]
     public async Task ProcessRecipeImageAsync(Guid recipeImageId, CancellationToken ct = default)
     {
+        using var connection = _storage.GetConnection();
+        // Cùng khóa với job xóa để ảnh đã gỡ không bị resize tạo lại sau đó.
+        using var gate = connection.AcquireDistributedLock($"recipe-image:{recipeImageId}", TimeSpan.FromSeconds(30));
         _logger.LogInformation("FR-JOB-002: Bắt đầu xử lý nén & resize ảnh thumbnail cho RecipeImage {ImageId}", recipeImageId);
 
         var recipeImage = await _context.RecipeImages
@@ -62,29 +66,24 @@ public class ImageResizeJob : IImageResizeJob
             var (origStream, origLength, _) = await _fileStorageService.DownloadFileAsync(recipeImage.OriginalUrl, ct);
             using (origStream)
             {
-                using var image = await Image.LoadAsync(origStream, ct);
+                using var image = ImageSafety.ReadVerified(origStream);
 
                 // 2. Tạo ảnh Thumbnail 300x300 chuẩn WebP (Crop tâm vuông cho đẹp card món ăn)
-                using var thumbImage = image.Clone(ctx => ctx.Resize(new ResizeOptions
-                {
-                    Size = new Size(ThumbnailWidth, ThumbnailHeight),
-                    Mode = ResizeMode.Crop,
-                    Position = AnchorPositionMode.Center
-                }));
+                using var thumbImage = image.Clone();
+                thumbImage.Resize(new MagickGeometry(ThumbnailWidth, ThumbnailHeight) { FillArea = true });
+                thumbImage.Crop(ThumbnailWidth, ThumbnailHeight, Gravity.Center);
+                thumbImage.ResetPage();
 
                 using var thumbStream = new MemoryStream();
-                var webpEncoder = new WebpEncoder
-                {
-                    Quality = 75 // Nén tối ưu chất lượng, giảm > 70% dung lượng
-                };
-                await thumbImage.SaveAsync(thumbStream, webpEncoder, ct);
+                thumbImage.Quality = 75;
+                await thumbImage.WriteAsync(thumbStream, MagickFormat.WebP, ct);
                 thumbStream.Position = 0;
                 var thumbLength = thumbStream.Length;
 
                 // Tính toán tỷ lệ giảm dung lượng
                 var savedPercent = origLength > 0 ? (1.0 - (double)thumbLength / origLength) * 100 : 0;
                 _logger.LogInformation(
-                    "FR-JOB-002 [ImageSharp]: RecipeImage {ImageId} - Gốc: {OrigSize:N0} bytes -> Thumbnail 300x300: {ThumbSize:N0} bytes (Tiết kiệm: {Percent:F1}%)",
+                    "FR-JOB-002 [Magick.NET]: RecipeImage {ImageId} - Gốc: {OrigSize:N0} bytes -> Thumbnail 300x300: {ThumbSize:N0} bytes (Tiết kiệm: {Percent:F1}%)",
                     recipeImageId, origLength, thumbLength, savedPercent);
 
                 // 3. Upload Thumbnail lên bucket 'recipe-thumbnails'
@@ -98,13 +97,11 @@ public class ImageResizeJob : IImageResizeJob
                     ct: ct);
 
                 // 4. Tạo ảnh Medium 800x600 chuẩn WebP (phục vụ trang chi tiết công thức)
-                using var medImage = image.Clone(ctx => ctx.Resize(new ResizeOptions
-                {
-                    Size = new Size(MediumWidth, MediumHeight),
-                    Mode = ResizeMode.Max
-                }));
+                using var medImage = image.Clone();
+                medImage.Resize(new MagickGeometry(MediumWidth, MediumHeight) { Greater = true });
                 using var medStream = new MemoryStream();
-                await medImage.SaveAsync(medStream, webpEncoder, ct);
+                medImage.Quality = 75;
+                await medImage.WriteAsync(medStream, MagickFormat.WebP, ct);
                 medStream.Position = 0;
 
                 var medFileName = $"{recipeImage.RecipeId}_{recipeImage.Id}_800x600.webp";
@@ -127,30 +124,19 @@ public class ImageResizeJob : IImageResizeJob
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "FR-JOB-002: Lỗi trong quá trình nén và resize ảnh {ImageId}", recipeImageId);
-            throw; // Ném exception để Hangfire tự động retry theo [AutomaticRetry]
+            // Bổ sung ImageId cho lịch sử lỗi Hangfire, giữ nguyên inner exception.
+            throw new InvalidOperationException($"Không thể resize RecipeImage {recipeImageId}.", ex);
         }
     }
 
     public async Task ProcessAllRecipeImagesAsync(CancellationToken ct = default)
     {
+        // Tương thích job batch cũ: chuyển thành intent từng ảnh để có retry/trạng thái riêng.
         var imageIds = await _context.RecipeImages
-            .Where(img => !img.IsDeleted && (img.ThumbnailUrl == null || img.MediumUrl == null))
-            .Select(img => img.Id)
-            .ToListAsync(ct);
-
-        _logger.LogInformation("FR-JOB-002: Tìm thấy {Count} ảnh cần nén & resize sang thumbnail", imageIds.Count);
-
+            .Where(image => image.ThumbnailUrl == null || image.MediumUrl == null)
+            .Select(image => image.Id).ToListAsync(ct);
         foreach (var id in imageIds)
-        {
-            try
-            {
-                await ProcessRecipeImageAsync(id, ct);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "FR-JOB-002: Không thể xử lý ảnh {ImageId}", id);
-            }
-        }
+            _context.PendingJobs.Add(CulinaryBlog.Domain.Entities.PendingJob.Resize(id));
+        await _context.SaveChangesAsync(ct);
     }
 }

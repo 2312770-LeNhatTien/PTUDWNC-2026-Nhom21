@@ -10,5 +10,10 @@ public record SearchRecipesQuery(
     PagingParams Paging,
     Guid? CategoryId = null,
     CulinaryBlog.Domain.Enums.RecipeDifficulty? Difficulty = null,
-    int? MaxCookTime = null
-) : IRequest<PagedResult<RecipeListItemDto>>;
+    int? MaxCookTime = null,
+    int? MinServings = null,
+    int? MaxTotalTime = null
+) : IRequest<PagedResult<RecipeListItemDto>>, CulinaryBlog.Application.Common.Interfaces.ICacheableQuery
+{
+    public TimeSpan CacheDuration => TimeSpan.FromMinutes(2);
+}

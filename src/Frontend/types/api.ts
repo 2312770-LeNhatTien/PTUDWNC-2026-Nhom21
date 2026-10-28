@@ -11,6 +11,8 @@ export interface PaginationMeta {
   pageSize: number;
   total: number;
   totalPages: number;
+  hasNextPage?: boolean;
+  hasPreviousPage?: boolean;
 }
 
 // Lỗi theo RFC 7807 (CONS-005)
@@ -58,6 +60,7 @@ export interface CategoryDto {
 
 export interface CategoryDetailDto extends CategoryDto {
   recipes: RecipeListItemDto[];
+  meta?: PaginationMeta;
 }
 
 export type RecipeDifficulty = "Easy" | "Medium" | "Hard" | "Expert";
@@ -184,13 +187,6 @@ export interface UpdateRecipeRequest {
   difficulty: RecipeDifficulty;
   nutrition: RecipeDetailDto['nutrition'] | null;
   rowVersion: string;
-}
-
-export interface PresignedUploadResult {
-  uploadUrl: string;
-  publicUrl: string;
-  objectKey: string;
-  expiresInMinutes: number;
 }
 
 export interface FileUploadResponse {

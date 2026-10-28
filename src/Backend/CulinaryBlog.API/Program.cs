@@ -1,4 +1,3 @@
-using Hangfire;
 using CulinaryBlog.API;
 using CulinaryBlog.API.Endpoints;
 using CulinaryBlog.Application;
@@ -6,10 +5,23 @@ using CulinaryBlog.Infrastructure;
 using CulinaryBlog.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
+using CulinaryBlog.API.Middleware;
+using Serilog;
+using Serilog.Formatting.Json;
 
 var builder = WebApplication.CreateBuilder(args);
-if (builder.Configuration.GetSection("Seq").Exists())
-    builder.Logging.AddSeq(builder.Configuration.GetSection("Seq"));
+builder.Host.UseSerilog((context, config) =>
+{
+    config.MinimumLevel.Information()
+        // Query chậm đã được interceptor đo; tránh ghi toàn bộ SQL mỗi request làm nghẽn I/O.
+        .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
+        .MinimumLevel.Override("Npgsql", Serilog.Events.LogEventLevel.Warning)
+        .Enrich.FromLogContext()
+        .WriteTo.Console(new JsonFormatter())
+        .WriteTo.File(new JsonFormatter(), "logs/api-.log", rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7);
+    var seq = context.Configuration["Seq:ServerUrl"];
+    if (!string.IsNullOrWhiteSpace(seq)) config.WriteTo.Seq(seq);
+});
 
 // ── Đăng ký service theo từng tầng (SRS mục 6.2) ──────────────────────────
 builder.Services.AddApplication();
@@ -30,14 +42,18 @@ if (app.Environment.IsDevelopment())
     app.MapGet("/swagger/index.html", () => Results.Redirect("/scalar/v1"));
     app.MapGet("/scalar", () => Results.Redirect("/scalar/v1"));
 
-    using var scope = app.Services.CreateScope();
-    var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
-    await db.Database.MigrateAsync();
+    if (app.Configuration.GetValue("Database:InitializeOnStartup", true))
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<CulinaryBlogDbContext>();
+        await db.Database.MigrateAsync();
 
-    await DatabaseSeeder.SeedAsync(app.Services);
+        await DatabaseSeeder.SeedAsync(app.Services);
+    }
 }
 
 // ── Middleware pipeline - THỨ TỰ RẤT QUAN TRỌNG, đừng đảo lộn ─────────────
+app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseExceptionHandler();
 
 // Dev chạy HTTP cổng 5000 (SRS mục 5.2). Production mới dùng HTTPS và do
@@ -58,7 +74,9 @@ app.MapCategoriesEndpoints();  // FR-CAT  (SRS mục 8.2)
 app.MapRecipesEndpoints();     // FR-RCP + FR-SRCH (SRS mục 8.3 - 8.6)
 app.MapFilesEndpoints();       // FR-FILE-001 + FR-FILE-002 (Upload/Delete MinIO)
 
-// TODO (người phụ trách FR-OBS-001): map endpoint kiểm tra sức khỏe tại /health
+app.MapHealthEndpoints();      // FR-OBS-001: health/liveness/readiness
 app.MapJobsEndpoints();       // FR-JOB-002 (Nén ảnh thumbnail) + FR-JOB-003 (Sitemap) + Dashboard Admin
 
-app.Run();
+await app.RunAsync();
+
+public partial class Program { protected Program() { } }

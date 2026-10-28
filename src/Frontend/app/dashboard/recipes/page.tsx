@@ -6,7 +6,8 @@ import axios from 'axios';
 import { recipesApi } from '@/lib/api/recipes';
 import type { MyRecipeDto, RecipeStatus, PaginationMeta } from '@/types/api';
 import Modal from '@/components/dashboard/Modal';
-import { errorMessage, displayDate, statusLabel } from '@/components/dashboard/errors';
+import { errorMessage } from '@/lib/api/errors';
+import { displayDate, statusLabel } from '@/components/dashboard/format';
 
 export default function MyRecipesPage() {
   const [status, setStatus] = useState<RecipeStatus | ''>('');

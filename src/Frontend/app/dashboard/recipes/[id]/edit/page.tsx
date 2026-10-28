@@ -1,13 +1,18 @@
 'use client';
 
-import { use, useCallback, useEffect, useState } from 'react';
+import { use, useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { recipesApi } from '@/lib/api/recipes';
 import { categoriesApi } from '@/lib/api/categories';
 import type { CategoryDto, RecipeEditDto, RecipeDifficulty, ProblemDetails } from '@/types/api';
 import Modal from '@/components/dashboard/Modal';
 import { useUnsavedChanges } from '@/components/dashboard/useUnsavedChanges';
-import { errorMessage, problemOf, statusLabel } from '@/components/dashboard/errors';
+import { errorMessage, problemOf } from '@/lib/api/errors';
+import { statusLabel } from '@/components/dashboard/format';
+import IngredientListEditor from '@/components/recipes/IngredientListEditor';
+import StepListEditor from '@/components/recipes/StepListEditor';
+import RecipeGalleryEditor from '@/components/recipes/RecipeGalleryEditor';
+import PublishToggle from '@/components/recipes/PublishToggle';
 
 const nutritionFields = [
   ['calories', 'Calories (kcal)'], ['protein', 'Protein (g)'], ['carbohydrates', 'Carbohydrate (g)'],
@@ -40,6 +45,25 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
   const [dirty, setDirty] = useState(false);
   const [conflict, setConflict] = useState(false);
   const [reloading, setReloading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [syncFailed, setSyncFailed] = useState(false);
+  const syncSequence = useRef(0);
+
+  const refreshContent = async () => {
+    const sequence = ++syncSequence.current;
+    setSyncing(true); setSyncFailed(false);
+    try {
+      const latest = await recipesApi.getForEdit(id);
+      if (sequence !== syncSequence.current) return;
+      // Thay đổi con làm đổi RowVersion D13; lấy token mới trước lần lưu tiếp theo.
+      setData(latest);
+      setError('');
+      if (!dirty) setForm(formFrom(latest));
+    } catch {
+      setSyncFailed(true);
+      setError('Nội dung đã lưu nhưng chưa tải được phiên bản mới. Hãy đồng bộ lại trước khi tiếp tục.');
+    } finally { if (sequence === syncSequence.current) setSyncing(false); }
+  };
 
   const load = useCallback(async () => {
     setLoading(true); setLoadError('');
@@ -54,7 +78,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
 
   const save = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!form || !data || saving) return;
+    if (!form || !data || saving || syncing || syncFailed) return;
     setSaving(true); setError(''); setNotice(''); setErrors({});
     try {
       const hasNutrition = nutritionFields.some(([key]) => form.nutrition[key] !== '');
@@ -101,7 +125,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         {notice && <p role="status" className="mb-4 rounded-xl bg-emerald-50 p-4 text-emerald-800">{notice}</p>}
         {error && !conflict && <p role="alert" className="mb-4 rounded-xl bg-red-50 p-4 text-red-800">{error}</p>}
         <form data-recipe-editor onSubmit={save} className="space-y-6 rounded-2xl border bg-white p-5 sm:p-8">
-          <fieldset disabled={saving || reloading} className="space-y-5">
+          <fieldset disabled={saving || reloading || syncing || syncFailed} className="space-y-5">
             <label className="block font-medium">Tiêu đề<input required maxLength={200} className={inputClass} value={form.title} onChange={e => change('title', e.target.value)} />{fieldError('Title')}</label>
             <label className="block font-medium">Mô tả<textarea required maxLength={2000} rows={4} className={inputClass} value={form.description} onChange={e => change('description', e.target.value)} />{fieldError('Description')}</label>
             <label className="block font-medium">Hướng dẫn chung<textarea rows={4} className={inputClass} value={form.instructions} onChange={e => change('instructions', e.target.value)} /></label>
@@ -123,9 +147,20 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
           </fieldset>
           {fieldError('RowVersion')}
           <div className="flex flex-wrap items-center justify-between gap-4 border-t pt-5"><span className="text-sm text-neutral-500">{dirty ? 'Có thay đổi chưa lưu' : 'Dữ liệu đã đồng bộ'}</span>
-            <button type="submit" disabled={saving || reloading} className="rounded-xl bg-orange-600 px-6 py-3 font-semibold text-white disabled:opacity-50">{saving ? 'Đang lưu...' : 'Lưu thay đổi'}</button></div>
+            <button type="submit" disabled={saving || reloading || syncing || syncFailed} className="rounded-xl bg-orange-600 px-6 py-3 font-semibold text-white disabled:opacity-50">{saving ? 'Đang lưu...' : 'Lưu thay đổi'}</button></div>
         </form>
-        <aside className="mt-6 rounded-2xl border bg-neutral-50 p-5"><h2 className="font-semibold">Nội dung kèm theo được giữ nguyên</h2><p className="mt-2 text-sm text-neutral-600">{data.recipe.ingredients.length} nguyên liệu · {data.recipe.steps.length} bước nấu · {data.recipe.images.length} ảnh. Biểu mẫu này lưu thông tin chính và dinh dưỡng.</p></aside>
+        {dirty && <p className="my-4 text-sm text-orange-800">Lưu thông tin chính trước khi chỉnh sửa nội dung bên dưới.</p>}
+        {syncing && <p role="status" className="my-4">Đang đồng bộ nội dung...</p>}
+        {syncFailed && <button type="button" onClick={() => void refreshContent()} className="my-4 text-orange-700 underline">Đồng bộ lại phiên bản</button>}
+        <fieldset disabled={dirty || saving || syncing || syncFailed || conflict} className="mt-6 space-y-6 disabled:opacity-60">
+          <IngredientListEditor recipeId={id} initialIngredients={data.recipe.ingredients} onIngredientsChange={() => void refreshContent()} />
+          <StepListEditor recipeId={id} initialSteps={data.recipe.steps} onStepsChange={() => void refreshContent()} />
+          <RecipeGalleryEditor recipeId={id} initialImages={data.recipe.images} onImagesChange={() => void refreshContent()} />
+          <div className="rounded-2xl border bg-white p-5"><h2 className="mb-4 font-semibold">Trạng thái xuất bản</h2>
+            <PublishToggle recipeId={id} initialStatus={data.recipe.status} ingredientCount={data.recipe.ingredients.length}
+              stepCount={data.recipe.steps.length} onStatusChange={() => void refreshContent()} />
+          </div>
+        </fieldset>
       </>}
     {conflict && <Modal title="Công thức đã được thay đổi ở phiên khác" onClose={() => { if (!reloading) setConflict(false); }}>
       <p>Nội dung bạn đang nhập chưa được lưu và vẫn được giữ trên biểu mẫu.</p>

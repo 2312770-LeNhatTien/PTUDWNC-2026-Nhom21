@@ -9,6 +9,8 @@ using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using CulinaryBlog.Domain.Settings;
 using CulinaryBlog.Infrastructure.Caching;
+using CulinaryBlog.Infrastructure.Health;
+using CulinaryBlog.Infrastructure.Diagnostics;
 using CulinaryBlog.Infrastructure.Persistence;
 using CulinaryBlog.Infrastructure.Persistence.Repositories;
 using CulinaryBlog.Infrastructure.Services;
@@ -32,7 +34,14 @@ public static class DependencyInjection
         services.AddDbContext<CulinaryBlogDbContext>((sp, options) =>
         {
             options.UseNpgsql(configuration.GetConnectionString("DefaultConnection"));
+            options.AddInterceptors(sp.GetRequiredService<DatabaseDiagnosticsInterceptor>());
         });
+        services.AddSingleton<DatabaseDiagnosticsInterceptor>();
+        // Check dịch vụ ngoài được đăng ký cùng implementation hạ tầng.
+        services.AddHealthChecks()
+            .AddDbContextCheck<CulinaryBlogDbContext>("postgres", tags: new[] { "ready" })
+            .AddCheck<RedisHealthCheck>("redis", tags: new[] { "ready" }, timeout: TimeSpan.FromSeconds(3))
+            .AddCheck<StorageHealthCheck>("minio", timeout: TimeSpan.FromSeconds(3));
         services.AddScoped<IApplicationDbContext>(sp =>
             sp.GetRequiredService<CulinaryBlogDbContext>());
 
@@ -67,6 +76,7 @@ public static class DependencyInjection
 
         services.Configure<JwtSettings>(configuration.GetSection(JwtSettings.SectionName));
         services.AddScoped<IJwtService, JwtService>();
+        services.AddScoped<IGoogleTokenValidator, GoogleTokenValidator>();
 
         services.AddAuthentication(options =>
         {
@@ -94,8 +104,15 @@ public static class DependencyInjection
             .AddPolicy("AuthorOrAdmin", p => p.RequireRole("Author", "Admin"));
 
         // ── Redis Distributed Cache ──────────────────────────────────────────
-        services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(
-            configuration.GetConnectionString("Redis") ?? "localhost:6379"));
+        services.AddSingleton<IConnectionMultiplexer>(_ =>
+        {
+            var redis = ConfigurationOptions.Parse(configuration.GetConnectionString("Redis") ?? "localhost:6379");
+            // Redis tạm lỗi không ngăn API khởi động; client sẽ tự kết nối lại.
+            redis.AbortOnConnectFail = false;
+            redis.ConnectTimeout = 1000;
+            redis.AsyncTimeout = 1000;
+            return ConnectionMultiplexer.Connect(redis);
+        });
         services.AddStackExchangeRedisCache(_ => { });
         services.AddOptions<Microsoft.Extensions.Caching.StackExchangeRedis.RedisCacheOptions>()
             .Configure<IConnectionMultiplexer>((options, multiplexer) =>
@@ -106,6 +123,7 @@ public static class DependencyInjection
                 multiplexer);
         });
         services.AddScoped<ICacheService, RedisCacheService>();
+        services.AddScoped<ICacheVersionProvider, CacheVersionProvider>();
 
         // ── MinIO S3 Object Storage (FR-FILE-001) ──────────────────────────
         var minioEndpoint = configuration["MinIO:Endpoint"] ?? "localhost:9000";
@@ -130,7 +148,7 @@ public static class DependencyInjection
         services.AddScoped<IEmailService, MailKitEmailService>();
 
         services.AddOptions<SitemapOptions>().Bind(configuration.GetSection("Sitemap"))
-            .Validate(o => o.IsValid(), "Sitemap requires an absolute website origin, output directory and cron; Google submission requires a public HTTPS site.")
+            .Validate(o => !configuration.GetValue("Jobs:Enabled", true) || o.IsValid(), "Sitemap requires an absolute website origin, output directory and cron; Google submission requires a public HTTPS site.")
             .ValidateOnStart();
         services.AddHttpClient("SearchConsole", client => client.Timeout = TimeSpan.FromSeconds(30));
         services.AddHttpClient();
@@ -148,14 +166,18 @@ public static class DependencyInjection
 
             services.AddHangfireServer(options =>
             {
-                options.WorkerCount = Math.Max(2, Environment.ProcessorCount);
+                options.WorkerCount = Math.Clamp(Environment.ProcessorCount, 2, 4);
                 options.Queues = new[] { "default", "images" };
             });
 
             services.AddScoped<SitemapJob>();
             services.AddScoped<IImageResizeJob, ImageResizeJob>();
+            services.AddScoped<ImageResizeJob>();
+            services.AddScoped<PendingJobWorker>();
+            services.AddHostedService<PendingJobDispatcher>();
             services.AddScoped<IBackgroundJobService, HangfireBackgroundJobService>();
         }
+        else services.AddScoped<IBackgroundJobService, DisabledBackgroundJobService>();
 
         return services;
     }

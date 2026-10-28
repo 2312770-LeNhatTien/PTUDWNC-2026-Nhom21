@@ -1,4 +1,4 @@
-﻿// ============================================================================
+// ============================================================================
 // CHỨC NĂNG: FR-RCP-009 - Quản lý nguyên liệu (Thêm nguyên liệu mới vào công thức)
 // THÀNH VIÊN: Nguyễn Đình Tuấn (MSSV: 2312792)
 // QUYẾT ĐỊNH KIẾN TRÚC TUÂN THỦ: D10 (Quantity và Unit nullable cho nguyên liệu "vừa đủ")
@@ -82,12 +82,15 @@ public class AddRecipeIngredientCommandHandler : IRequestHandler<AddRecipeIngred
         _currentUser = currentUser;
     }
 
-    public async Task<RecipeIngredientDto> Handle(AddRecipeIngredientCommand request, CancellationToken ct)
+    public async Task<RecipeIngredientDto> Handle(AddRecipeIngredientCommand request, CancellationToken cancellationToken)
     {
+        // Từ chối Guest trước truy vấn khi handler được gọi trực tiếp.
+        if (!_currentUser.IsAuthenticated)
+            throw new UnauthorizedException("Vui lòng đăng nhập.");
         // 1. Tải công thức kèm danh sách toàn bộ các nguyên liệu hiện có từ CSDL
         var recipe = await _dbContext.Recipes
             .Include(r => r.Ingredients)
-            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, cancellationToken);
 
         // 2. Nếu công thức không tồn tại, trả về lỗi 404 NotFound
         if (recipe == null)
@@ -96,14 +99,11 @@ public class AddRecipeIngredientCommandHandler : IRequestHandler<AddRecipeIngred
         }
 
         // 3. Kiểm tra phân quyền: Chỉ tác giả công thức hoặc Admin mới có quyền thêm nguyên liệu
-        if (_currentUser.IsAuthenticated)
+        var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
+        var isAdmin = _currentUser.IsAdmin;
+        if (!isAuthor && !isAdmin)
         {
-            var isAuthor = !string.IsNullOrWhiteSpace(_currentUser.UserId) && _currentUser.UserId == recipe.AuthorId;
-            var isAdmin = _currentUser.IsAdmin;
-            if (!isAuthor && !isAdmin)
-            {
-                throw new ForbiddenException("Bạn không có quyền thêm nguyên liệu cho công thức này.");
-            }
+            throw new ForbiddenException("Bạn không có quyền thêm nguyên liệu cho công thức này.");
         }
 
         // 4. Tính toán số thứ tự hiển thị (OrderIndex)
@@ -146,7 +146,7 @@ public class AddRecipeIngredientCommandHandler : IRequestHandler<AddRecipeIngred
 
         // 6. Thêm vào DbSet và lưu thay đổi vào cơ sở dữ liệu
         _dbContext.RecipeIngredients.Add(newIngredient);
-        await _dbContext.SaveChangesAsync(ct);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         // 7. Trả về DTO kết quả
         return new RecipeIngredientDto(

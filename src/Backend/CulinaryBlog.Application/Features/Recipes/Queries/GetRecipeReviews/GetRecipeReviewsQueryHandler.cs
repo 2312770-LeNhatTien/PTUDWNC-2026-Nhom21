@@ -13,12 +13,12 @@ public sealed class GetRecipeReviewsQueryHandler : IRequestHandler<GetRecipeRevi
 
     public GetRecipeReviewsQueryHandler(IApplicationDbContext db) => _db = db;
 
-    public async Task<RecipeReviewsDto> Handle(GetRecipeReviewsQuery request, CancellationToken ct)
+    public async Task<RecipeReviewsDto> Handle(GetRecipeReviewsQuery request, CancellationToken cancellationToken)
     {
         var recipeExists = await _db.Recipes.AnyAsync(recipe =>
             recipe.Id == request.RecipeId &&
             !recipe.IsDeleted &&
-            recipe.Status == RecipeStatus.Published, ct);
+            recipe.Status == RecipeStatus.Published, cancellationToken);
         if (!recipeExists)
             throw new NotFoundException("Công thức", request.RecipeId);
 
@@ -35,7 +35,7 @@ public sealed class GetRecipeReviewsQueryHandler : IRequestHandler<GetRecipeRevi
                 review.Comment,
                 review.CreatedAt,
                 review.UpdatedAt))
-            .ToListAsync(ct);
+            .ToListAsync(cancellationToken);
 
         var average = reviews.Count == 0 ? 0m : Math.Round((decimal)reviews.Average(review => review.Rating), 2);
         return new RecipeReviewsDto(average, reviews.Count, reviews);
