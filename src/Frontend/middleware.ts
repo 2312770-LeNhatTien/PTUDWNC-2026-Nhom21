@@ -23,6 +23,9 @@ export default auth((req) => {
     : [];
 
   const pathname = nextUrl.pathname;
+  // Trang thử component chỉ phục vụ development, không xuất hiện trong bản production.
+  if (process.env.NODE_ENV === "production" && pathname.split('/').some(part => part.endsWith('-test')))
+    return new NextResponse(null, { status: 404 });
 
   // 1. Phân loại các tuyến đường bảo mật cần kiểm soát
   const isAdminRoute = pathname.startsWith("/admin");

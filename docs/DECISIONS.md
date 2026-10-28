@@ -59,10 +59,16 @@ backend phải scale-out được nhiều instance.
 dữ liệu cache dùng chung. Lý do: IMemoryCache nằm trong RAM của từng instance,
 chạy 2 instance trở lên sẽ mỗi máy một dữ liệu khác nhau.
 
-Cách dùng trong code: Query nào cần cache thì implement `ICacheable`, Command
-nào làm dữ liệu thay đổi thì implement `ICacheInvalidator` — phần còn lại do
-`CachingBehavior` và `CacheInvalidationBehavior` tự lo, Handler không cần
-viết dòng cache nào.
+Cách dùng: query công khai implement `ICacheableQuery`; `CachingBehavior` ghép loại
+query, toàn bộ tham số và revision từ PostgreSQL vào key Redis. `CacheVersion` đổi
+trong cùng transaction khi Recipe/Category/nội dung con/review/profile thay đổi.
+Không cần quét/xóa prefix sau khi đã commit; key cũ tự hết TTL. Redis lỗi thì đọc DB,
+không làm thao tác lưu đã thành công biến thành lỗi. Request đã đăng nhập bỏ qua
+cache dùng chung để DTO riêng tư không lọt sang Guest.
+
+TTL: Category 30 phút, Recipe detail 10 phút, danh sách 5 phút, search 2 phút.
+Revision toàn cục ưu tiên tính đúng và triển khai đơn giản; đổi một bài có thể làm
+cache bài khác lạnh lại. Chỉ tách revision theo tài nguyên khi số đo chứng minh cần.
 
 ---
 
@@ -181,3 +187,49 @@ Bổ sung trong thay đổi quản lý công thức cá nhân; review cùng migr
   Lỗi submit được retry, không xóa sitemap hợp lệ. Robots luôn khai báo sitemap.
 
 Cấu hình, cách chạy và kiểm thử nằm trong `Infrastructure/Jobs/README_JOBS.md`.
+
+## D15 - Thư viện xử lý ảnh sau đợt vá bảo mật trước buổi 8
+
+**Quyết định ngày 28/10/2026, theo xác nhận của trưởng nhóm:** thay ImageSharp bằng
+`Magick.NET-Q8-AnyCPU`. Bản ImageSharp cũ có advisory; bản đã vá yêu cầu license khiến
+build Release thất bại khi nhóm chưa có khóa. Trưởng nhóm chọn đổi thư viện và cập nhật quyết định.
+
+- Giữ contract FR-JOB-002: thumbnail crop giữa 300×300, medium giữ tỉ lệ trong 800×600,
+  WebP quality 75, lưu URL qua cùng storage/job abstraction; không đổi DTO của frontend.
+- Native decoder chỉ nhận JPEG/PNG/WebP/AVIF; giới hạn bytes, pixel, RAM, disk và CPU,
+  đọc một frame, không có HTTP fallback từ URL người dùng. Kiểm tra lại trên Linux khi làm Docker buổi 8.
+- ImageMagick/Magick.NET chỉ nằm ở Infrastructure; Domain/Application không phụ thuộc thư viện ảnh.
+
+## D16 - Pending jobs và giới hạn bảo đảm gửi email
+
+- Ghi `PendingJob` cùng transaction tạo user/attach ảnh/xóa gallery. Dispatcher chuyển
+  intent đã commit sang Hangfire; Jobs tắt vẫn giữ intent để xử lý khi bật lại.
+- Enqueue có thể lặp sau crash: khóa phân tán theo intent, trạng thái hoàn tất và key
+  thumbnail cố định giúp retry không tạo thêm biến thể. Resize/xóa dùng chung khóa ảnh.
+- Welcome retry 3 lần, trễ 1/5/30 phút; ảnh và xóa retry 3 lần, queue `images`;
+  worker count 2–4. Admin có thể xem lỗi và retry trên dashboard bảo vệ theo D14.
+- SMTP bảo đảm **at-least-once**: crash sau SMTP chấp nhận nhưng trước khi ghi hoàn tất
+  có thể gửi lại. Không tuyên bố exactly-once khi nhà cung cấp SMTP không có idempotency key.
+- Xóa gallery mới dọn object; soft-delete Recipe giữ nguyên ảnh theo D1. Object còn
+  được gallery khác/bước nấu/avatar tham chiếu sẽ được giữ lại.
+
+## D17 - Phạm vi rating/comment đã tích hợp
+
+Giữ `RecipeReview` và API/UI đánh giá đã merge trong buổi 7, coi là phần mở rộng của
+FR-INT-001; không xóa code thành viên để thu hẹp scope. Một user chỉ đánh giá một lần
+trên bài Published, rating 1–5, có comment; thống kê chỉ tính review chưa xóa.
+Like/favorite, sửa/xóa review và moderation chưa được giao trong phần mở rộng này.
+
+## D18 - Upload kiểm chứng và preview riêng tư
+
+- Ảnh mới đi qua `POST /files/upload`: server kiểm tra tối đa 5 MB, magic bytes,
+  decode/MIME rồi cấp key có owner. Endpoint presign cũ trả 410 để tránh bypass;
+  không còn service/DTO presign không dùng. Attach/avatar/step kiểm tra quyền object.
+- Google ID token phải đúng ClientId server, có email đã xác minh, định danh bằng
+  Google `sub`. Email trùng tài khoản local trả `GOOGLE_ACCOUNT_LINK_REQUIRED`;
+  chưa xây chức năng liên kết có xác thực nên không tự ghép tài khoản theo email.
+- Web xem bài riêng ở `/dashboard/recipes/[id]/preview` bằng phiên Author/Admin.
+  Trang `/recipes/[slug]` phục vụ bài public; API slug vẫn cho owner/Admin đọc khi
+  có JWT hợp lệ. Không truyền localStorage token vào SSR hoặc cache chung dữ liệu riêng.
+- Slug đã từng Published được giữ kể cả Archive/Unpublish; slug/tên Category đã
+  soft-delete vẫn được giữ chỗ để unique index, validator và URL không mâu thuẫn.

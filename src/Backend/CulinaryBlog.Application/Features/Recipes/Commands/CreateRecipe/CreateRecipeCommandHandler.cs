@@ -4,6 +4,7 @@ using CulinaryBlog.Application.DTOs;
 using CulinaryBlog.Domain.Entities;
 using CulinaryBlog.Domain.Interfaces;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace CulinaryBlog.Application.Features.Recipes.Commands.CreateRecipe;
 
@@ -20,25 +21,29 @@ namespace CulinaryBlog.Application.Features.Recipes.Commands.CreateRecipe;
 /// 6. Thêm các nguyên liệu ban đầu (RecipeIngredient) và tự động chuẩn hóa thứ tự orderIndex.
 /// 7. Thêm các bước thực hiện ban đầu (RecipeStep) và tự động đánh số thứ tự stepNumber liên tục 1, 2, 3...
 /// 8. Lưu đối tượng vào CSDL thông qua IRecipeRepository (Repository pattern) và Unit of Work SaveChangesAsync.
-/// 9. Tải lại đầy đủ thông tin liên kết (Category, Author, Steps, Ingredients, Images) và ánh xạ sang RecipeDetailDto.
+/// 9. Đọc thông tin tác giả và ánh xạ nội dung vừa lưu sang RecipeDetailDto.
 /// </summary>
 public class CreateRecipeCommandHandler : IRequestHandler<CreateRecipeCommand, RecipeDetailDto>
 {
     private readonly IRecipeRepository _recipeRepository;
     private readonly ICategoryRepository _categoryRepository;
     private readonly ICurrentUser _currentUser;
+    private readonly IFileStorageService _files;
+    private readonly IApplicationDbContext _context;
 
     public CreateRecipeCommandHandler(
         IRecipeRepository recipeRepository,
         ICategoryRepository categoryRepository,
-        ICurrentUser currentUser)
+        ICurrentUser currentUser, IFileStorageService files, IApplicationDbContext context)
     {
         _recipeRepository = recipeRepository;
         _categoryRepository = categoryRepository;
         _currentUser = currentUser;
+        _files = files;
+        _context = context;
     }
 
-    public async Task<RecipeDetailDto> Handle(CreateRecipeCommand request, CancellationToken ct)
+    public async Task<RecipeDetailDto> Handle(CreateRecipeCommand request, CancellationToken cancellationToken)
     {
         // 1. Kiểm tra xác thực tác giả
         var authorId = _currentUser.UserId;
@@ -48,7 +53,7 @@ public class CreateRecipeCommandHandler : IRequestHandler<CreateRecipeCommand, R
         }
 
         // 2. Kiểm tra danh mục có tồn tại hay không
-        var category = await _categoryRepository.GetByIdAsync(request.CategoryId, ct);
+        var category = await _categoryRepository.GetByIdAsync(request.CategoryId, cancellationToken);
         if (category == null)
         {
             throw new NotFoundException("Danh mục", request.CategoryId);
@@ -72,7 +77,7 @@ public class CreateRecipeCommandHandler : IRequestHandler<CreateRecipeCommand, R
         var uniqueSlug = baseSlug;
         var suffix = 2;
 
-        while (await _recipeRepository.SlugExistsAsync(uniqueSlug, ct))
+        while (await _recipeRepository.SlugExistsAsync(uniqueSlug, cancellationToken))
         {
             uniqueSlug = $"{baseSlug}-{suffix}";
             suffix++;
@@ -123,6 +128,8 @@ public class CreateRecipeCommandHandler : IRequestHandler<CreateRecipeCommand, R
             var currentStepNum = 1;
             foreach (var stepDto in request.Steps)
             {
+                if (!string.IsNullOrWhiteSpace(stepDto.ImageUrl))
+                    await _files.EnsureOwnedUploadAsync(stepDto.ImageUrl, cancellationToken);
                 var stepNum = stepDto.StepNumber.HasValue && stepDto.StepNumber.Value > 0
                     ? stepDto.StepNumber.Value
                     : currentStepNum;
@@ -141,15 +148,13 @@ public class CreateRecipeCommandHandler : IRequestHandler<CreateRecipeCommand, R
         }
 
         // 8. Lưu vào cơ sở dữ liệu
-        await _recipeRepository.AddAsync(recipe, ct);
-        await _recipeRepository.SaveChangesAsync(ct);
+        await _recipeRepository.AddAsync(recipe, cancellationToken);
+        await _recipeRepository.SaveChangesAsync(cancellationToken);
 
-        // 9. Lấy lại thực thể với đầy đủ quan hệ Category và Author để map sang DTO
-        var savedRecipe = await _recipeRepository.GetDetailByIdAsync(recipe.Id, ct);
-        if (savedRecipe == null)
-        {
-            throw new NotFoundException("Công thức vừa tạo không tìm thấy trong hệ thống.");
-        }
+        // Nội dung con vừa tạo đã có trong bộ nhớ; không SELECT lại cả aggregate bằng nhiều query.
+        var savedRecipe = recipe;
+        var author = await _context.Users.AsNoTracking().Where(u => u.Id == authorId)
+            .Select(u => new AuthorRefDto(u.Id, u.DisplayName, u.AvatarUrl)).SingleAsync(cancellationToken);
 
         return new RecipeDetailDto(
             savedRecipe.Id,
@@ -168,11 +173,7 @@ public class CreateRecipeCommandHandler : IRequestHandler<CreateRecipeCommand, R
                 savedRecipe.Category?.Name ?? category.Name,
                 savedRecipe.Category?.Slug ?? category.Slug
             ),
-            new AuthorRefDto(
-                savedRecipe.Author?.Id ?? authorId,
-                savedRecipe.Author?.DisplayName ?? "Tác giả",
-                savedRecipe.Author?.AvatarUrl
-            ),
+            author,
             savedRecipe.Nutrition != null ? new NutritionDto(
                 savedRecipe.Nutrition.Calories,
                 savedRecipe.Nutrition.Protein,

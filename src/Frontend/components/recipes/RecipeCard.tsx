@@ -1,6 +1,7 @@
 import React from "react";
 import Link from "next/link";
 import type { RecipeListItemDto, RecipeDifficulty } from "@/types/api";
+import FallbackImage from '@/components/ui/FallbackImage';
 
 interface RecipeCardProps {
   recipe: RecipeListItemDto;
@@ -32,7 +33,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
     <div className="group flex flex-col overflow-hidden rounded-2xl bg-white border border-neutral-100 shadow-sm hover:shadow-xl hover:border-orange-200/80 transition-all duration-300">
       {/* Image Container */}
       <Link href={`/recipes/${recipe.slug}`} className="relative aspect-[16/10] overflow-hidden bg-neutral-100">
-        <img
+        <FallbackImage
           src={imageUrl}
           alt={recipe.title}
           className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"

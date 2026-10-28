@@ -7,7 +7,8 @@ namespace CulinaryBlog.Application.Common.Models;
 // (xem CulinaryBlog.API/Middleware/GlobalExceptionMiddleware.cs).
 public sealed record ApiResponse<T>(T Data, PaginationMeta? Meta = null);
 
-public sealed record PaginationMeta(int Page, int PageSize, int Total, int TotalPages);
+public sealed record PaginationMeta(int Page, int PageSize, int Total, int TotalPages,
+    bool HasNextPage = false, bool HasPreviousPage = false);
 
 public static class ApiResponse
 {
@@ -17,5 +18,5 @@ public static class ApiResponse
     // Endpoint trả danh sách phân trang - tự tách Items + meta
     public static ApiResponse<IReadOnlyList<T>> FromPaged<T>(PagedResult<T> result)
         => new(result.Items, new PaginationMeta(
-            result.Page, result.PageSize, result.Total, result.TotalPages));
+            result.Page, result.PageSize, result.Total, result.TotalPages, result.HasNextPage, result.HasPreviousPage));
 }

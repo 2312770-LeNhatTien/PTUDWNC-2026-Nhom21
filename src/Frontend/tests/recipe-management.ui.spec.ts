@@ -1,6 +1,63 @@
 import { test, expect } from '@playwright/test';
 import { encode } from 'next-auth/jwt';
 
+test('integrated ingredient editor parses fractions and refreshes the version before saving', async ({ page, context }) => {
+  const user = { id: 'ui-owner', displayName: 'UI Author', email: 'ui@example.test', roles: ['Author'] };
+  const cookie = await encode({ secret: 'recipes-local-test-secret-only', salt: 'authjs.session-token',
+    token: { userId: user.id, roles: user.roles, name: user.displayName, email: user.email } });
+  await context.addCookies([{ name: 'authjs.session-token', value: cookie, url: 'http://localhost:3106', httpOnly: true, sameSite: 'Lax' }]);
+  await context.addInitScript(profile => { localStorage.setItem('user', JSON.stringify(profile)); localStorage.setItem('accessToken', 'ui-test-only'); }, user);
+  const id = '11111111-1111-1111-1111-111111111111';
+  const category = { id: 'category-1', name: 'Món nước', slug: 'mon-nuoc' };
+  const stamp = '2026-10-28T00:00:00Z';
+  const recipe = { id, title: 'Món thử', slug: 'mon-thu', status: 'Draft', description: 'Mô tả', instructions: '',
+    category, author: user, prepTime: 10, cookTime: 20, servings: 2, difficulty: 'Easy', ingredients: [] as object[], steps: [], images: [] };
+  let version = 'AAAAAAAAAAAAAAAAAAAAAA=='; let submittedQuantity = 0; let failReload = false;
+  await page.route('**/api/v1/categories', route => route.fulfill({ json: { data: [category] } }));
+  await page.route('**/api/v1/recipes/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    if (path.endsWith('/edit')) {
+      if (failReload) return route.fulfill({ status: 503, json: { detail: 'Thử lại sau' } });
+      return route.fulfill({ json: { data: { recipe, rowVersion: version, createdAt: stamp, updatedAt: stamp } } });
+    }
+    if (path.endsWith('/ingredients')) {
+      const input = route.request().postDataJSON(); submittedQuantity = input.quantity;
+      const item = { ...input, id: 'ingredient-1' }; recipe.ingredients = [item]; version = 'AQEBAQEBAQEBAQEBAQEBAQ==';
+      return route.fulfill({ status: 201, json: { data: item } });
+    }
+    if (route.request().method() === 'PUT') {
+      const input = route.request().postDataJSON(); expect(input.rowVersion).toBe(version);
+      recipe.title = input.title;
+      return route.fulfill({ json: { data: { ...recipe, rowVersion: version, createdAt: stamp, updatedAt: stamp } } });
+    }
+    return route.abort();
+  });
+  await page.goto(`/dashboard/recipes/${id}/edit`);
+  const name = page.getByPlaceholder('Tên nguyên liệu (VD: Thịt ba chỉ, Nước mắm)...');
+  await expect(name).toBeEnabled();
+  await name.fill('Muối'); await page.getByPlaceholder('Số lượng (300)').fill('1/2');
+  await page.getByRole('button', { name: 'Thêm (Enter)' }).click();
+  await expect(name).toHaveValue(''); expect(submittedQuantity).toBe(0.5);
+  await expect(name).toBeEnabled();
+  await page.getByLabel('Tiêu đề', { exact: true }).fill('Món đã sửa');
+  await expect(name).toBeDisabled();
+  await page.getByRole('button', { name: 'Lưu thay đổi' }).click();
+  await expect(page.getByText('Đã lưu công thức thành công.')).toBeVisible();
+  await expect(name).toBeEnabled();
+  // Lưu con thành công nhưng fetch lại lỗi phải khóa lần sửa tiếp theo cho tới khi đồng bộ.
+  failReload = true;
+  await name.fill('Tiêu'); await page.getByPlaceholder('Số lượng (300)').fill('1/0');
+  await page.getByRole('button', { name: 'Thêm (Enter)' }).click();
+  await expect(page.getByText('Định lượng không hợp lệ, ví dụ 0.5 hoặc 1/2.')).toBeVisible();
+  await page.getByPlaceholder('Số lượng (300)').fill('1 1/2');
+  await page.getByRole('button', { name: 'Thêm (Enter)' }).click();
+  await expect(page.getByRole('button', { name: 'Đồng bộ lại phiên bản' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Lưu thay đổi' })).toBeDisabled();
+  expect(submittedQuantity).toBe(1.5);
+  failReload = false; await page.getByRole('button', { name: 'Đồng bộ lại phiên bản' }).click();
+  await expect(name).toBeEnabled();
+});
+
 // UI regression with API stubs. This suite does not validate database concurrency;
 // recipe-management.spec.ts and recipe-management-api.cjs cover the real backend.
 test('dashboard filters, private preview, conflict reload, archive and soft delete UI', async ({ page, context }) => {

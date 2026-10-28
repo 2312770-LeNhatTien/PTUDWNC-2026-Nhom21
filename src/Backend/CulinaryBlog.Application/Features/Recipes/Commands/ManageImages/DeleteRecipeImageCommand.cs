@@ -36,11 +36,11 @@ public class DeleteRecipeImageCommandHandler : IRequestHandler<DeleteRecipeImage
         _currentUser = currentUser;
     }
 
-    public async Task Handle(DeleteRecipeImageCommand request, CancellationToken ct)
+    public async Task Handle(DeleteRecipeImageCommand request, CancellationToken cancellationToken)
     {
         var recipe = await _context.Recipes
             .Include(r => r.Images)
-            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, cancellationToken);
 
         if (recipe == null || recipe.IsDeleted)
         {
@@ -63,14 +63,18 @@ public class DeleteRecipeImageCommandHandler : IRequestHandler<DeleteRecipeImage
 
         var wasPrimary = image.IsPrimary;
         image.MarkDeleted();
+        // Chỉ xóa riêng ảnh gallery mới dọn object; soft-delete Recipe vẫn giữ ảnh (D1).
+        _context.PendingJobs.Add(CulinaryBlog.Domain.Entities.PendingJob.DeleteImage(image.Id));
 
-        // Nếu ảnh bị xóa là Primary, tự động gán ảnh còn lại đầu tiên làm Primary (nếu còn)
-        if (wasPrimary)
+        await _context.ExecuteInTransactionAsync(async () =>
         {
-            var nextImage = recipe.Images.FirstOrDefault(i => !i.IsDeleted && i.Id != image.Id);
-            nextImage?.SetPrimary(true);
-        }
-
-        await _context.SaveChangesAsync(ct);
+            // Loại ảnh cũ khỏi unique index trước khi đặt ảnh thay thế làm primary.
+            await _context.SaveChangesAsync(cancellationToken);
+            if (wasPrimary)
+            {
+                var nextImage = recipe.Images.Where(i => !i.IsDeleted && i.Id != image.Id).OrderBy(i => i.OrderIndex).FirstOrDefault();
+                if (nextImage != null) { nextImage.SetPrimary(true); await _context.SaveChangesAsync(cancellationToken); }
+            }
+        }, cancellationToken);
     }
 }

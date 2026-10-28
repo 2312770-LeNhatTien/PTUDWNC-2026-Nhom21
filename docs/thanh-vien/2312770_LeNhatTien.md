@@ -268,38 +268,6 @@ git checkout -b 2312770-LeNhatTien-buoi4
      - Quét toàn bộ công thức và danh mục đang hoạt động (`IsDeleted == false` và `Status == Published`).
      - Tự động sinh file `sitemap.xml` và `robots.txt` chuẩn SEO vào thư mục public của hệ thống.
 
-### Bổ sung trước Buổi 8 — Khắc phục sau rà soát toàn dự án (28/10/2026)
-
-Đọc [hướng dẫn khắc phục chung](../HUONG_DAN_KHAC_PHUC_SAU_RA_SOAT.md) trước khi làm. Căn cứ rà là `main@e2cb966`; lấy `main` mới nhất và kiểm tra lại. Đây là việc sửa/tích hợp từ các buổi trước, không phải tất cả thuộc Lab 7. Dùng nhánh `2312770-LeNhatTien-buoi8`, tách commit theo mã mục; các ô dưới **chưa được xác nhận hoàn thành**.
-
-| Thứ tự | Tiến chịu trách nhiệm | File/điểm bắt đầu | Vì sao và điều kiện xong |
-| --- | --- | --- | --- |
-| 1 | **R07 — Điều phối vá dependency** | Frontend package/lockfile, Backend `.csproj` | Đức kiểm tra auth, Tuấn media, Toàn UI/search; chọn bản vá theo advisory lúc sửa. Build/hồi quy đạt và cảnh báo còn lại có giải trình. |
-| 2 | **R11 — Jobs tắt vẫn resolve DI** | DI Infrastructure/API, `IBackgroundJobService`, handler ảnh/email | Chốt tắt worker khác tắt enqueue; không no-op giả thành công. Kiểm tra bật/tắt và cách xử lý việc chờ cùng Tuấn/Đức. |
-| 3 | **R13 — Ghép editor vào trang quản lý thật** | Trang edit/preview/new, gallery/steps/ingredients/publish components | Dùng component đã có; lấy RowVersion mới sau thay đổi con, không mất form chưa lưu. Draft → quay lại sửa đủ nội dung → publish phải đi hết được. |
-| 4 | **R14 — Giữ slug từng Published** | `Domain/Entities/Recipe.cs`, handler update | Status hiện tại chưa đủ biết bài từng công khai. Publish → Archive/Unpublish → đổi title → publish lại vẫn giữ URL. |
-| 5 | **R15 — Unique Recipe sau soft delete** | Recipe repository/configuration, migration khi cần | Chốt cùng Toàn chính sách; precheck/index/error mapping đồng bộ kể cả race. Tạo lại sau xóa mềm không được 500. |
-| 6 | **R17 — Category detail phân trang** | Query/DTO category detail, API helper/trang category | Toàn làm paging/filter chung, Tiến ghép consumer; không đổi server bỏ quên frontend. Test trang đầu/cuối/rỗng và hai cú pháp D8. |
-| 7 | **R18 — Xóa gallery bằng job** | `DeleteRecipeImageCommand.cs`, job abstraction | Tiến chốt nghiệp vụ/enqueue, Tuấn storage/worker. Xóa gallery dọn biến thể; xóa mềm Recipe giữ ảnh D1. Test retry/race resize/enqueue lỗi. |
-| 8 | **O01/O03 — Health, tracing/metrics** | `Program.cs`, DI, telemetry | Đủ health/live/ready; trace HTTP–MediatR–EF và metrics thật; test dịch vụ hỏng/phục hồi. Phối hợp Toàn O02. |
-| 9 | **Q03 — CI và tải đồng thời** | Workflow CI, config chất lượng/test | Clean checkout build/test/coverage; cùng Đức/Toàn đo ≥100 concurrent users, không dùng benchmark tuần tự để báo đạt tải. |
-| 10 | **U03/D01 — Lỗi trang thật, tài liệu** | Fetch detail/list/preview, SETUP/README/DECISIONS/README_JOBS | Phân biệt 404 và lỗi dịch vụ; chốt preview riêng tư, lịch UTC, migration hiện có. Báo cáo cập nhật theo kết quả thật. |
-
-**Phối hợp theo thứ tự:**
-
-1. Tuấn sửa quyền/contract R01–R05 trước; Tiến xác nhận gallery chỉ attach object đã kiểm tra. Không đổi lại contract URL khi ghép R13/R18.
-2. Đức bàn giao `PublishToggle`, parser lỗi và trạng thái publish thất bại; Tuấn bàn giao props/callback của hai editor. Tiến ghép cuối trang edit/preview và kiểm thử D13, tránh hai PR cùng sửa toàn trang.
-3. Toàn bàn giao paging/cache/query và policy unique Category; thống nhất DTO, `RecipeRepository.cs` và migration trước khi sửa chung.
-4. Tiến review PR bảo mật và giữ D14 Admin/refresh revocation. Google sitemap submit vẫn tắt local; không ghi đã gửi thật khi chưa có domain/credentials.
-
-**Checklist nghiệm thu phần Tiến:**
-
-- [ ] R07/R11/R13/R14 và phần Recipe/tích hợp R15/R17/R18 có test.
-- [ ] O01/O03/Q03 và phần U03/D01 hoàn thiện; phối hợp C01/O02/P02 không bỏ sót.
-- [ ] Test sau ghép main: owner/Admin, hai phiên 409, cache invalidation, gallery/resize, logout/dashboard.
-- [ ] Hoàn thành **P01**: Docker API/Next, compose production/Nginx/HTTPS, secrets/backup/migration và volume SEO/key ring khi scale-out; có hướng dẫn máy sạch.
-- [ ] Tổng hợp tất cả mã R/O/C/Q/U/D/P bằng PR/commit/bằng chứng trước nghiệm thu.
-
 ### 📅 Tuần 8 (Lab 8): Đóng gói Docker Production, Nginx SSL & Tổng kết đồ án
 * **Nhánh làm việc**: `2312770-LeNhatTien-buoi8`
 * **Nhiệm vụ trọng tâm**:

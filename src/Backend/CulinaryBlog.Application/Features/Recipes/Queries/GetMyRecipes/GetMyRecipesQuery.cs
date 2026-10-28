@@ -19,12 +19,12 @@ public class GetMyRecipesValidator : AbstractValidator<GetMyRecipesQuery>
 public class GetMyRecipesHandler(IApplicationDbContext db, ICurrentUser user)
     : IRequestHandler<GetMyRecipesQuery, PagedResult<MyRecipeDto>>
 {
-    public async Task<PagedResult<MyRecipeDto>> Handle(GetMyRecipesQuery request, CancellationToken ct)
+    public async Task<PagedResult<MyRecipeDto>> Handle(GetMyRecipesQuery request, CancellationToken cancellationToken)
     {
         if (!user.IsAuthenticated || string.IsNullOrEmpty(user.UserId)) throw new UnauthorizedException("Vui lòng đăng nhập.");
         var query = db.Recipes.AsNoTracking().Where(r => r.AuthorId == user.UserId);
         if (request.Status.HasValue) query = query.Where(r => r.Status == request.Status.Value);
-        var total = await query.CountAsync(ct);
+        var total = await query.CountAsync(cancellationToken);
         var page = request.Paging.Page ?? 1;
         var pageSize = request.Paging.PageSize ?? 12;
         var desc = request.Paging.IsDescending;
@@ -40,7 +40,7 @@ public class GetMyRecipesHandler(IApplicationDbContext db, ICurrentUser user)
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(r => new MyRecipeDto(r.Id, r.Title, r.Slug, r.Status.ToString(),
                 r.Images.Where(i => i.IsPrimary).Select(i => i.OriginalUrl).FirstOrDefault(),
-                r.Category != null ? r.Category.Name : "", r.CreatedAt, r.UpdatedAt)).ToListAsync(ct);
+                r.Category != null ? r.Category.Name : "", r.CreatedAt, r.UpdatedAt)).ToListAsync(cancellationToken);
         return new(items, page, pageSize, total);
     }
 }

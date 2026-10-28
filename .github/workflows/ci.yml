@@ -1,0 +1,92 @@
+name: Build and regression tests
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s
+          --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet build CulinaryBlog.slnx -c Release
+      - name: Regression and coverage on an isolated database
+        run: dotnet test tests/Backend.Tests/Backend.Tests.csproj -c Release --no-build --collect:"XPlat Code Coverage" --results-directory artifacts/coverage --logger trx
+      - name: Require at least 80 percent Application line coverage
+        shell: pwsh
+        run: |
+          $report = Get-ChildItem artifacts/coverage -Recurse -Filter coverage.cobertura.xml | Select-Object -First 1
+          [xml]$coverage = Get-Content -Raw $report.FullName
+          $package = $coverage.coverage.packages.package | Where-Object { $_.name -eq 'CulinaryBlog.Application' }
+          if (!$package) { throw 'Missing Application coverage report' }
+          $rate = [double]::Parse($package.'line-rate', [Globalization.CultureInfo]::InvariantCulture)
+          Write-Output ('Application line coverage: {0:P2}' -f $rate)
+          if ($rate -lt 0.80) { throw 'Application line coverage is below 80%' }
+      - name: Redis checks using a unique test prefix
+        run: dotnet run --project tests/Lab06.CacheChecks -c Release
+      - name: Sitemap regression with mock Google HTTP
+        env:
+          PGPASSWORD: postgres
+          SITEMAP_TEST_CONNECTION: Host=localhost;Port=5432;Database=culinary_ci_sitemap;Username=postgres;Password=postgres
+        run: |
+          createdb -h localhost -U postgres culinary_ci_sitemap
+          dotnet run --project tests/SitemapChecks -c Release
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: backend-test-results
+          path: artifacts/coverage
+
+  frontend:
+    runs-on: ubuntu-24.04
+    defaults:
+      run:
+        working-directory: src/Frontend
+    env:
+      AUTH_SECRET: ci-test-only-secret-not-for-deployment
+      API_URL: http://127.0.0.1:59987
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:59987/api/v1
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/Frontend/package-lock.json
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: UI with mocked API and real page authorization
+        run: npx playwright test
+      - name: Author management UI regression
+        run: npx playwright test --config playwright.recipes.config.ts recipe-management.ui.spec.ts
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: frontend-test-results
+          path: |
+            src/Frontend/test-results
+            src/Frontend/playwright-report

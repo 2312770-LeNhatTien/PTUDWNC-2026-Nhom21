@@ -6,10 +6,12 @@
 // THÀNH VIÊN PHỤ TRÁCH: Lê Nhật Tiến (MSSV: 2312770)
 // ============================================================================
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { recipesApi } from '@/lib/api/recipes';
+import { getApiError } from '@/lib/api/errors';
 import ImageUploader from '@/components/ui/ImageUploader';
 import type { RecipeImageDto } from '@/types/api';
+const emptyImages: RecipeImageDto[] = [];
 
 interface RecipeGalleryEditorProps {
   /** ID của công thức đang được chỉnh sửa */
@@ -22,11 +24,12 @@ interface RecipeGalleryEditorProps {
 
 export default function RecipeGalleryEditor({
   recipeId,
-  initialImages = [],
+  initialImages = emptyImages,
   onImagesChange,
 }: RecipeGalleryEditorProps) {
   // Danh sách hình ảnh hiện tại trong gallery
   const [images, setImages] = useState<RecipeImageDto[]>(initialImages);
+  useEffect(() => setImages(initialImages), [initialImages]);
 
   // Lưu ID của hình ảnh đang thực hiện thao tác (set primary hoặc delete) để hiển thị spinner
   const [processingImageId, setProcessingImageId] = useState<string | null>(null);
@@ -77,10 +80,7 @@ export default function RecipeGalleryEditor({
       updateImagesState(updatedList);
       triggerSuccess('Đã đặt làm ảnh bìa chính thành công!');
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } }; message?: string };
-      setErrorMessage(
-        error?.response?.data?.detail || error?.message || 'Không thể đặt ảnh làm ảnh bìa chính.'
-      );
+      setErrorMessage(getApiError(err, 'Không thể đặt ảnh làm ảnh bìa chính.').message);
     } finally {
       setProcessingImageId(null);
     }
@@ -114,10 +114,7 @@ export default function RecipeGalleryEditor({
       updateImagesState(remainingList);
       triggerSuccess('Đã xóa hình ảnh khỏi bộ sưu tập.');
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } }; message?: string };
-      setErrorMessage(
-        error?.response?.data?.detail || error?.message || 'Không thể xóa hình ảnh.'
-      );
+      setErrorMessage(getApiError(err, 'Không thể xóa hình ảnh.').message);
     } finally {
       setProcessingImageId(null);
     }
@@ -149,10 +146,7 @@ export default function RecipeGalleryEditor({
       setShowUploader(false);
       triggerSuccess('Đã thêm ảnh mới vào bộ sưu tập!');
     } catch (err: unknown) {
-      const error = err as { response?: { data?: { detail?: string } }; message?: string };
-      setErrorMessage(
-        error?.response?.data?.detail || error?.message || 'Không thể lưu ảnh vào bộ sưu tập.'
-      );
+      setErrorMessage(getApiError(err, 'Không thể lưu ảnh vào bộ sưu tập.').message);
     }
   };
 

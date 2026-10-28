@@ -14,6 +14,8 @@ public class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
 
         builder.Property(rt => rt.TokenHash).IsRequired().HasMaxLength(64);
         builder.Property(rt => rt.ReplacedByTokenHash).HasMaxLength(64);
+        // UPDATE có điều kiện RevokedAt cũ: hai refresh không thể cùng tiêu thụ một token.
+        builder.Property(rt => rt.RevokedAt).IsConcurrencyToken();
         builder.Property(rt => rt.CreatedByIp).HasMaxLength(45); // đủ cho IPv6
 
         builder.HasIndex(rt => rt.TokenHash)

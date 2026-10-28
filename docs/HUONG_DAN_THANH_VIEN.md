@@ -25,7 +25,7 @@ Mở **PowerShell** và chạy lần lượt các lệnh sau:
 
 ### Bước 2.1: Clone repository và chuyển vào thư mục dự án
 ```powershell
-git clone https://github.com/2312770-coder/PTUDWNC-2026-Nhom21.git
+git clone https://github.com/2312770-LeNhatTien/PTUDWNC-2026-Nhom21.git
 cd PTUDWNC-2026-Nhom21
 ```
 
@@ -61,11 +61,13 @@ cd ..\..\..
 ### Bước 2.5: Cập nhật Database (EF Core Migrations)
 Cài đặt tool EF nếu máy bạn chưa có:
 ```powershell
-dotnet tool install --global dotnet-ef
+dotnet tool install --global dotnet-ef --version '10.0.*'
 ```
-Áp dụng database migrations vào PostgreSQL trong Docker:
+Áp dụng migration đã có (factory thiết kế cần connection tường minh; không tạo lại InitialCreate):
 ```powershell
+$env:ConnectionStrings__DefaultConnection='Host=localhost;Port=5432;Database=culinary_blog;Username=postgres;Password=postgres'
 dotnet ef database update --project src\Backend\CulinaryBlog.Infrastructure --startup-project src\Backend\CulinaryBlog.API
+Remove-Item Env:ConnectionStrings__DefaultConnection
 ```
 
 ### Bước 2.6: Chạy thử Backend
@@ -80,7 +82,7 @@ Mở một cửa sổ PowerShell **mới**:
 ```powershell
 cd src\Frontend
 copy .env.example .env.local
-npm install
+npm ci
 npm run dev
 ```
 Mở trình duyệt: http://localhost:3000
@@ -149,7 +151,7 @@ git push -u origin 2312770-LeNhatTien-buoi4    # Thay bằng tên nhánh buổi 
 ```
 
 #### Bước 6: Tạo Pull Request (PR) theo từng chức năng và Báo trưởng nhóm review
-1. Mở trang repository trên GitHub: [PTUDWNC-2026-Nhom21](https://github.com/2312770-coder/PTUDWNC-2026-Nhom21).
+1. Mở trang repository trên GitHub: [PTUDWNC-2026-Nhom21](https://github.com/2312770-LeNhatTien/PTUDWNC-2026-Nhom21).
 2. Tạo **Pull Request** từ nhánh buổi của bạn vào nhánh `main` ứng với chức năng vừa hoàn tất (Tiêu đề PR: `feat: [Mã-FR] <Tên chức năng>`).
 3. Nhắn vào nhóm Zalo/Discord: *"Mình vừa tạo PR cho [Mã-FR] từ nhánh `...-buoi4`, Tiến review giúp nhé."*
 4. Trưởng nhóm **Lê Nhật Tiến** vào GitHub, kiểm tra diff, review code và gộp (merge) PR vào `main`.
@@ -177,10 +179,10 @@ API (Endpoints)  -->  Application (Commands/Queries + Handlers + Validators)  --
 2. Khung file đã được sinh sẵn (Command/Query, Validator, Handler):
    - **Command / Query**: Chứa dữ liệu đầu vào (DTO request).
    - **Validator**: Dùng `FluentValidation` để kiểm tra tính hợp lệ dữ liệu.
-   - **Handler**: Chứa nghiệp vụ chính. Hiện tại đang ném `throw new NotImplementedException(...)` kèm các bước gợi ý bằng comment.
-3. Thay thế dòng ném exception bằng logic thực tế:
+   - **Handler**: Chứa nghiệp vụ đang chạy; đọc implementation và test hiện có trước khi sửa.
+3. Khi thay đổi nghiệp vụ, giữ contract hiện có và thêm kiểm thử hồi quy:
    - Gọi repository để lấy hoặc lưu Entity.
-   - Trả về `Result<T>` hoặc DTO.
+   - Trả về DTO qua envelope ApiResponse; lỗi qua exception/ProblemDetails thống nhất.
 4. Mở `src/Backend/CulinaryBlog.API/Endpoints/<TênEndpoint>.cs` để kiểm tra route binding và quyền hạn (`.RequireAuthorization()`).
 5. Kiểm tra trực tiếp trên trình duyệt bằng giao diện Scalar tại `http://localhost:5000/scalar/v1`.
 

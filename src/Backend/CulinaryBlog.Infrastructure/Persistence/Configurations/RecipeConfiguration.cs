@@ -79,14 +79,11 @@ public class RecipeConfiguration : IEntityTypeConfiguration<Recipe>
         builder.HasIndex(r => r.Difficulty).HasDatabaseName("IDX_Recipe_Difficulty");
         builder.HasIndex(r => r.PublishedAt).HasDatabaseName("IDX_Recipe_PublishedAt");
         builder.HasIndex(r => r.IsDeleted).HasDatabaseName("IDX_Recipe_IsDeleted");
+        // Shadow property giữ kiểu PostgreSQL ở Infrastructure, Domain không phụ thuộc Npgsql.
+        builder.Property<NpgsqlTypes.NpgsqlTsVector>("SearchVector").HasColumnType("tsvector")
+            .HasDefaultValueSql("''::tsvector").ValueGeneratedOnAddOrUpdate();
+        builder.HasIndex("SearchVector").HasMethod("GIN").HasDatabaseName("IDX_Recipe_SearchVector");
 
-        // TODO (người phụ trách FR-SRCH-001): bổ sung cột SearchVector (tsvector)
-        // + GIN index + TRIGGER cập nhật khi Title/Description thay đổi, theo
-        // SRS mục 7.2. Cần bật extension unaccent trước:
-        //   CREATE EXTENSION IF NOT EXISTS unaccent;
-        // Gợi ý: thêm property NpgsqlTsVector SearchVector vào Recipe, rồi
-        //   builder.HasGeneratedTsVectorColumn(r => r.SearchVector, "simple",
-        //       r => new { r.Title, r.Description })
-        //          .HasIndex(r => r.SearchVector).HasMethod("GIN");
+        // Migration PreLab8Reliability tạo trigger weighted tsvector có unaccent.
     }
 }

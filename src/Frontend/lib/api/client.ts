@@ -23,7 +23,9 @@ interface CustomAxiosRequestConfig extends InternalAxiosRequestConfig {
  * Lấy Base URL của Backend API từ biến môi trường
  */
 const getApiBaseUrl = (): string => {
-  const raw = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
+  // Server dùng địa chỉ API nội bộ, trình duyệt dùng public URL được cấu hình riêng.
+  const raw = (typeof window === "undefined" ? process.env.API_URL : undefined)
+    ?? process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:5000";
   const base = raw.replace(/\/api\/v1\/?$/, "");
   return `${base}/api/v1`;
 };

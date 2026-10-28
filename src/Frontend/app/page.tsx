@@ -6,33 +6,36 @@ import { categoriesApi } from "@/lib/api/categories";
 import { recipesApi } from "@/lib/api/recipes";
 import RecipeCard from "@/components/recipes/RecipeCard";
 import type { CategoryDto, RecipeListItemDto } from "@/types/api";
+import { ErrorState } from '@/components/shared/ErrorState';
 
 export default function HomePage() {
   const [categories, setCategories] = useState<CategoryDto[]>([]);
   const [recipes, setRecipes] = useState<RecipeListItemDto[]>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [retry, setRetry] = useState(0);
 
   useEffect(() => {
     async function loadData() {
       setIsLoading(true);
+      setError('');
       try {
         const [cats, recsResult] = await Promise.all([
           categoriesApi.getAll(),
           recipesApi.getAll(),
         ]);
         setCategories(cats);
-        if (recsResult.items.length > 0) {
-          setRecipes(recsResult.items);
-        }
+        setRecipes(recsResult.items);
       } catch (err) {
         console.error("Lỗi khi tải dữ liệu trang chủ:", err);
+        setError('Không thể tải dữ liệu trang chủ. Vui lòng thử lại.');
       } finally {
         setIsLoading(false);
       }
     }
     loadData();
-  }, []);
+  }, [retry]);
 
   const handleCategoryFilter = async (categoryId: string | null) => {
     setSelectedCategoryId(categoryId);
@@ -44,12 +47,14 @@ export default function HomePage() {
       setRecipes(recsResult.items);
     } catch (err) {
       console.error("Lỗi khi lọc công thức:", err);
+      setError('Không thể lọc công thức. Vui lòng thử lại.');
     } finally {
       setIsLoading(false);
     }
   };
 
   const featuredRecipe = recipes[0];
+  if (error) return <div className="container mx-auto p-8"><ErrorState message={error} onRetry={() => { setSelectedCategoryId(null); setRetry(value => value + 1); }} /></div>;
 
   return (
     <div className="space-y-20 pb-20">

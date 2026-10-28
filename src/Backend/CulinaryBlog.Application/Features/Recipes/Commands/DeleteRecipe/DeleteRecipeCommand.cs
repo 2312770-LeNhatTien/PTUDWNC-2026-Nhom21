@@ -35,10 +35,10 @@ public class DeleteRecipeCommandHandler : IRequestHandler<DeleteRecipeCommand>
         _currentUser = currentUser;
     }
 
-    public async Task Handle(DeleteRecipeCommand request, CancellationToken ct)
+    public async Task Handle(DeleteRecipeCommand request, CancellationToken cancellationToken)
     {
         var recipe = await _context.Recipes
-            .FirstOrDefaultAsync(r => r.Id == request.Id, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.Id, cancellationToken);
 
         if (recipe == null || recipe.IsDeleted)
         {
@@ -55,6 +55,6 @@ public class DeleteRecipeCommandHandler : IRequestHandler<DeleteRecipeCommand>
 
         // Xóa mềm theo Quyết định D1
         recipe.MarkDeleted();
-        await _context.SaveChangesAsync(ct);
+        await _context.SaveChangesAsync(cancellationToken);
     }
 }

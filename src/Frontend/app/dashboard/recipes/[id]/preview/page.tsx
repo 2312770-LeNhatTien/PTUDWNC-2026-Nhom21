@@ -5,7 +5,9 @@ import Link from 'next/link';
 import { recipesApi } from '@/lib/api/recipes';
 import type { RecipeDetailDto } from '@/types/api';
 import IngredientChecklist from '@/components/recipes/IngredientChecklist';
-import { errorMessage, statusLabel } from '@/components/dashboard/errors';
+import { errorMessage } from '@/lib/api/errors';
+import { statusLabel } from '@/components/dashboard/format';
+import PublishToggle from '@/components/recipes/PublishToggle';
 
 export default function RecipePreviewPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -25,6 +27,8 @@ export default function RecipePreviewPage({ params }: { params: Promise<{ id: st
     {loading ? <p role="status">Đang tải bản xem trước...</p> : error ? <div role="alert" className="rounded-xl bg-red-50 p-5 text-red-800">{error} <button onClick={load} className="ml-3 underline">Thử lại</button></div>
       : recipe && <>
         <p className="mb-4 rounded-xl bg-orange-50 p-4 text-orange-900">Xem trước riêng tư · {statusLabel[recipe.status]}</p>
+        <div className="mb-5"><PublishToggle recipeId={id} initialStatus={recipe.status}
+          ingredientCount={recipe.ingredients.length} stepCount={recipe.steps.length} onStatusChange={() => void load()} /></div>
         <h1 className="text-3xl font-bold">{recipe.title}</h1><p className="mt-4 text-neutral-600">{recipe.description}</p>
         <p className="my-5 text-sm text-neutral-500">{recipe.author.displayName} · {recipe.category.name} · Chuẩn bị {recipe.prepTime} phút · Nấu {recipe.cookTime} phút · {recipe.servings} khẩu phần</p>
         {image && <img src={image.originalUrl} alt={image.altText || recipe.title} className="mb-8 max-h-96 w-full rounded-2xl object-cover" />}

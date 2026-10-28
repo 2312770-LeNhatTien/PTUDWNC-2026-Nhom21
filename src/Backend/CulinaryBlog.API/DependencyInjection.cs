@@ -1,5 +1,9 @@
 using CulinaryBlog.API.Middleware;
 using CulinaryBlog.API.Authorization;
+using System.Threading.RateLimiting;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Metrics;
 
 namespace CulinaryBlog.API;
 
@@ -19,6 +23,20 @@ public static class DependencyInjection
         // CONS-005: mọi lỗi trả về theo RFC 7807.
         services.AddExceptionHandler<GlobalExceptionMiddleware>();
         services.AddProblemDetails();
+
+        // Instrumentation HTTP/pipeline thuộc cấu hình Presentation; exporter bật theo môi trường.
+        services.AddOpenTelemetry().ConfigureResource(resource => resource.AddService("CulinaryBlog.API"))
+            .WithTracing(tracing =>
+            {
+                tracing.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation()
+                    .AddSource("CulinaryBlog.Application", "CulinaryBlog.Database");
+                if (configuration.GetValue<bool>("Telemetry:Enabled")) tracing.AddOtlpExporter();
+            })
+            .WithMetrics(metrics =>
+            {
+                metrics.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation().AddMeter("CulinaryBlog.Application");
+                if (configuration.GetValue<bool>("Telemetry:Enabled")) metrics.AddOtlpExporter();
+            });
 
         services.AddAuthentication().AddCookie(HangfireAuthorizationFilter.Scheme, options =>
             HangfireAuthorizationFilter.ConfigureCookie(options, environment.IsDevelopment()));
@@ -43,10 +61,34 @@ public static class DependencyInjection
         // ── Rate Limiting (DECISIONS D7 & NFR-SEC-003) ────────────────────────
         services.AddRateLimiter(options =>
         {
+            // Limiter chung vẫn áp dụng khi endpoint có policy riêng.
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+                context.Request.Path.StartsWithSegments("/api")
+                    ? RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                        _ => new FixedWindowRateLimiterOptions
+                        {
+                            PermitLimit = configuration.GetValue("RateLimits:Global", 100),
+                            Window = TimeSpan.FromMinutes(1),
+                            QueueLimit = 0
+                        })
+                    : RateLimitPartition.GetNoLimiter("health-static"));
+            foreach (var (name, limit) in new[] { ("AuthRateLimitPolicy", 10), ("UploadRateLimitPolicy", 5) })
+                options.AddPolicy(name, context => RateLimitPartition.GetFixedWindowLimiter(
+                    context.Connection.RemoteIpAddress?.ToString() ?? "unknown", _ => new FixedWindowRateLimiterOptions
+                    { PermitLimit = configuration.GetValue($"RateLimits:{name}", limit), Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.OnRejected = async (context, token) =>
             {
                 context.HttpContext.Response.ContentType = "application/problem+json";
+                context.HttpContext.Response.Headers["X-RateLimit-Remaining"] = "0";
+                var path = context.HttpContext.Request.Path.Value ?? "";
+                var limit = configuration.GetValue("RateLimits:Global", 100);
+                if (path.EndsWith("/auth/login", StringComparison.Ordinal)) limit = configuration.GetValue("RateLimits:Login", 5);
+                else if (path.StartsWith("/api/v1/auth/", StringComparison.Ordinal)) limit = configuration.GetValue("RateLimits:AuthRateLimitPolicy", 10);
+                else if (path.StartsWith("/api/v1/files", StringComparison.Ordinal) || path.StartsWith("/api/v1/jobs", StringComparison.Ordinal))
+                    limit = configuration.GetValue("RateLimits:UploadRateLimitPolicy", 5);
+                context.HttpContext.Response.Headers["X-RateLimit-Limit"] = Math.Min(limit, configuration.GetValue("RateLimits:Global", 100)).ToString();
+                context.HttpContext.Response.Headers["X-RateLimit-Reset"] = DateTimeOffset.UtcNow.AddMinutes(1).ToUnixTimeSeconds().ToString();
                 if (context.Lease.TryGetMetadata(System.Threading.RateLimiting.MetadataName.RetryAfter, out TimeSpan retryAfter))
                 {
                     context.HttpContext.Response.Headers.RetryAfter = ((int)retryAfter.TotalSeconds).ToString();
@@ -61,7 +103,7 @@ public static class DependencyInjection
                     Type = "about:blank",
                     Title = "Quá nhiều yêu cầu.",
                     Status = StatusCodes.Status429TooManyRequests,
-                    Detail = "Bạn đã gửi quá nhiều yêu cầu đăng nhập. Vui lòng thử lại sau 1 phút.",
+                    Detail = "Bạn đã gửi quá nhiều yêu cầu. Vui lòng thử lại theo Retry-After.",
                     Instance = context.HttpContext.Request.Path
                 };
                 problem.Extensions["errorCode"] = "RATE_LIMIT_EXCEEDED";
@@ -75,7 +117,7 @@ public static class DependencyInjection
                     partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     factory: _ => new System.Threading.RateLimiting.FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 5,
+                        PermitLimit = configuration.GetValue("RateLimits:Login", 5),
                         Window = TimeSpan.FromMinutes(1),
                         QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst,
                         QueueLimit = 0

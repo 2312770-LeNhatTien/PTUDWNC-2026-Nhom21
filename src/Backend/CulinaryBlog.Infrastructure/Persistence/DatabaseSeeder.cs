@@ -18,6 +18,7 @@ namespace CulinaryBlog.Infrastructure.Persistence;
 /// </summary>
 public static class DatabaseSeeder
 {
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Code Smell", "S1075", Justification = "URL ảnh mẫu cố định chỉ dùng cho seeder Development, không phải endpoint triển khai.")]
     public static async Task SeedAsync(IServiceProvider serviceProvider)
     {
         using var scope = serviceProvider.CreateScope();
@@ -300,7 +301,7 @@ public static class DatabaseSeeder
                             name: ingData.Item1,
                             quantity: faker.Random.Decimal(ingData.Item3, ingData.Item4),
                             unit: ingData.Item2,
-                            notes: faker.PickRandom(new[] { "sơ chế sạch", "để ráo nước", "thái miếng vừa ăn", "nêm vừa khẩu vị", null }),
+                            notes: faker.PickRandom("sơ chế sạch", "để ráo nước", "thái miếng vừa ăn", "nêm vừa khẩu vị", null),
                             orderIndex: ingIndex + 1
                         ));
                     }
@@ -347,8 +348,7 @@ public static class DatabaseSeeder
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Có lỗi xảy ra trong quá trình nạp dữ liệu mẫu.");
-            throw;
+            throw new InvalidOperationException("Không nạp được dữ liệu mẫu Development.", ex);
         }
     }
 }

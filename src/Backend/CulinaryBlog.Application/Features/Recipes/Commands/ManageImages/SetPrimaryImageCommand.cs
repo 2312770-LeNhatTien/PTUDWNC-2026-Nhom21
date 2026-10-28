@@ -37,11 +37,11 @@ public class SetPrimaryImageCommandHandler : IRequestHandler<SetPrimaryImageComm
         _currentUser = currentUser;
     }
 
-    public async Task<RecipeImageDto> Handle(SetPrimaryImageCommand request, CancellationToken ct)
+    public async Task<RecipeImageDto> Handle(SetPrimaryImageCommand request, CancellationToken cancellationToken)
     {
         var recipe = await _context.Recipes
             .Include(r => r.Images)
-            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, ct);
+            .FirstOrDefaultAsync(r => r.Id == request.RecipeId, cancellationToken);
 
         if (recipe == null || recipe.IsDeleted)
         {
@@ -63,13 +63,14 @@ public class SetPrimaryImageCommandHandler : IRequestHandler<SetPrimaryImageComm
             throw new NotFoundException("Hình ảnh", request.ImageId);
         }
 
-        // Đảm bảo chỉ có DUY NHẤT 1 ảnh có IsPrimary = true
-        foreach (var img in activeImages)
+        // Partial unique index cần gỡ primary cũ trước, cả hai bước vẫn trong cùng transaction.
+        await _context.ExecuteInTransactionAsync(async () =>
         {
-            img.SetPrimary(img.Id == request.ImageId);
-        }
-
-        await _context.SaveChangesAsync(ct);
+            foreach (var img in activeImages.Where(i => i.IsPrimary)) img.SetPrimary(false);
+            await _context.SaveChangesAsync(cancellationToken);
+            targetImage.SetPrimary(true);
+            await _context.SaveChangesAsync(cancellationToken);
+        }, cancellationToken);
 
         return new RecipeImageDto(
             targetImage.Id,

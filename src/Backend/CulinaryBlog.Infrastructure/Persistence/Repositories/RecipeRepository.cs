@@ -28,16 +28,18 @@ public class RecipeRepository : Repository<Recipe>, IRecipeRepository
             .Include(r => r.Reviews);
 
     public async Task<bool> SlugExistsAsync(string slug, CancellationToken ct = default)
-        => await Db.Recipes.AnyAsync(r => r.Slug == slug, ct);
+        => await Db.Recipes.IgnoreQueryFilters().AnyAsync(r => r.Slug == slug, ct);
 
     // FR-SRCH-001: Vietnamese unaccent full-text search with filters before pagination.
     public async Task<(IReadOnlyList<Recipe> Items, int Total)> SearchAsync(
         string keyword, int page, int pageSize, CancellationToken ct = default,
         Guid? categoryId = null, CulinaryBlog.Domain.Enums.RecipeDifficulty? difficulty = null,
-        int? maxCookTime = null, string? sortBy = null, bool descending = true)
+        int? maxCookTime = null, string? sortBy = null, bool descending = true,
+        int? minServings = null, int? maxTotalTime = null)
     {
         var query = Db.Recipes
             .AsNoTracking()
+            .AsSplitQuery()
             .Include(r => r.Category)
             .Include(r => r.Author)
             .Include(r => r.Images)
@@ -48,17 +50,24 @@ public class RecipeRepository : Repository<Recipe>, IRecipeRepository
         if (!string.IsNullOrWhiteSpace(keyword))
         {
             query = query
-                .Where(r => EF.Functions.ToTsVector("simple", EF.Functions.Unaccent(r.Title)).Matches(EF.Functions.PlainToTsQuery("simple", EF.Functions.Unaccent(keyword))));
+                .Where(r => EF.Property<NpgsqlTypes.NpgsqlTsVector>(r, "SearchVector")
+                    .Matches(EF.Functions.PlainToTsQuery("simple", EF.Functions.Unaccent(keyword))));
         }
 
         if (categoryId.HasValue) query = query.Where(r => r.CategoryId == categoryId.Value);
         if (difficulty.HasValue) query = query.Where(r => r.Difficulty == difficulty.Value);
         if (maxCookTime.HasValue) query = query.Where(r => r.CookTime <= maxCookTime.Value);
+        if (minServings.HasValue) query = query.Where(r => r.Servings >= minServings.Value);
+        if (maxTotalTime.HasValue) query = query.Where(r => r.PrepTime + r.CookTime <= maxTotalTime.Value);
         query = sortBy?.ToLowerInvariant() switch
         {
             "title" => descending ? query.OrderByDescending(r => r.Title).ThenBy(r => r.Id) : query.OrderBy(r => r.Title).ThenBy(r => r.Id),
             "cooktime" => descending ? query.OrderByDescending(r => r.CookTime).ThenBy(r => r.Id) : query.OrderBy(r => r.CookTime).ThenBy(r => r.Id),
+            "preptime" => descending ? query.OrderByDescending(r => r.PrepTime).ThenBy(r => r.Id) : query.OrderBy(r => r.PrepTime).ThenBy(r => r.Id),
             "difficulty" => descending ? query.OrderByDescending(r => r.Difficulty).ThenBy(r => r.Id) : query.OrderBy(r => r.Difficulty).ThenBy(r => r.Id),
+            null when !string.IsNullOrWhiteSpace(keyword) => query.OrderByDescending(r =>
+                EF.Property<NpgsqlTypes.NpgsqlTsVector>(r, "SearchVector").Rank(
+                    EF.Functions.PlainToTsQuery("simple", EF.Functions.Unaccent(keyword)))).ThenBy(r => r.Id),
             _ => descending ? query.OrderByDescending(r => r.CreatedAt).ThenBy(r => r.Id) : query.OrderBy(r => r.CreatedAt).ThenBy(r => r.Id)
         };
         var total = await query.CountAsync(ct);

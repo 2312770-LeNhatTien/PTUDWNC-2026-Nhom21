@@ -19,7 +19,7 @@ public class GetRecipesQueryHandler : IRequestHandler<GetRecipesQuery, PagedResu
         _dbContext = dbContext;
     }
 
-    public async Task<PagedResult<RecipeListItemDto>> Handle(GetRecipesQuery request, CancellationToken ct)
+    public async Task<PagedResult<RecipeListItemDto>> Handle(GetRecipesQuery request, CancellationToken cancellationToken)
     {
         // 1. Khởi tạo truy vấn AsNoTracking tối ưu hiệu năng
         var query = _dbContext.Recipes
@@ -46,24 +46,26 @@ public class GetRecipesQueryHandler : IRequestHandler<GetRecipesQuery, PagedResu
         {
             query = query.Where(r => r.CookTime <= request.MaxCookTime.Value);
         }
-        
+
         if (request.MaxTotalTime.HasValue)
         {
             query = query.Where(r => (r.PrepTime + r.CookTime) <= request.MaxTotalTime.Value);
         }
 
         // 4. Tính toán tổng số lượng bản ghi
-        var total = await query.CountAsync(ct);
+        if (request.MinServings.HasValue) query = query.Where(r => r.Servings >= request.MinServings.Value);
+        var total = await query.CountAsync(cancellationToken);
 
         // 5. Chuẩn hóa tham số phân trang
         int page = request.Paging.Page is > 0 ? request.Paging.Page.Value : 1;
-        int pageSize = request.Paging.PageSize is > 0 ? request.Paging.PageSize.Value : 10;
+        int pageSize = request.Paging.PageSize ?? 12;
 
         // 5.5. Sắp xếp đa cú pháp
         query = request.Paging.SortBy?.ToLower() switch
         {
             "title" => request.Paging.IsDescending ? query.OrderByDescending(r => r.Title).ThenBy(r => r.Id) : query.OrderBy(r => r.Title).ThenBy(r => r.Id),
             "cooktime" => request.Paging.IsDescending ? query.OrderByDescending(r => r.CookTime).ThenBy(r => r.Id) : query.OrderBy(r => r.CookTime).ThenBy(r => r.Id),
+            "preptime" => request.Paging.IsDescending ? query.OrderByDescending(r => r.PrepTime).ThenBy(r => r.Id) : query.OrderBy(r => r.PrepTime).ThenBy(r => r.Id),
             "difficulty" => request.Paging.IsDescending ? query.OrderByDescending(r => r.Difficulty).ThenBy(r => r.Id) : query.OrderBy(r => r.Difficulty).ThenBy(r => r.Id),
             _ => request.Paging.IsDescending ? query.OrderByDescending(r => r.CreatedAt).ThenBy(r => r.Id) : query.OrderBy(r => r.CreatedAt).ThenBy(r => r.Id) // Mặc định createdAt
         };
@@ -86,12 +88,12 @@ public class GetRecipesQueryHandler : IRequestHandler<GetRecipesQuery, PagedResu
                 r.Category != null ? r.Category.Name : "Khác",
                 r.Author != null ? r.Author.DisplayName : "Đầu bếp",
                 r.PublishedAt,
-                r.Reviews.Count(review => !review.IsDeleted) == 0
+                !r.Reviews.Any(review => !review.IsDeleted)
                     ? 0
                     : (decimal)r.Reviews.Where(review => !review.IsDeleted).Average(review => review.Rating),
                 r.Reviews.Count(review => !review.IsDeleted)
             ))
-            .ToListAsync(ct);
+            .ToListAsync(cancellationToken);
 
         return new PagedResult<RecipeListItemDto>(items, page, pageSize, total);
     }

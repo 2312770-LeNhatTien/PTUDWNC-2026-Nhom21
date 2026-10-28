@@ -7,7 +7,8 @@ import ImageUploader from '@/components/ui/ImageUploader';
 import { recipesApi } from '@/lib/api/recipes';
 import PublishRequirementModal from '@/components/recipes/PublishRequirementModal';
 import apiClient from '@/lib/api/client';
-import { problemOf } from '@/components/dashboard/errors';
+import { problemOf } from '@/lib/api/errors';
+import { parseQuantity } from '@/lib/quantity';
 
 /**
  * Interface biểu diễn danh mục tải từ API GET /api/v1/categories
@@ -200,11 +201,16 @@ export default function CreateRecipePage() {
       .filter((item) => item.name.trim().length > 0)
       .map((item, idx) => ({
         name: item.name.trim(),
-        quantity: item.quantity ? parseFloat(item.quantity) : null,
+        quantity: parseQuantity(item.quantity),
         unit: item.unit.trim() || null,
         notes: item.notes.trim() || null,
         orderIndex: idx + 1,
       }));
+
+    if (validIngredients.some(item => Number.isNaN(item.quantity))) {
+      setFormError('Định lượng không hợp lệ. Nhập số dương hoặc phân số, ví dụ 1/2.');
+      return;
+    }
 
     // Chuẩn bị payload các bước thực hiện (chỉ lấy các bước có mô tả hoặc tiêu đề)
     const validSteps = steps
@@ -265,7 +271,10 @@ export default function CreateRecipePage() {
         try {
           await recipesApi.publish(createdId);
         } catch (publishErr) {
-          console.warn('Lỗi khi kích hoạt xuất bản tự động:', publishErr);
+          // Đã tạo bài thì không cho submit tạo lại chỉ vì publish thất bại.
+          setFormError('Đã lưu bản nháp nhưng chưa xuất bản: ' + (problemOf(publishErr).detail || 'Vui lòng kiểm tra nội dung bài.'));
+          setSuccessSlug(slug || '');
+          return;
         }
       }
 
@@ -545,9 +554,9 @@ export default function CreateRecipePage() {
                   </div>
                   <div className="w-full sm:w-1/5">
                     <input
-                      type="number"
-                      step="any"
-                      placeholder="Số lượng (vd: 500)"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="Số lượng (vd: 500 hoặc 1/2)"
                       value={ing.quantity}
                       onChange={(e) => handleIngredientChange(index, 'quantity', e.target.value)}
                       className="w-full px-3 py-2 rounded-lg border border-neutral-200 bg-white text-xs outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-200"
