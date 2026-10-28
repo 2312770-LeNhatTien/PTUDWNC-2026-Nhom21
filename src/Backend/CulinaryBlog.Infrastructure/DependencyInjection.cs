@@ -112,7 +112,6 @@ public static class DependencyInjection
                 },
                 OnForbidden = context =>
                 {
-                    context.HandleResponse();
                     return WriteAuthProblemAsync(
                         context.HttpContext,
                         StatusCodes.Status403Forbidden,
@@ -233,6 +232,6 @@ public static class DependencyInjection
 
         context.Response.StatusCode = status;
         context.Response.ContentType = "application/problem+json";
-        await context.Response.WriteAsJsonAsync(problem);
+        await context.Response.WriteAsJsonAsync(problem, context.RequestAborted);
     }
 }
