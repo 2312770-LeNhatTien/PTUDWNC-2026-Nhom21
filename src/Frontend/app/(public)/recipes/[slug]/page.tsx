@@ -1,12 +1,13 @@
 // ============================================================================
-// TRANG CHI TIẾT CÔNG THỨC NẤU ĂN (FR-RCP-002)
+// TRANG CHI TIẾT CÔNG THỨC NẤU ĂN (FR-RCP-002) & TỐI ƯU SEO SCHEMA.ORG (P03)
 // Route: /recipes/[slug]
 // Kỹ thuật: Next.js 15 Server-Side Rendering (SSR) Server Component
-// Thành viên phụ trách: Lê Nhật Tiến (MSSV: 2312770)
+// Thành viên phụ trách: Lê Nhật Tiến (2312770) & Nguyễn Đình Tuấn (2312792 - P03 SEO)
 // ============================================================================
 
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { recipesApi } from '@/lib/api/recipes';
 import IngredientChecklist from '@/components/recipes/IngredientChecklist';
 import RecipeOwnerActions from '@/components/recipes/RecipeOwnerActions';
@@ -51,6 +52,93 @@ const difficultyMap: Record<
   },
 };
 
+// Định dạng thời gian theo chuẩn ISO 8601 Duration cho Schema.org (e.g. PT30M, PT1H15M)
+function formatIsoDuration(minutes: number): string | undefined {
+  if (!minutes || minutes <= 0) return undefined;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  let duration = 'PT';
+  if (hours > 0) duration += `${hours}H`;
+  if (remainingMinutes > 0) duration += `${remainingMinutes}M`;
+  return duration === 'PT' ? undefined : duration;
+}
+
+// ============================================================================
+// METADATA GENERATION CHO TỪNG BÀI VIẾT (P03 - SEO & SOCIAL SHARING)
+// ============================================================================
+export async function generateMetadata({
+  params,
+}: RecipeDetailPageProps): Promise<Metadata> {
+  const { slug } = await params;
+
+  try {
+    const recipe = await recipesApi.getBySlug(slug);
+    if (!recipe) {
+      return {
+        title: 'Công thức không tìm thấy',
+        robots: { index: false, follow: false },
+      };
+    }
+
+    const primaryImg: RecipeImageDto | undefined =
+      recipe.images.find((img) => img.isPrimary) || recipe.images[0];
+    const imageUrl =
+      primaryImg?.mediumUrl ||
+      primaryImg?.originalUrl ||
+      'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=1200&q=80';
+
+    const isPublished = recipe.status === 'Published';
+    const description =
+      recipe.description ||
+      `Khám phá công thức nấu món ${recipe.title} chuẩn vị với hướng dẫn chi tiết từng bước và định lượng nguyên liệu chính xác.`;
+
+    const canonicalPath = `/recipes/${recipe.slug}`;
+
+    return {
+      title: `${recipe.title} - Công thức nấu ăn chuẩn vị`,
+      description,
+      alternates: {
+        canonical: canonicalPath,
+      },
+      openGraph: {
+        title: `${recipe.title} | Culinary Blog`,
+        description,
+        url: canonicalPath,
+        siteName: 'Culinary Blog',
+        type: 'article',
+        publishedTime: recipe.publishedAt || undefined,
+        authors: [recipe.author.displayName],
+        tags: [recipe.category?.name, recipe.difficulty].filter(Boolean) as string[],
+        images: [
+          {
+            url: imageUrl,
+            width: 1200,
+            height: 630,
+            alt: primaryImg?.altText || recipe.title,
+          },
+        ],
+      },
+      twitter: {
+        card: 'summary_large_image',
+        title: `${recipe.title} | Culinary Blog`,
+        description,
+        images: [imageUrl],
+      },
+      robots: isPublished
+        ? { index: true, follow: true }
+        : { index: false, follow: false },
+    };
+  } catch {
+    return {
+      title: 'Công thức nấu ăn',
+      robots: { index: false, follow: false },
+    };
+  }
+}
+
+// ============================================================================
+// COMPONENT CHÍNH TRANG CHI TIẾT CÔNG THỨC
+// ============================================================================
 export default async function RecipeDetailPage({ params }: RecipeDetailPageProps) {
   // 1. Trích xuất slug từ dynamic route parameter (Next.js 15 async params)
   const { slug } = await params;
@@ -82,7 +170,8 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
   const primaryImg: RecipeImageDto | undefined =
     recipe.images.find((img) => img.isPrimary) || recipe.images[0];
   const primaryImageUrl =
-    primaryImg?.mediumUrl || primaryImg?.originalUrl ||
+    primaryImg?.mediumUrl ||
+    primaryImg?.originalUrl ||
     'https://images.unsplash.com/photo-1498837167922-ddd27525d352?auto=format&fit=crop&w=1200&q=80';
 
   // Định dạng ngày đăng
@@ -94,8 +183,112 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
       })
     : null;
 
+  // 4. Xây dựng cấu trúc dữ liệu vi mô Schema.org Recipe JSON-LD (P03)
+  const siteUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    'http://localhost:3000';
+  const canonicalUrl = `${siteUrl}/recipes/${recipe.slug}`;
+
+  // Tổng hợp mảng URL ảnh cho Recipe Schema
+  const recipeImages: string[] = [];
+  if (primaryImg?.mediumUrl) recipeImages.push(primaryImg.mediumUrl);
+  if (primaryImg?.originalUrl && !recipeImages.includes(primaryImg.originalUrl)) {
+    recipeImages.push(primaryImg.originalUrl);
+  }
+  recipe.images.forEach((img) => {
+    const url = img.mediumUrl || img.originalUrl;
+    if (url && !recipeImages.includes(url)) recipeImages.push(url);
+  });
+  if (recipeImages.length === 0) recipeImages.push(primaryImageUrl);
+
+  const jsonLdRecipe: Record<string, unknown> = {
+    '@context': 'https://schema.org',
+    '@type': 'Recipe',
+    name: recipe.title,
+    headline: recipe.title,
+    description:
+      recipe.description ||
+      `Công thức nấu món ${recipe.title} chuẩn vị với hướng dẫn chi tiết từng bước.`,
+    image: recipeImages,
+    author: {
+      '@type': 'Person',
+      name: recipe.author.displayName,
+    },
+    datePublished: recipe.publishedAt || undefined,
+    prepTime: formatIsoDuration(recipe.prepTime),
+    cookTime: formatIsoDuration(recipe.cookTime),
+    totalTime: formatIsoDuration(totalTime),
+    recipeYield: `${recipe.servings} khẩu phần`,
+    recipeCategory: recipe.category?.name || 'Món chính',
+    recipeCuisine: 'Việt Nam',
+    keywords: [
+      recipe.category?.name,
+      recipe.difficulty,
+      'công thức nấu ăn',
+      'món ngon mỗi ngày',
+      'ẩm thực',
+    ]
+      .filter(Boolean)
+      .join(', '),
+    recipeIngredient: recipe.ingredients.map((item) =>
+      [item.quantity, item.unit, item.name].filter(Boolean).join(' ')
+    ),
+    recipeInstructions: recipe.steps.map((step, idx) => ({
+      '@type': 'HowToStep',
+      position: step.stepNumber || idx + 1,
+      name: step.title || `Bước ${step.stepNumber || idx + 1}`,
+      text: step.description || step.title || `Bước ${step.stepNumber || idx + 1}`,
+      url: `${canonicalUrl}#step-${step.stepNumber || idx + 1}`,
+      ...(step.imageUrl ? { image: step.imageUrl } : {}),
+    })),
+  };
+
+  // Thông số dinh dưỡng chuẩn NutritionInformation
+  if (recipe.nutrition) {
+    jsonLdRecipe.nutrition = {
+      '@type': 'NutritionInformation',
+      ...(recipe.nutrition.calories != null
+        ? { calories: `${recipe.nutrition.calories} calories` }
+        : {}),
+      ...(recipe.nutrition.protein != null
+        ? { proteinContent: `${recipe.nutrition.protein} g` }
+        : {}),
+      ...(recipe.nutrition.fat != null
+        ? { fatContent: `${recipe.nutrition.fat} g` }
+        : {}),
+      ...(recipe.nutrition.carbohydrates != null
+        ? { carbohydrateContent: `${recipe.nutrition.carbohydrates} g` }
+        : {}),
+      ...(recipe.nutrition.fiber != null
+        ? { fiberContent: `${recipe.nutrition.fiber} g` }
+        : {}),
+      ...(recipe.nutrition.sodium != null
+        ? { sodiumContent: `${recipe.nutrition.sodium} mg` }
+        : {}),
+    };
+  }
+
+  // Đánh giá AggregateRating: Chỉ đưa vào khi có đánh giá thực (reviewCount > 0 và rating > 0)
+  // Bảo đảm tính xác thực của dữ liệu Schema.org, tránh rating giả mạo theo đúng yêu cầu kiểm định
+  if (recipe.reviewCount && recipe.reviewCount > 0 && recipe.averageRating && recipe.averageRating > 0) {
+    jsonLdRecipe.aggregateRating = {
+      '@type': 'AggregateRating',
+      ratingValue: Number(recipe.averageRating.toFixed(1)),
+      reviewCount: recipe.reviewCount,
+      bestRating: 5,
+      worstRating: 1,
+    };
+  }
+
   return (
     <div className="min-h-screen bg-neutral-50/50 pb-24">
+      {/* ── CẤU TRÚC DỮ LIỆU SCHEMA.ORG RECIPE JSON-LD (P03) ──────────── */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdRecipe) }}
+      />
+
       {/* ── THANH QUẢN LÝ DÀNH CHO TÁC GIẢ & QUẢN TRỊ VIÊN (FR-RCP-005 UI) ── */}
       <RecipeOwnerActions
         recipeId={recipe.id}
@@ -148,16 +341,19 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
                     href={`/categories/${recipe.category.slug}`}
                     className="inline-flex items-center gap-1.5 rounded-full bg-orange-100/80 px-3.5 py-1 text-xs font-semibold text-orange-800 hover:bg-orange-200 transition-colors"
                   >
-                    <span>🍽️</span> {recipe.category.name}
+                    <span>🏷️</span>
+                    {recipe.category.name}
                   </Link>
                 )}
+
                 <span
-                  className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-bold border ${diffConfig.bg} ${diffConfig.text} ${diffConfig.border}`}
+                  className={`inline-flex items-center gap-1 rounded-full px-3 py-0.5 text-xs font-semibold border ${diffConfig.bg} ${diffConfig.text} ${diffConfig.border}`}
                 >
                   Độ khó: {diffConfig.label}
                 </span>
+
                 {recipe.status === 'Draft' && (
-                  <span className="inline-flex items-center rounded-full bg-neutral-200 px-3 py-1 text-xs font-bold text-neutral-700">
+                  <span className="inline-flex items-center rounded-full bg-neutral-200 px-3 py-0.5 text-xs font-semibold text-neutral-700">
                     Bản nháp
                   </span>
                 )}
@@ -236,13 +432,14 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
               </div>
             </div>
 
-            {/* Cột phải: Ảnh đại diện lớn của món ăn */}
+            {/* Cột phải: Ảnh đại diện lớn của món ăn (Tối ưu LCP với fetchPriority high) */}
             <div className="lg:col-span-5">
               <div className="relative aspect-[4/3] w-full overflow-hidden rounded-3xl shadow-lg border-4 border-white bg-neutral-100 group">
                 <FallbackImage
                   src={primaryImageUrl}
                   fallbackSrc={primaryImg?.originalUrl}
                   alt={primaryImg?.altText || recipe.title}
+                  fetchPriority="high"
                   className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-40" />
@@ -293,7 +490,7 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
               {recipe.steps.length > 0 ? (
                 <div className="mt-8 space-y-8 relative before:absolute before:inset-0 before:left-5 before:w-0.5 before:bg-orange-100 before:hidden sm:before:block">
                   {recipe.steps.map((step, idx) => (
-                    <div key={step.id || idx} className="relative flex flex-col sm:flex-row gap-4 sm:gap-6">
+                    <div key={step.id || idx} id={`step-${step.stepNumber || idx + 1}`} className="relative flex flex-col sm:flex-row gap-4 sm:gap-6">
                       {/* Vòng tròn số thứ tự bước */}
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-orange-600 text-white font-extrabold text-sm shadow-md ring-4 ring-white z-10">
                         {step.stepNumber}
@@ -319,7 +516,7 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
                         {/* Ảnh minh họa của bước nếu có */}
                         {step.imageUrl && (
                           <div className="mt-4 relative aspect-video max-w-md overflow-hidden rounded-xl border border-neutral-200">
-                            <img
+                            <FallbackImage
                               src={step.imageUrl}
                               alt={`Minh họa bước ${step.stepNumber}`}
                               className="h-full w-full object-cover"
