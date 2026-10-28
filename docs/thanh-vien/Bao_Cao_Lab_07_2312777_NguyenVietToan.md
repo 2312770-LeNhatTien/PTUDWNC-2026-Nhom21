@@ -35,6 +35,11 @@ dotnet run --project src/Backend/CulinaryBlog.API -c Release --no-build --no-lau
 
 Mở trang `/recipes/{slug}`, kéo xuống khu vực **Đánh giá & bình luận**. Tài khoản đã đăng nhập có thể chọn số sao và gửi bình luận; API migration sẽ tự áp dụng trong môi trường Development.
 
+## Trạng thái nộp và cập nhật mới nhất
+
+- Đã push nhánh `2312777-NguyenVietToan-buoi7`; Pull Request số 38 đã được trưởng nhóm review và merge vào `main` tại commit `8345ad4`.
+- Repository hiện cập nhật đến `main@7843065` ngày 28/10/2026. Các mục R12, R15, R16, R17, C01, O02, P02 và U04/D02 là phân công rà soát trước Lab 8, chưa thuộc phạm vi Lab 7 và chưa được đánh dấu hoàn thành trong báo cáo này.
+
 ## Ghi chú
 
 Build vẫn có cảnh báo dependency bảo mật hiện hữu của `Microsoft.OpenApi 2.0.0` và `System.Security.Cryptography.Pkcs 9.0.0`; đây không phải lỗi phát sinh từ Buổi 7 và chưa nâng cấp ngoài phạm vi chức năng này.
