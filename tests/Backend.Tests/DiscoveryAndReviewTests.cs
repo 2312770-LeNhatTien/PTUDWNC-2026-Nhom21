@@ -49,6 +49,19 @@ public sealed class DiscoveryAndReviewTests(ApiFixture app)
         // Cùng URL đã warm cache nhưng review mới phải xuất hiện nhờ DB CacheVersion.
         var after = await ApiFixture.DataAsync(await app.Guest.GetAsync($"/api/v1/recipes/{slug}"));
         Assert.Equal(1, after.GetProperty("reviewCount").GetInt32());
+
+        // P03: soft-deleted reviews must disappear from the public rating aggregate.
+        using (var reviewScope = app.Services.CreateScope())
+        {
+            var reviewDb = reviewScope.ServiceProvider.GetRequiredService<CulinaryBlog.Infrastructure.Persistence.CulinaryBlogDbContext>();
+            var storedReview = await reviewDb.RecipeReviews.SingleAsync(review => review.RecipeId == id);
+            storedReview.MarkDeleted();
+            await reviewDb.SaveChangesAsync();
+        }
+        var withoutDeletedReview = await ApiFixture.DataAsync(await app.Guest.GetAsync($"/api/v1/recipes/{slug}"));
+        Assert.Equal(0, withoutDeletedReview.GetProperty("reviewCount").GetInt32());
+        Assert.Equal(0, withoutDeletedReview.GetProperty("averageRating").GetDecimal());
+
         using var scope = app.Services.CreateScope();
         var urls = await scope.ServiceProvider.GetRequiredService<ISender>().Send(new GetSitemapEntriesQuery());
         Assert.Contains(urls, entry => entry.Path == "/recipes/" + Uri.EscapeDataString(slug!));
