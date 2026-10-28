@@ -261,6 +261,37 @@ git checkout -b 2312777-NguyenVietToan-buoi4
      - Khu vực bình luận, cảm nhận và chia sẻ mẹo nấu nướng của độc giả.
      - Hiển thị huy hiệu số sao trung bình trên các thẻ `RecipeCard` ngoài trang chủ.
 
+### Bổ sung trước Buổi 8 — Khắc phục sau rà soát toàn dự án (28/10/2026)
+
+Đọc [hướng dẫn khắc phục chung](../HUONG_DAN_KHAC_PHUC_SAU_RA_SOAT.md), ưu tiên R12/R15/R16/R17/C01/O02/P02/D02. Căn cứ rà là `main@e2cb966`, đã gồm rating/review mới merge; lấy `main` mới nhất trước khi làm. Dùng nhánh `2312777-NguyenVietToan-buoi8`; các ô dưới **chưa được xác nhận hoàn thành**.
+
+| Thứ tự | Toàn chịu trách nhiệm | File/điểm bắt đầu | Cách làm, lý do và điều kiện xong |
+| --- | --- | --- | --- |
+| 1 | **R12 — Redis outage/invalidation** | Redis service/DI, `CategoryCacheInvalidationBehavior` | Read lỗi fallback DB; DB commit rồi không trả 500 chỉ vì Redis. Có retry/bypass/generation để phục hồi không trả cache cũ, không chỉ catch bỏ qua. Test startup/read/write/sau save. |
+| 2 | **R15 — Unique Category sau soft delete** | Category repository/configuration, migration khi cần | Chốt cùng Tiến chính sách tái dùng tên/slug; precheck/index/unique race thống nhất. Tạo → xóa → tạo lại không 500, đổi tên giữ slug D12. |
+| 3 | **R16 — Full-text search** | `RecipeRepository.cs`, Recipe config/search migration | Title + Description, unaccent/vector/GIN/rank, sort ổn định; lọc Published trước paging. EXPLAIN dữ liệu đại diện, không ép planner chỉ để có index scan. |
+| 4 | **R17 — Paging/filter/sort chung** | `PagingParams.cs`, list/search, API DTO | minServings/prepTime, mặc định 12/tối đa 50 hoặc quyết định đổi; giữ D8, metadata đủ. Tiến ghép category detail/UI theo contract bàn giao. |
+| 5 | **C01 — Cache recipe/search và D4** | Query/cache keys/behaviors/invalidation | Key đủ query, TTL đúng, không cache chung Draft/owner; invalidate cả publish/nội dung con/ảnh/review, xét Next cache. Chốt một cách triển khai thống nhất D4. |
+| 6 | **O02 — Logging/correlation** | `LoggingBehavior`, exception/correlation middleware | X-Correlation-ID, elapsed/warn >500ms, log cấu trúc không lộ token; cùng Tiến O01/O03 trace HTTP–handler–DB. |
+| 7 | **P02 — RFC 7807/headers** | API response/exception/auth challenge, Next/Nginx | Đồng bộ mã lỗi/status/client gồm 401/403/429; CSP/CORS/HSTS không phá Google/ảnh/Next. DELETE 204 thì client không parse JSON rỗng. |
+| 8 | **U04/D02 — UI dev/phạm vi review** | Demo/menu, SRS/DECISIONS/README | Ghép editor xong mới tách demo khỏi production. Rating đã merge nhưng SRS ngoài scope: đề xuất phụ lục/quyết định nhóm chốt, không tự xóa code hoặc ghi đã duyệt. |
+
+**Phối hợp và bàn giao:**
+
+1. Tiến ghép cuối R15/R17; thống nhất DTO/index/policy, `RecipeRepository.cs` và model snapshot trước khi cùng sửa.
+2. Đức sửa fixture Admin Q01, Toàn bàn giao ca CRUD/category/search và quyền; không sửa middleware để né thiếu session.
+3. Cung cấp số đo cache/query cho Tiến Q03; benchmark tuần tự cũ không thay bài tải 100 người dùng đồng thời.
+4. R07 kiểm tra hồi quy UI/search/review sau nâng dependency; cập nhật tài liệu/báo cáo phần mình theo kết quả mới.
+
+**Checklist nghiệm thu phần Toàn:**
+
+- [ ] R12/R16 và phần R15/R17 có test read/write/outage/concurrency phù hợp.
+- [ ] C01 không lộ dữ liệu riêng, TTL/hit/miss/invalidation được đo; O02 có correlation/duration/slow warning.
+- [ ] Search đúng có/không dấu, từ trong Description, nhiều trang, rating/ảnh; có EXPLAIN trước/sau.
+- [ ] P02 test response thật và qua proxy, UI auth/upload vẫn chạy.
+- [ ] U04/D02 và D01 phần cache/search/review hoàn thiện, phạm vi nhóm chốt rõ.
+- [ ] Test/bằng chứng bàn giao Đức Q02, số đo cho Tiến Q03; không đánh dấu xong chỉ vì build qua.
+
 ### 📅 Tuần 8 (Lab 8): Tối ưu hóa Database Indexing, Security Header & Nghiệm thu
 * **Nhánh làm việc**: `2312777-NguyenVietToan-buoi8`
 * **Nhiệm vụ trọng tâm**:
@@ -269,4 +300,6 @@ git checkout -b 2312777-NguyenVietToan-buoi4
      - Đảm bảo các chỉ mục GIN trên cột `tsvector` và B-Tree trên các khóa ngoại hoạt động với chi phí thấp nhất.
   2. Rà soát chuẩn RFC 7807 ProblemDetails toàn diện cho tất cả các mã lỗi (400, 401, 403, 404, 409, 500).
   3. Kiểm tra các tiêu chuẩn bảo mật Security Headers (CORS, CSP, HSTS, X-Frame-Options) và cùng nhóm chuẩn bị nghiệm thu đồ án.
+
+**Hướng dẫn chi tiết:** mục **R16/P02/O02/C01** trong [tài liệu khắc phục chung](../HUONG_DAN_KHAC_PHUC_SAU_RA_SOAT.md). Kiểm tra SQL và headers tại lớp trả response; không tạo index cho mọi cột máy móc hoặc áp CSP khiến Google Sign-In/MinIO không chạy.
 
