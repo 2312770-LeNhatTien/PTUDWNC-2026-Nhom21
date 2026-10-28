@@ -129,6 +129,9 @@ public static class DependencyInjection
         services.Configure<SmtpSettings>(configuration.GetSection(SmtpSettings.SectionName));
         services.AddScoped<IEmailService, MailKitEmailService>();
 
+        // ── Google OAuth Settings (FR-AUTH-003 / R06) ────────────────────────
+        services.Configure<GoogleAuthSettings>(configuration.GetSection(GoogleAuthSettings.SectionName));
+
         services.AddOptions<SitemapOptions>().Bind(configuration.GetSection("Sitemap"))
             .Validate(o => o.IsValid(), "Sitemap requires an absolute website origin, output directory and cron; Google submission requires a public HTTPS site.")
             .ValidateOnStart();
