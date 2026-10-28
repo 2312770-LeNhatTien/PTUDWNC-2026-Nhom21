@@ -17,10 +17,10 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
         _categoryRepository = categoryRepository;
     }
 
-    public async Task<CategoryDto> Handle(CreateCategoryCommand request, CancellationToken ct)
+    public async Task<CategoryDto> Handle(CreateCategoryCommand request, CancellationToken cancellationToken)
     {
         // 1. Kiểm tra tên danh mục không trùng lặp (nếu trùng trả về 409 Conflict)
-        if (await _categoryRepository.NameExistsAsync(request.Name, ct: ct))
+        if (await _categoryRepository.NameExistsAsync(request.Name, ct: cancellationToken))
         {
             throw new ConflictException("Tên danh mục đã tồn tại.");
         }
@@ -29,7 +29,7 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
         var baseSlug = SlugVO.Create(request.Name).Value;
         var slug = baseSlug;
         var suffix = 2;
-        while (await _categoryRepository.GetBySlugAsync(slug, ct) != null)
+        while (await _categoryRepository.GetBySlugAsync(slug, cancellationToken) != null)
         {
             slug = $"{baseSlug}-{suffix}";
             suffix++;
@@ -44,8 +44,8 @@ public class CreateCategoryCommandHandler : IRequestHandler<CreateCategoryComman
             slug: slug);
 
         // 4. Lưu vào Database
-        await _categoryRepository.AddAsync(category, ct);
-        await _categoryRepository.SaveChangesAsync(ct);
+        await _categoryRepository.AddAsync(category, cancellationToken);
+        await _categoryRepository.SaveChangesAsync(cancellationToken);
 
         // 5. Trả về CategoryDto (danh mục mới có RecipeCount = 0)
         return new CategoryDto(

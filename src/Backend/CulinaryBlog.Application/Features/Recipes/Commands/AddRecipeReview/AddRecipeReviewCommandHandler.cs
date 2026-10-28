@@ -19,7 +19,7 @@ public sealed class AddRecipeReviewCommandHandler : IRequestHandler<AddRecipeRev
         _currentUser = currentUser;
     }
 
-    public async Task<RecipeReviewDto> Handle(AddRecipeReviewCommand request, CancellationToken ct)
+    public async Task<RecipeReviewDto> Handle(AddRecipeReviewCommand request, CancellationToken cancellationToken)
     {
         if (!_currentUser.IsAuthenticated || string.IsNullOrWhiteSpace(_currentUser.UserId))
             throw new UnauthorizedException("Bạn cần đăng nhập để đánh giá công thức.");
@@ -27,12 +27,12 @@ public sealed class AddRecipeReviewCommandHandler : IRequestHandler<AddRecipeRev
         var recipeExists = await _db.Recipes.AnyAsync(recipe =>
             recipe.Id == request.RecipeId &&
             !recipe.IsDeleted &&
-            recipe.Status == RecipeStatus.Published, ct);
+            recipe.Status == RecipeStatus.Published, cancellationToken);
         if (!recipeExists)
             throw new NotFoundException("Công thức", request.RecipeId);
 
         var alreadyReviewed = await _db.RecipeReviews.AnyAsync(review =>
-            review.RecipeId == request.RecipeId && review.AuthorId == _currentUser.UserId, ct);
+            review.RecipeId == request.RecipeId && review.AuthorId == _currentUser.UserId, cancellationToken);
         if (alreadyReviewed)
             throw new ConflictException(
                 "Bạn đã đánh giá công thức này. Mỗi tài khoản chỉ được đánh giá một lần.",
@@ -44,14 +44,14 @@ public sealed class AddRecipeReviewCommandHandler : IRequestHandler<AddRecipeRev
             request.Rating,
             request.Comment);
 
-        await _db.RecipeReviews.AddAsync(review, ct);
-        await _db.SaveChangesAsync(ct);
+        await _db.RecipeReviews.AddAsync(review, cancellationToken);
+        await _db.SaveChangesAsync(cancellationToken);
 
         var author = await _db.Users
             .AsNoTracking()
             .Where(user => user.Id == _currentUser.UserId)
             .Select(user => new { user.Id, user.DisplayName, user.AvatarUrl })
-            .SingleAsync(ct);
+            .SingleAsync(cancellationToken);
 
         return new RecipeReviewDto(
             review.Id,

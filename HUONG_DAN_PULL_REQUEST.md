@@ -1,8 +1,8 @@
 # HƯỚNG DẪN TẠO PULL REQUEST VÀ MERGE VÀO NHÁNH CHÍNH (MAIN)
 **Dự Án**: Phát Triển Ứng Dụng Web Nâng Cao — Nhóm 21  
-**Thành viên thực hiện**: Lê Nhật Tiến  
-**MSSV**: 2312770 — **Vai trò**: Trưởng nhóm  
-**Thứ tự ưu tiên Merge PR**: **ĐỢT 1 / 4**  
+**Thành viên thực hiện**: Nguyễn Viết Toàn  
+**MSSV**: 2312777 — **Vai trò**: Thành viên  
+**Thứ tự ưu tiên Merge PR**: **ĐỢT 3 / 4**  
 
 ---
 
@@ -10,12 +10,12 @@
 
 ### 📌 Tiêu đề PR (PR Title):
 ```text
-fix(core): hoan thien kien truc nen tang, migration, health checks va recipe lifecycle (2312770)
+fix(categories): phan trang chuan hoa, tim kiem unaccent, redis cache version va review (2312777)
 ```
 
 ### 📌 Tên nhánh Git đề xuất (Branch Name):
 ```text
-2312770-LeNhatTien-khac-phuc
+2312777-NguyenVietToan-khac-phuc
 ```
 
 ### 📌 Nội dung mô tả PR (PR Description)
@@ -23,24 +23,22 @@ fix(core): hoan thien kien truc nen tang, migration, health checks va recipe lif
 
 ```markdown
 ## 📋 Thông Tin Người Thực Hiện
-- **Họ và tên**: Lê Nhật Tiến
-- **MSSV**: 2312770
-- **Vai trò**: Trưởng nhóm
-- **Thứ tự Merge**: Đợt 1 / 4
-- **Branch**: `2312770-LeNhatTien-khac-phuc`
+- **Họ và tên**: Nguyễn Viết Toàn
+- **MSSV**: 2312777
+- **Vai trò**: Thành viên
+- **Thứ tự Merge**: Đợt 3 / 4
+- **Branch**: `2312777-NguyenVietToan-khac-phuc`
 
 ---
 
 ## 🎯 Các Hạng Mục Khắc Phục Sau Rà Soát (Pre-Lab 8)
-- [x] **R11**: Cấu hình chế độ DisabledBackgroundJobService khi Jobs:Enabled=false, không crash API.
-- [x] **R13**: Chuẩn hóa vòng đời công thức: tách bạch Draft/Published/Preview, tối ưu RecipeGalleryEditor.
-- [x] **R14**: Đồng bộ SEO slug, canonical URL và sitemap entries.
-- [x] **R15/R17**: Chuẩn hóa Recipe aggregate, DesignTimeDbContextFactory và truy vấn con.
-- [x] **R18**: Xử lý soft-delete Recipe giữ nguyên hình ảnh theo Quyết định D1.
-- [x] **O01/O03**: Bổ sung HealthEndpoints (/health, /health/ready, /health/live), DatabaseDiagnosticsInterceptor, StorageHealthCheck.
-- [x] **Q01/Q03**: Thiết lập CI workflow (.github/workflows/ci.yml), .editorconfig, Directory.Build.props và bộ test Backend.Tests (ApiFixture, DomainAndPipelineTests, ObservabilityTests, RecipeApiTests).
-- [x] **D01**: Đồng bộ tài liệu DECISIONS.md, SETUP.md, HUONG_DAN_KHAC_PHUC_SAU_RA_SOAT.md, README.md.
-- [x] **Migration**: 20261028035559_PreLab8Reliability (PendingJob, CacheVersion, SearchVector, GIN index).
+- [x] **R12**: Chuẩn hóa phân trang Category và Recipe (PagingParams, TotalPages, HasNext/HasPrevious), Category CRUD an toàn.
+- [x] **R15/R16**: Tối ưu hóa tìm kiếm Tiếng Việt không dấu (Unaccent Search, SearchVector, GIN index).
+- [x] **C01**: Quản lý bộ nhớ đệm phân tán bền vững (ICacheVersionProvider, CacheVersionProvider, RedisCacheService, CachingBehavior).
+- [x] **O02**: Triển khai RedisHealthCheck kiểm tra kết nối bộ đệm.
+- [x] **D02**: Hợp đồng đánh giá công thức RecipeReview (AddRecipeReviewCommand, GetRecipeReviewsQuery, UI RecipeReviews.tsx).
+- [x] **U04**: Dọn dẹp liên kết test cũ (*-test), tối ưu trang danh mục categories/[slug] và RecipeExplorer.
+- [x] **Q02**: Bổ sung bộ test khám phá và đánh giá (tests/Backend.Tests/DiscoveryAndReviewTests.cs).
 
 ---
 
@@ -65,7 +63,7 @@ fix(core): hoan thien kien truc nen tang, migration, health checks va recipe lif
 
 ---
 
-## 3. CÁC LỆNH GIT THAO TÁC CỤ THỂ DÀNH CHO BẠN (Lê Nhật Tiến)
+## 3. CÁC LỆNH GIT THAO TÁC CỤ THỂ DÀNH CHO BẠN (Nguyễn Viết Toàn)
 
 Mở terminal (PowerShell hoặc Git Bash) tại thư mục gốc của dự án trên máy bạn và chạy tuần tự các lệnh sau:
 
@@ -75,7 +73,7 @@ git checkout main
 git pull origin main
 
 # 2. Tạo nhánh làm việc mới của bạn
-git checkout -b 2312770-LeNhatTien-khac-phuc
+git checkout -b 2312777-NguyenVietToan-khac-phuc
 
 # 3. Giải nén toàn bộ các file trong thư mục này và chép đè vào thư mục gốc của dự án
 # (Đảm bảo cấu trúc thư mục src/, tests/, docs/ khớp với thư mục gốc dự án)
@@ -85,10 +83,10 @@ git status
 
 # 5. Thêm tất cả file và commit
 git add .
-git commit -m "fix(core): hoan thien kien truc nen tang, migration, health checks va recipe lifecycle (2312770)"
+git commit -m "fix(categories): phan trang chuan hoa, tim kiem unaccent, redis cache version va review (2312777)"
 
 # 6. Đẩy nhánh lên GitHub
-git push -u origin 2312770-LeNhatTien-khac-phuc
+git push -u origin 2312777-NguyenVietToan-khac-phuc
 ```
 
 Sau khi push thành công, bạn vào liên kết GitHub hiển thị trên màn hình để bấm **Create Pull Request**, điền Tiêu đề và Mô tả ở Mục 1, sau đó tiến hành Merge vào `main` theo đúng thứ tự!

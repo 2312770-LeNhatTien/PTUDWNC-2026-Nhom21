@@ -60,6 +60,8 @@ export default function RecipeExplorer() {
       categoryId: current.get('categoryId') || undefined,
       difficulty: ['Easy', 'Medium', 'Hard', 'Expert'].includes(difficulty || '') ? difficulty as RecipeDifficulty : undefined,
       maxCookTime: maxCookTime > 0 ? maxCookTime : undefined,
+      minServings: Number(current.get('minServings')) > 0 ? Number(current.get('minServings')) : undefined,
+      maxTotalTime: Number(current.get('maxTotalTime')) > 0 ? Number(current.get('maxTotalTime')) : undefined,
       sortBy: current.get('sortBy') || undefined,
       sortOrder: current.get('sortOrder') === 'asc' ? 'asc' : 'desc',
       sort: current.get('sort') || undefined,
@@ -90,7 +92,9 @@ export default function RecipeExplorer() {
       <label>Danh mục<select aria-label="Danh mục" className={selectClass} value={params.get('categoryId') || ''} onChange={e => update('categoryId', e.target.value)}><option value="">Tất cả</option>{categories.map(c => <option value={c.id} key={c.id}>{c.name}</option>)}</select></label>
       <label>Độ khó<select aria-label="Độ khó" className={selectClass} value={params.get('difficulty') || ''} onChange={e => update('difficulty', e.target.value)}><option value="">Tất cả</option><option value="Easy">Dễ</option><option value="Medium">Vừa</option><option value="Hard">Khó</option><option value="Expert">Kỳ công</option></select></label>
       <label>Thời gian nấu tối đa<select aria-label="Thời gian nấu tối đa" className={selectClass} value={params.get('maxCookTime') || ''} onChange={e => update('maxCookTime', e.target.value)}><option value="">Không giới hạn</option>{[15, 30, 45, 60, 90, 120].map(m => <option value={m} key={m}>{m} phút</option>)}</select></label>
-      <label>Sắp xếp theo<select aria-label="Sắp xếp theo" className={selectClass} value={params.get('sortBy') || 'createdAt'} onChange={e => update('sortBy', e.target.value)}><option value="createdAt">Ngày tạo</option><option value="title">Tên món</option><option value="cookTime">Thời gian nấu</option><option value="difficulty">Độ khó</option></select></label>
+      <label>Khẩu phần tối thiểu<input type="number" min="1" aria-label="Khẩu phần tối thiểu" className={selectClass} value={params.get('minServings') || ''} onChange={e => update('minServings', e.target.value)} /></label>
+      <label>Tổng thời gian tối đa<input type="number" min="1" aria-label="Tổng thời gian tối đa" className={selectClass} value={params.get('maxTotalTime') || ''} onChange={e => update('maxTotalTime', e.target.value)} /></label>
+      <label>Sắp xếp theo<select aria-label="Sắp xếp theo" className={selectClass} value={params.get('sortBy') || 'createdAt'} onChange={e => update('sortBy', e.target.value)}><option value="createdAt">Ngày tạo</option><option value="title">Tên món</option><option value="cookTime">Thời gian nấu</option><option value="prepTime">Thời gian chuẩn bị</option><option value="difficulty">Độ khó</option></select></label>
       <label>Thứ tự<select aria-label="Thứ tự" className={selectClass} value={params.get('sortOrder') || 'desc'} onChange={e => update('sortOrder', e.target.value)}><option value="desc">Giảm dần</option><option value="asc">Tăng dần</option></select></label>
       <button className="text-left font-semibold text-orange-700" onClick={() => { setText(''); window.history.replaceState(null, '', '/recipes'); }}>Xóa tìm kiếm và bộ lọc</button>
     </section>}

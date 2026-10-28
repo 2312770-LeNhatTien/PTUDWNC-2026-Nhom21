@@ -20,5 +20,6 @@ public record CategoryDetailDto(
     string? ImageUrl,
     int OrderIndex,
     int RecipeCount,
-    IReadOnlyList<RecipeListItemDto> Recipes
+    IReadOnlyList<RecipeListItemDto> Recipes,
+    CulinaryBlog.Application.Common.Models.PaginationMeta? Meta = null
 );

@@ -22,9 +22,9 @@ public static class CategoriesEndpoints
         .WithSummary("Xem danh sách danh mục kèm số công thức");
 
         // FR-CAT-002: Lấy chi tiết danh mục kèm danh sách công thức (FR-CAT-002 - Lê Nhật Tiến)
-        group.MapGet("/{slug}", async (string slug, IMediator mediator, CancellationToken ct) =>
+        group.MapGet("/{slug}", async (string slug, [AsParameters] PagingParams paging, IMediator mediator, CancellationToken ct) =>
         {
-            var result = await mediator.Send(new GetCategoryBySlugQuery(slug), ct);
+            var result = await mediator.Send(new GetCategoryBySlugQuery(slug, paging), ct);
             return Results.Ok(ApiResponse.Ok(result));
         })
         .WithName("GetCategoryBySlug")
