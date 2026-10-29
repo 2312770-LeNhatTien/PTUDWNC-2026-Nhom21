@@ -25,12 +25,18 @@ API upload kiểm tra bytes/quyền theo D18; không dùng lại presigned PUT. 
 
 Named volumes giữ PostgreSQL, Redis AOF, MinIO, SEO và Data Protection keys. API chạy user 1654, Next chạy user node. Runtime image không chứa source, `.env.local`, secrets, log, báo cáo Word hoặc kế hoạch local. Với API scale-out, SEO/key ring phải dùng storage chung có quyền phù hợp; volume local trên một Docker host không thay thế shared storage nhiều máy.
 
+Registry MinIO Docker Hub/Quay từ chối tải release trên CI. Vì vậy cả compose dev
+và production dùng image tự build bằng `deploy/minio/Dockerfile`, từ source chính thức
+`RELEASE.2024-01-16T16-07-38Z`, kiểm SHA-256 archive và ghim commit upstream. Giữ nguyên
+release để dùng lại dữ liệu hiện có. Lần build đầu cần tải Go builder và Go modules;
+runtime chỉ có server, license upstream và HTTP health probe, không cần `mc`.
+
 ## 2. Chạy HTTPS local khi chưa có domain
 
 ```powershell
 ./scripts/Initialize-Deployment.ps1 -Local
 docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml config --quiet
-docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml build api frontend
+docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml build api frontend minio
 docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml up -d --wait --wait-timeout 180
 # Tạo demo CHỈ khi test local, không tự chạy ở production.
 docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml run --rm seed-demo
@@ -50,7 +56,7 @@ Tài khoản demo từ seeder hiện có: Admin `admin@culinary.local` / `Admin@
 # Điền .env.production.local: public origin, media origin, SMTP relay và các đường dẫn.
 # Đặt certificate chain/key hợp lệ tại .secrets/tls/tls.crt và tls.key.
 docker compose --env-file .env.production.local -f docker-compose.prod.yml config --quiet
-docker compose --env-file .env.production.local -f docker-compose.prod.yml build api frontend
+docker compose --env-file .env.production.local -f docker-compose.prod.yml build api frontend minio
 docker compose --env-file .env.production.local -f docker-compose.prod.yml up -d --wait --wait-timeout 180
 ```
 

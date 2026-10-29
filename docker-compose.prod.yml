@@ -67,7 +67,11 @@ services:
       retries: 12
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z
+    image: culinaryblog-minio:RELEASE.2024-01-16T16-07-38Z-source
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: deploy/minio/Dockerfile
     restart: unless-stopped
     command: server /data --console-address ':9001'
     environment:
@@ -78,7 +82,7 @@ services:
     volumes: [minio-data:/data]
     networks: [backend]
     healthcheck:
-      test: [CMD, mc, ready, local]
+      test: [CMD, curl, --fail, --silent, 'http://127.0.0.1:9000/minio/health/ready']
       interval: 5s
       timeout: 4s
       retries: 12

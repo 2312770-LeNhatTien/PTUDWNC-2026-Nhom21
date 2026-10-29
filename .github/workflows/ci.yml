@@ -105,7 +105,7 @@ jobs:
         shell: pwsh
         run: ./scripts/Initialize-Deployment.ps1 -Local
       - name: Build Linux runtime images
-        run: docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml build api frontend
+        run: docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml build api frontend minio
       - name: Start deployment and create explicit local demo data
         run: |
           docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml up -d --wait --wait-timeout 180

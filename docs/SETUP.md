@@ -12,6 +12,7 @@ Cài .NET 10 SDK, Node.js 22 LTS, npm, Git và Docker Desktop. Kiểm tra cổng
 ```powershell
 git clone https://github.com/2312770-LeNhatTien/PTUDWNC-2026-Nhom21.git
 cd PTUDWNC-2026-Nhom21
+docker compose build minio
 docker compose up -d
 docker compose ps
 dotnet restore CulinaryBlog.slnx

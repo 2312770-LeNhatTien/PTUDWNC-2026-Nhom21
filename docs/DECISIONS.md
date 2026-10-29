@@ -77,7 +77,13 @@ cache bài khác lạnh lại. Chỉ tách revision theo tài nguyên khi số �
 - **MinIO**: SRS ghi `minio/minio:latest`, nhưng Docker Hub đã chặn pull image
   này (*"pull access denied"*). Dùng
   `quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z` — cùng phần mềm, lấy từ
-  registry chính chủ của MinIO.
+  registry chính chủ của MinIO trong cấu hình ban đầu.
+- **Cập nhật 29/10/2026:** Quay cũng trả `unauthorized` trên CI và Docker Hub không
+  cấp manifest release. Dev/production chuyển sang `deploy/minio/Dockerfile`, build
+  từ source upstream đúng release trên, commit `ca258c04cb1dea33c31fed86250eaa3d1f020ff8`,
+  kiểm SHA-256 archive trước compile. Không dùng image mirror không rõ nguồn,
+  không đổi phiên bản MinIO/format dữ liệu để chữa lỗi registry. License upstream
+  được giữ trong image; health dùng HTTP ready nên không cần image/CLI `mc`.
 - **Seq**: SRS ghi `datalust/seq:latest`, nhưng bản mới crash liên tục trên
   Docker Desktop Windows (lỗi `NativeDocumentStore.Migrate` do LMDB hỏng khi
   tắt máy đột ngột). Ghim `datalust/seq:2023.4` kèm `stop_grace_period: 30s`.
