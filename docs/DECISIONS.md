@@ -233,3 +233,25 @@ Like/favorite, sửa/xóa review và moderation chưa được giao trong phần
   có JWT hợp lệ. Không truyền localStorage token vào SSR hoặc cache chung dữ liệu riêng.
 - Slug đã từng Published được giữ kể cả Archive/Unpublish; slug/tên Category đã
   soft-delete vẫn được giữ chỗ để unique index, validator và URL không mâu thuẫn.
+
+## D19 - Triển khai Docker và HTTPS (Lab 8, Tiến)
+
+- API và Next.js có Dockerfile multi-stage; Next dùng standalone, runtime chạy user
+  không đặc quyền. Compose production tách khỏi compose dev; MailHog chỉ có ở override local.
+- Nginx kết thúc TLS 1.2/1.3 và redirect public HTTP; API nhận HTTP nội bộ, xử lý
+  forwarded headers trước cookie/limiter và chỉ tin proxy đã cấu hình. API/DB/Redis/MinIO
+  không publish cổng nội bộ. Cổng TLS media chỉ cho GET/HEAD; upload vẫn qua API theo D18.
+- Docker secret files được đọc ở runtime, không nhúng khóa vào image/frontend bundle.
+  Phân biệt API_URL nội bộ, origin public và URL MinIO public; đổi origin cần build
+  lại frontend và xử lý URL ảnh đã lưu nếu deployment có dữ liệu.
+- Migrator chạy một lần trước API, dùng lịch sử migration hiện có và tạo role.
+  Không seed demo hay migrate theo từng replica production; seed-demo chỉ gọi rõ ràng
+  trong Development. Giữ PendingJobs/CacheVersion của main, không có schema thay thế.
+- PostgreSQL, Redis AOF, MinIO, SEO và Data Protection key ring có volume. Backup dừng
+  writer ngắn để pg_dump và archive objects/SEO/keys nhất quán; restore thử vào DB/thư mục
+  mới, kiểm checksum trước khi chuyển dịch vụ. Không coi backup local là PITR/HA.
+- Chưa có domain/máy chủ: kiểm chứng HTTPS local bằng cert tự ký và bộ volumes riêng,
+  không cài CA hệ thống. Production cần certificate hợp lệ và cấu hình dịch vụ thật.
+  Google submit vẫn tắt local; P02/P03 và các phép nghiệm thu toàn nhóm tiếp tục theo phân công.
+
+Cách dựng, test và vận hành: [DEPLOYMENT.md](DEPLOYMENT.md).

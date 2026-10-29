@@ -90,3 +90,38 @@ jobs:
           path: |
             src/Frontend/test-results
             src/Frontend/playwright-report
+
+  deployment:
+    needs: [backend, frontend]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: src/Frontend/package-lock.json
+      - name: Create isolated local TLS and runtime secrets
+        shell: pwsh
+        run: ./scripts/Initialize-Deployment.ps1 -Local
+      - name: Build Linux runtime images
+        run: docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml build api frontend
+      - name: Start deployment and create explicit local demo data
+        run: |
+          docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml up -d --wait --wait-timeout 180
+          docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml run --rm seed-demo
+          curl --fail --cacert .secrets/tls/tls.crt https://localhost:8443/health
+      - name: Verify HTTPS browser, native resize and dashboard
+        working-directory: src/Frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test --config playwright.deployment.config.ts
+      - uses: actions/upload-artifact@v7.0.2
+        if: always()
+        with:
+          name: deployment-test-results
+          path: src/Frontend/test-results
+      - name: Stop deployment
+        if: always()
+        run: docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml down

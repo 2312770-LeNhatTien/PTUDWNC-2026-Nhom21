@@ -1,0 +1,193 @@
+x-api: &api-runtime
+  image: culinaryblog-api:${APP_TAG:-lab8}
+  restart: unless-stopped
+  environment: &api-environment
+    ASPNETCORE_ENVIRONMENT: Production
+    AllowedHosts: '${PUBLIC_HOST:?Set PUBLIC_HOST};api;127.0.0.1;localhost'
+    AllowedOrigins__0: ${PUBLIC_ORIGIN:?Set PUBLIC_ORIGIN}
+    ReverseProxy__KnownProxy: ${PROXY_IP:-172.31.88.10}
+    ReverseProxy__Enabled: 'true'
+    DataProtection__KeysDirectory: /app/keys
+    Database__InitializeOnStartup: 'false'
+    MinIO__Endpoint: minio:9000
+    MinIO__PublicUrl: ${MEDIA_PUBLIC_ORIGIN:?Set MEDIA_PUBLIC_ORIGIN}
+    MinIO__Bucket: culinary-blog
+    MinIO__UseSSL: 'false'
+    Sitemap__SiteBaseUrl: ${PUBLIC_ORIGIN}
+    Sitemap__OutputDirectory: /app/public/seo
+    Sitemap__SubmitToSearchConsole: 'false'
+    Smtp__Host: ${SMTP_HOST:?Set SMTP_HOST}
+    Smtp__Port: ${SMTP_PORT:-587}
+    Smtp__FromEmail: ${SMTP_FROM:?Set SMTP_FROM}
+    Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command: Warning
+  secrets:
+    - source: database_connection
+      target: ConnectionStrings__DefaultConnection
+    - source: redis_connection
+      target: ConnectionStrings__Redis
+    - source: jwt_key
+      target: JwtSettings__Key
+    - source: minio_user
+      target: MinIO__AccessKey
+    - source: minio_password
+      target: MinIO__SecretKey
+  volumes:
+    - seo-data:/app/public/seo
+    - keyring-data:/app/keys
+  networks: [backend]
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-culinary}
+      POSTGRES_DB: ${POSTGRES_DB:-culinary_blog}
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    secrets: [postgres_password]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    networks: [backend]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"']
+      interval: 5s
+      timeout: 4s
+      retries: 12
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: [sh, -c, 'exec redis-server --appendonly yes --requirepass "$$(cat /run/secrets/redis_password)"']
+    secrets: [redis_password]
+    volumes: [redisdata:/data]
+    networks: [backend]
+    healthcheck:
+      test: [CMD-SHELL, 'REDISCLI_AUTH="$$(cat /run/secrets/redis_password)" redis-cli ping | grep PONG']
+      interval: 5s
+      timeout: 4s
+      retries: 12
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z
+    restart: unless-stopped
+    command: server /data --console-address ':9001'
+    environment:
+      MINIO_ROOT_USER_FILE: /run/secrets/minio_user
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_password
+      MINIO_API_CORS_ALLOW_ORIGIN: ${PUBLIC_ORIGIN}
+    secrets: [minio_user, minio_password]
+    volumes: [minio-data:/data]
+    networks: [backend]
+    healthcheck:
+      test: [CMD, mc, ready, local]
+      interval: 5s
+      timeout: 4s
+      retries: 12
+
+  migrate:
+    <<: *api-runtime
+    restart: 'no'
+    command: [--migrate]
+    environment:
+      <<: *api-environment
+      Jobs__Enabled: 'false'
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    <<: *api-runtime
+    build:
+      context: .
+      dockerfile: src/Backend/CulinaryBlog.API/Dockerfile
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+      minio: { condition: service_healthy }
+
+  frontend:
+    image: culinaryblog-frontend:${APP_TAG:-lab8}
+    build:
+      context: .
+      dockerfile: src/Frontend/Dockerfile
+      args:
+        API_URL: http://api:8080
+        NEXT_PUBLIC_API_URL: ${PUBLIC_ORIGIN}
+        NEXT_PUBLIC_MEDIA_URL: ${MEDIA_PUBLIC_ORIGIN}
+        NEXT_IMAGE_UNOPTIMIZED: ${NEXT_IMAGE_UNOPTIMIZED:-false}
+    restart: unless-stopped
+    environment:
+      API_URL: http://api:8080
+      AUTH_URL: ${PUBLIC_ORIGIN}
+      AUTH_TRUST_HOST: 'true'
+    secrets: [auth_secret]
+    networks: [backend]
+    depends_on:
+      api: { condition: service_healthy }
+
+  nginx:
+    image: nginx:stable-alpine
+    restart: unless-stopped
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST}
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
+      HSTS_MAX_AGE: ${HSTS_MAX_AGE:-31536000}
+    ports:
+      - '${PUBLIC_BIND_ADDRESS:-0.0.0.0}:${HTTP_PORT:-80}:80'
+      - '${PUBLIC_BIND_ADDRESS:-0.0.0.0}:${HTTPS_PORT:-443}:443'
+      - '${PUBLIC_BIND_ADDRESS:-0.0.0.0}:${MEDIA_HTTPS_PORT:-9443}:9443'
+    volumes:
+      - ./deploy/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ${TLS_DIR:-./.secrets/tls}:/etc/nginx/tls:ro
+    networks:
+      backend:
+        ipv4_address: ${PROXY_IP:-172.31.88.10}
+    depends_on:
+      api: { condition: service_healthy }
+      frontend: { condition: service_healthy }
+
+  # Chỉ gọi thủ công với bộ compose local; production không có tài khoản demo mặc định.
+  seed-demo:
+    <<: *api-runtime
+    profiles: [local]
+    restart: 'no'
+    command: [--seed-demo]
+    environment:
+      <<: *api-environment
+      ASPNETCORE_ENVIRONMENT: Development
+      Jobs__Enabled: 'false'
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  backup-helper:
+    image: alpine:3.22
+    profiles: [maintenance]
+    restart: 'no'
+    volumes:
+      - minio-data:/source/minio:ro
+      - seo-data:/source/seo:ro
+      - keyring-data:/source/keys:ro
+      - ${BACKUP_DIR:-./artifacts/lab8/backups}:/backup
+      - ${RESTORE_DIR:-./artifacts/lab8/restored}:/restore
+    networks: [backend]
+
+networks:
+  backend:
+    ipam:
+      config:
+        - subnet: ${PRODUCTION_SUBNET:-172.31.88.0/24}
+
+volumes:
+  pgdata:
+  redisdata:
+  minio-data:
+  seo-data:
+  keyring-data:
+
+secrets:
+  postgres_password: { file: '${SECRETS_DIR:-./.secrets}/postgres-password' }
+  redis_password: { file: '${SECRETS_DIR:-./.secrets}/redis-password' }
+  database_connection: { file: '${SECRETS_DIR:-./.secrets}/database-connection' }
+  redis_connection: { file: '${SECRETS_DIR:-./.secrets}/redis-connection' }
+  jwt_key: { file: '${SECRETS_DIR:-./.secrets}/jwt-key' }
+  minio_user: { file: '${SECRETS_DIR:-./.secrets}/minio-user' }
+  minio_password: { file: '${SECRETS_DIR:-./.secrets}/minio-password' }
+  auth_secret: { file: '${SECRETS_DIR:-./.secrets}/auth-secret' }

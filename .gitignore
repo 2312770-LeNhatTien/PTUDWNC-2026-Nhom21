@@ -17,6 +17,8 @@ next-env.d.ts
 .env
 .env.local
 .env*.local
+.secrets/
+artifacts/lab8/
 
 ## OS
 .DS_Store
