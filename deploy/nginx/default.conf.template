@@ -1,0 +1,54 @@
+resolver 127.0.0.11 valid=10s ipv6=off;
+upstream culinary_api { zone api_zone 64k; server api:8080 resolve; }
+upstream culinary_frontend { zone frontend_zone 64k; server frontend:3000 resolve; }
+upstream culinary_media { zone media_zone 64k; server minio:9000 resolve; }
+
+server {
+    listen 80;
+    server_name ${PUBLIC_HOST};
+    if ($host != "${PUBLIC_HOST}") { return 444; }
+    return 308 ${PUBLIC_ORIGIN}$request_uri;
+}
+
+server {
+    listen 443 ssl;
+    server_name ${PUBLIC_HOST};
+    if ($host != "${PUBLIC_HOST}") { return 444; }
+    ssl_certificate /etc/nginx/tls/tls.crt;
+    ssl_certificate_key /etc/nginx/tls/tls.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    add_header Strict-Transport-Security "max-age=${HSTS_MAX_AGE}" always;
+    client_max_body_size 6m;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto https;
+    # Ghi đè header client gửi vào; API chỉ tin địa chỉ Nginx trong network riêng.
+    proxy_set_header X-Forwarded-For $remote_addr;
+    proxy_set_header X-Correlation-ID $request_id;
+    proxy_read_timeout 60s;
+
+    location /api/auth/ { proxy_pass http://culinary_frontend; }
+    location /api/ { proxy_pass http://culinary_api; }
+    location /health { proxy_pass http://culinary_api; }
+    location /hangfire { proxy_pass http://culinary_api; }
+    location = /sitemap.xml { proxy_pass http://culinary_api; }
+    location = /robots.txt { proxy_pass http://culinary_api; }
+    location / { proxy_pass http://culinary_frontend; }
+}
+
+# Ảnh công khai dùng TLS riêng; upload vẫn đi API để được kiểm tra bytes và quyền.
+server {
+    listen 9443 ssl;
+    server_name ${PUBLIC_HOST};
+    if ($host != "${PUBLIC_HOST}") { return 444; }
+    ssl_certificate /etc/nginx/tls/tls.crt;
+    ssl_certificate_key /etc/nginx/tls/tls.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    client_max_body_size 6m;
+    proxy_set_header Host $http_host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_request_buffering off;
+    location / {
+        limit_except GET HEAD { deny all; }
+        proxy_pass http://culinary_media;
+    }
+}

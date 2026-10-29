@@ -43,6 +43,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
   const [notice, setNotice] = useState('');
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const dirtyRef = useRef(false);
   const [conflict, setConflict] = useState(false);
   const [reloading, setReloading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -58,7 +59,8 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
       // Thay đổi con làm đổi RowVersion D13; lấy token mới trước lần lưu tiếp theo.
       setData(latest);
       setError('');
-      if (!dirty) setForm(formFrom(latest));
+      // Callback cũ vẫn đọc trạng thái nhập hiện tại, không xóa nội dung vừa gõ.
+      if (!dirtyRef.current) setForm(formFrom(latest));
     } catch {
       setSyncFailed(true);
       setError('Nội dung đã lưu nhưng chưa tải được phiên bản mới. Hãy đồng bộ lại trước khi tiếp tục.');
@@ -69,7 +71,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
     setLoading(true); setLoadError('');
     try {
       const [result, cats] = await Promise.all([recipesApi.getForEdit(id), categoriesApi.getAll()]);
-      setData(result); setForm(formFrom(result)); setCategories(cats); setDirty(false);
+      setData(result); setForm(formFrom(result)); setCategories(cats); dirtyRef.current = false; setDirty(false);
     } catch (err) { setLoadError(errorMessage(err)); }
     finally { setLoading(false); }
   }, [id]);
@@ -89,7 +91,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
         categoryId: form.categoryId, prepTime: Number(form.prepTime), cookTime: Number(form.cookTime),
         servings: Number(form.servings), difficulty: form.difficulty, nutrition, rowVersion: data.rowVersion,
       });
-      setData(result); setForm(formFrom(result)); setDirty(false); setNotice('Đã lưu công thức thành công.');
+      setData(result); setForm(formFrom(result)); dirtyRef.current = false; setDirty(false); setNotice('Đã lưu công thức thành công.');
     } catch (err) {
       const p = problemOf(err);
       if (p.status === 409 && p.errorCode === 'RECIPE_CONCURRENCY_CONFLICT') setConflict(true);
@@ -101,7 +103,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
     setReloading(true); setError('');
     try {
       const result = await recipesApi.getForEdit(id);
-      setData(result); setForm(formFrom(result)); setDirty(false); setErrors({}); setConflict(false);
+      setData(result); setForm(formFrom(result)); dirtyRef.current = false; setDirty(false); setErrors({}); setConflict(false);
       setNotice('Đã tải dữ liệu mới nhất. Bạn có thể chỉnh sửa và lưu tiếp.');
     } catch (err) { setError(errorMessage(err)); }
     finally { setReloading(false); }
@@ -111,6 +113,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
     return key ? <p className="mt-1 text-sm text-red-700">{errors?.[key]?.join(' ')}</p> : null;
   };
   const change = (name: keyof Omit<Form, 'nutrition'>, value: string) => {
+    dirtyRef.current = true;
     setForm(prev => prev ? { ...prev, [name]: value } : prev); setDirty(true); setNotice('');
   };
   const inputClass = 'mt-1 w-full rounded-xl border border-neutral-300 bg-white px-3 py-2.5 focus:border-orange-500 focus:outline-none focus:ring-2 focus:ring-orange-100';
@@ -143,7 +146,7 @@ export default function EditRecipePage({ params }: { params: Promise<{ id: strin
             ] as const).map(([name, label, min]) => <label key={name} className="block font-medium">{label}<input required type="number" step="1" min={min} className={inputClass} value={form[name]} onChange={e => change(name, e.target.value)} />{fieldError(name)}</label>)}</div>
             <h2 className="pt-3 text-xl font-semibold">Dinh dưỡng trên một khẩu phần</h2>
             <p className="text-sm text-neutral-500">Giữ nguyên các giá trị để bảo toàn dinh dưỡng hiện tại. Để trống tất cả nếu muốn xóa thông tin dinh dưỡng.</p>
-            <div className="grid gap-4 sm:grid-cols-3">{nutritionFields.map(([key, label]) => <label key={key} className="block text-sm font-medium">{label}<input type="number" step="any" min="0" className={inputClass} value={form.nutrition[key]} onChange={e => { setForm({ ...form, nutrition: { ...form.nutrition, [key]: e.target.value } }); setDirty(true); setNotice(''); }} /></label>)}</div>
+            <div className="grid gap-4 sm:grid-cols-3">{nutritionFields.map(([key, label]) => <label key={key} className="block text-sm font-medium">{label}<input type="number" step="any" min="0" className={inputClass} value={form.nutrition[key]} onChange={e => { dirtyRef.current = true; setForm({ ...form, nutrition: { ...form.nutrition, [key]: e.target.value } }); setDirty(true); setNotice(''); }} /></label>)}</div>
           </fieldset>
           {fieldError('RowVersion')}
           <div className="flex flex-wrap items-center justify-between gap-4 border-t pt-5"><span className="text-sm text-neutral-500">{dirty ? 'Có thay đổi chưa lưu' : 'Dữ liệu đã đồng bộ'}</span>
