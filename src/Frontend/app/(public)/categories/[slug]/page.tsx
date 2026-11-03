@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
 import { categoriesApi } from "@/lib/api/categories";
@@ -8,6 +9,47 @@ import { problemOf } from "@/lib/api/errors";
 interface CategoryDetailPageProps {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ page?: string; sortBy?: string; sortOrder?: string }>;
+}
+
+export async function generateMetadata({
+  params,
+}: CategoryDetailPageProps): Promise<Metadata> {
+  const { slug } = await params;
+  try {
+    const categoryData = await categoriesApi.getBySlug(slug, { page: 1, pageSize: 1 });
+    const name = categoryData.name || (categoryData as unknown as { category?: { name?: string } })?.category?.name || "Chuyên mục";
+    const description =
+      categoryData.description || `Các món ăn thơm ngon thuộc chuyên mục ${name} trên Culinary Blog.`;
+    const imageUrl = categoryData.imageUrl;
+    const canonicalPath = `/categories/${slug}`;
+
+    return {
+      title: `${name} - Chuyên mục ẩm thực`,
+      description,
+      alternates: {
+        canonical: canonicalPath,
+      },
+      openGraph: {
+        title: `${name} | Culinary Blog`,
+        description,
+        url: canonicalPath,
+        images: imageUrl ? [{ url: imageUrl, alt: name }] : undefined,
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: `${name} | Culinary Blog`,
+        description,
+        images: imageUrl ? [imageUrl] : undefined,
+      },
+    };
+  } catch {
+    return {
+      title: "Chuyên mục ẩm thực",
+      alternates: {
+        canonical: `/categories/${slug}`,
+      },
+    };
+  }
 }
 
 export default async function CategoryDetailPage({ params, searchParams }: CategoryDetailPageProps) {

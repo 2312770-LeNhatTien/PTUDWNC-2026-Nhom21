@@ -1,5 +1,7 @@
 using CulinaryBlog.API.Middleware;
 using CulinaryBlog.API.Authorization;
+using Microsoft.AspNetCore.HttpOverrides;
+using System.Net;
 using System.Threading.RateLimiting;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
@@ -23,6 +25,15 @@ public static class DependencyInjection
         // CONS-005: mọi lỗi trả về theo RFC 7807.
         services.AddExceptionHandler<GlobalExceptionMiddleware>();
         services.AddProblemDetails();
+
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            options.ForwardLimit = 1;
+            // Nginx ghi đè header đầu vào; API chỉ chấp nhận địa chỉ proxy riêng này.
+            if (configuration["ReverseProxy:KnownProxy"] is { Length: > 0 } proxy)
+                options.KnownProxies.Add(IPAddress.Parse(proxy));
+        });
 
         // Instrumentation HTTP/pipeline thuộc cấu hình Presentation; exporter bật theo môi trường.
         services.AddOpenTelemetry().ConfigureResource(resource => resource.AddService("CulinaryBlog.API"))
@@ -113,7 +124,11 @@ public static class DependencyInjection
                     context.HttpContext.Response.Headers["X-Correlation-ID"] = correlationId?.ToString();
                 }
 
-                await context.HttpContext.Response.WriteAsJsonAsync(problem, token);
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    problem,
+                    options: null,
+                    contentType: "application/problem+json",
+                    cancellationToken: token);
             };
 
             // FR-AUTH-002 / DECISIONS D7: Endpoint login giới hạn 5 request/phút theo IP

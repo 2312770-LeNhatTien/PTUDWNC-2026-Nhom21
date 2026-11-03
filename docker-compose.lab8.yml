@@ -1,0 +1,10 @@
+# Override kiểm chứng HTTPS local, không dùng để đưa MailHog lên public.
+services:
+  api:
+    environment:
+      Smtp__Host: mailhog
+      Smtp__Port: '1025'
+  mailhog:
+    image: mailhog/mailhog:latest
+    ports: ['127.0.0.1:8028:8025', '127.0.0.1:1028:1025']
+    networks: [backend]

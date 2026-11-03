@@ -2,13 +2,13 @@ import { defineConfig } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
-  testIgnore: ['recipe-management*.spec.ts', 'background-jobs.spec.ts'],
+  testIgnore: ['recipe-management*.spec.ts', 'background-jobs.spec.ts', 'deployment.smoke.spec.ts'],
   timeout: 30000,
   workers: 1,
   use: {
     baseURL: 'http://localhost:3105',
     headless: true,
-    launchOptions: { args: ['--no-proxy-server'], ...(process.env.PLAYWRIGHT_CHROME_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROME_PATH } : {}) },
+    launchOptions: { args: ['--no-proxy-server'], ...(process.env.PLAYWRIGHT_CHROME_PATH ? { executablePath: process.env.PLAYWRIGHT_CHROME_PATH } : { channel: 'msedge' }) },
   },
   webServer: {
     command: 'npm run dev -- --port 3105',

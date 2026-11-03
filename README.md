@@ -6,6 +6,10 @@ Web chia sẻ công thức nấu ăn chuẩn vị Việt Nam. Backend .NET 10 (C
 
 **Đợt sửa trước Buổi 8 (28/10/2026):** xem [kết quả xử lý và cách kiểm chứng](./docs/HUONG_DAN_KHAC_PHUC_SAU_RA_SOAT.md). Phần sửa tồn đọng đã được gỡ khỏi phân công cá nhân; các nhiệm vụ triển khai/SEO/nghiệm thu Buổi 8 giữ nguyên. Thành viên cập nhật `main` rồi tạo nhánh Buổi 8; đọc [SETUP](./docs/SETUP.md) để áp dụng migration và cài dependencies đúng phiên bản.
 
+**Lab 8 — triển khai (Tiến):** hướng dẫn Docker production, Nginx HTTPS, secrets,
+migration và backup/restore ở [DEPLOYMENT](./docs/DEPLOYMENT.md). Bộ HTTPS local dùng
+cổng 8443/9443 và volumes riêng; compose dev cổng 3000/5000 vẫn dùng theo SETUP.
+
 ---
 
 ## 🏛️ MA TRẬN PHÂN CÔNG THEO TẦNG KỸ THUẬT VÀ THÀNH VIÊN

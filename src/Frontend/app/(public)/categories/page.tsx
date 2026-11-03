@@ -2,7 +2,27 @@ import { categoriesApi } from "@/lib/api/categories";
 import Image from "next/image";
 import Link from "next/link";
 
+import type { Metadata } from "next";
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Khám Phá Danh Mục Món Ăn | Culinary Blog",
+  description: "Duyệt qua các danh mục ẩm thực phong phú mang đậm phong vị quê hương từ truyền thống đến hiện đại.",
+  alternates: {
+    canonical: "/categories",
+  },
+  openGraph: {
+    title: "Khám Phá Danh Mục Món Ăn | Culinary Blog",
+    description: "Duyệt qua các danh mục ẩm thực phong phú mang đậm phong vị quê hương từ truyền thống đến hiện đại.",
+    url: "/categories",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Khám Phá Danh Mục Món Ăn | Culinary Blog",
+    description: "Duyệt qua các danh mục ẩm thực phong phú mang đậm phong vị quê hương từ truyền thống đến hiện đại.",
+  },
+};
 
 export default async function CategoriesPage() {
   // Lấy dữ liệu danh mục từ Backend (đã cấu hình api ở lib/api/categories.ts)

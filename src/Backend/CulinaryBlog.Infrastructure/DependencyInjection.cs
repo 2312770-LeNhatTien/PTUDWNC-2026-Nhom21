@@ -18,6 +18,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -32,6 +33,11 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services, IConfiguration configuration)
     {
+        var protection = services.AddDataProtection().SetApplicationName("CulinaryBlog");
+        if (configuration["DataProtection:KeysDirectory"] is { Length: > 0 } keysDirectory)
+            // Key ring dùng chung giúp cookie dashboard còn hợp lệ sau recreate/scale API.
+            protection.PersistKeysToFileSystem(new DirectoryInfo(keysDirectory));
+
         // ── Database (PostgreSQL) ───────────────────────────────────────────
         services.AddDbContext<CulinaryBlogDbContext>((sp, options) =>
         {
@@ -232,6 +238,10 @@ public static class DependencyInjection
 
         context.Response.StatusCode = status;
         context.Response.ContentType = "application/problem+json";
-        await context.Response.WriteAsJsonAsync(problem, context.RequestAborted);
+        await context.Response.WriteAsJsonAsync(
+            problem,
+            options: null,
+            contentType: "application/problem+json",
+            cancellationToken: context.RequestAborted);
     }
 }

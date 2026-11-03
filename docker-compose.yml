@@ -29,10 +29,13 @@ services:
     volumes:
       - redis-data:/data
 
-  # SRS ghi minio/minio:latest nhưng Docker Hub đã chặn pull image đó,
-  # nên dùng registry chính chủ của MinIO (xem docs/DECISIONS.md D5).
+  # Build cùng release từ source chính thức vì cả registry Docker Hub/Quay đã khóa.
   minio:
-    image: quay.io/minio/minio:RELEASE.2024-01-16T16-07-38Z
+    image: culinaryblog-minio:RELEASE.2024-01-16T16-07-38Z-source
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: deploy/minio/Dockerfile
     container_name: culinaryblog-minio
     restart: unless-stopped
     command: server /data --console-address ":9001"
