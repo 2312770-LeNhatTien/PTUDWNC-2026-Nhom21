@@ -10,6 +10,8 @@ using Serilog;
 using Serilog.Formatting.Json;
 
 var builder = WebApplication.CreateBuilder(args);
+// Docker secrets được đọc lúc chạy, không đưa khóa vào image hoặc appsettings.
+builder.Configuration.AddKeyPerFile("/run/secrets", optional: true);
 builder.Host.UseSerilog((context, config) =>
 {
     config.MinimumLevel.Information()
@@ -29,6 +31,19 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddPresentation(builder.Configuration, builder.Environment);
 
 var app = builder.Build();
+
+if (args.Contains("--migrate"))
+{
+    await DatabaseInitializer.MigrateAsync(app.Services);
+    return;
+}
+if (args.Contains("--seed-demo"))
+{
+    if (!app.Environment.IsDevelopment())
+        throw new InvalidOperationException("Seed demo chỉ được phép trong Development.");
+    await DatabaseSeeder.SeedAsync(app.Services);
+    return;
+}
 
 // ── Chỉ chạy ở Development: áp dụng migration + tạo sẵn 2 role ────────────
 if (app.Environment.IsDevelopment())
@@ -53,12 +68,14 @@ if (app.Environment.IsDevelopment())
 }
 
 // ── Middleware pipeline - THỨ TỰ RẤT QUAN TRỌNG, đừng đảo lộn ─────────────
+// Khôi phục HTTPS/IP trước cookie, redirect và limiter; chỉ tin proxy đã khai báo.
+app.UseForwardedHeaders();
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseExceptionHandler();
 
 // Dev chạy HTTP cổng 5000 (SRS mục 5.2). Production mới dùng HTTPS và do
 // Nginx đảm nhiệm SSL termination (SRS mục 6.5).
-if (!app.Environment.IsDevelopment())
+if (!app.Environment.IsDevelopment() && !app.Configuration.GetValue<bool>("ReverseProxy:Enabled"))
 {
     app.UseHttpsRedirection();
 }

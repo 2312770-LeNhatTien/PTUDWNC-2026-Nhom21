@@ -2,6 +2,9 @@
 
 Cập nhật 28/10/2026. Các lệnh dưới đây chạy bằng PowerShell từ thư mục gốc repo, trừ khi có `cd`.
 
+Lab 8 có bộ Docker/HTTPS riêng: xem [DEPLOYMENT](DEPLOYMENT.md) để build image,
+chạy migrator, cấu hình secrets và kiểm chứng backup/restore. Các bước bên dưới là môi trường dev.
+
 ## 1. Chuẩn bị và lấy code
 
 Cài .NET 10 SDK, Node.js 22 LTS, npm, Git và Docker Desktop. Kiểm tra cổng 5432/6379/9000 trước khi chạy; nếu đang dùng cho dự án khác, đổi mapping và connection string tương ứng.
@@ -9,6 +12,7 @@ Cài .NET 10 SDK, Node.js 22 LTS, npm, Git và Docker Desktop. Kiểm tra cổng
 ```powershell
 git clone https://github.com/2312770-LeNhatTien/PTUDWNC-2026-Nhom21.git
 cd PTUDWNC-2026-Nhom21
+docker compose build minio
 docker compose up -d
 docker compose ps
 dotnet restore CulinaryBlog.slnx

@@ -16,6 +16,7 @@ using CulinaryBlog.Infrastructure.Persistence.Repositories;
 using CulinaryBlog.Infrastructure.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -30,6 +31,11 @@ public static class DependencyInjection
     public static IServiceCollection AddInfrastructure(
         this IServiceCollection services, IConfiguration configuration)
     {
+        var protection = services.AddDataProtection().SetApplicationName("CulinaryBlog");
+        if (configuration["DataProtection:KeysDirectory"] is { Length: > 0 } keysDirectory)
+            // Key ring dùng chung giúp cookie dashboard còn hợp lệ sau recreate/scale API.
+            protection.PersistKeysToFileSystem(new DirectoryInfo(keysDirectory));
+
         // ── Database (PostgreSQL) ───────────────────────────────────────────
         services.AddDbContext<CulinaryBlogDbContext>((sp, options) =>
         {

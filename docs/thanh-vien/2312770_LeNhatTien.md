@@ -277,3 +277,10 @@ git checkout -b 2312770-LeNhatTien-buoi4
 
 **Hướng dẫn chi tiết:** mục **P01** trong [tài liệu khắc phục chung](../HUONG_DAN_KHAC_PHUC_SAU_RA_SOAT.md). Compose production lựa chọn dịch vụ theo môi trường; MailHog/Seq dev không giữ nguyên cấu hình demo đưa lên public. Nghiệm thu HTTPS từ login tới upload, sitemap và dashboard sau khi sửa lỗi khẩn/cao.
 
+**Triển khai Lab 8:** Dockerfile API/Next standalone, `docker-compose.prod.yml`,
+override HTTPS local, Nginx TLS và script backup/restore được hướng dẫn tại
+[DEPLOYMENT](../DEPLOYMENT.md). Dùng lại auth/cache/media đã ghép trên main;
+không thêm migration thay thế. Có regression cho lỗi callback lưu nội dung con
+ghi đè form chính vừa nhập. Kết quả nghiệm thu cụ thể phải kèm log chạy của nhánh;
+domain production, báo cáo/slide tổng hợp và phần P02/P03 tiếp tục theo tiến độ nhóm.
+
