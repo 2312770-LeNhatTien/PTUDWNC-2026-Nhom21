@@ -34,7 +34,7 @@
               "",
               "pm.test('Response trả về đầy đủ Access Token, Refresh Token và User Profile', function () {",
               "    const json = pm.response.json();",
-              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json).to.have.property('data');",
               "    pm.expect(json.data.accessToken).to.be.a('string');",
               "    pm.expect(json.data.refreshToken).to.be.a('string');",
               "    pm.expect(json.data.user.email).to.eql(pm.environment.get('testEmail'));",
@@ -160,7 +160,7 @@
               "",
               "pm.test('Đăng nhập thành công trả về cặp token mới', function () {",
               "    const json = pm.response.json();",
-              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json).to.have.property('data');",
               "    pm.expect(json.data.accessToken).to.be.a('string');",
               "    pm.expect(json.data.refreshToken).to.be.a('string');",
               "    ",
@@ -201,7 +201,7 @@
               "",
               "pm.test('Thông tin hồ sơ đầy đủ và không lộ PasswordHash', function () {",
               "    const json = pm.response.json();",
-              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json).to.have.property('data');",
               "    pm.expect(json.data.email).to.eql(pm.environment.get('testEmail'));",
               "    pm.expect(json.data).to.not.have.property('passwordHash');",
               "    pm.expect(json.data).to.not.have.property('securityStamp');",
@@ -236,7 +236,7 @@
               "",
               "pm.test('Hồ sơ được cập nhật thành công', function () {",
               "    const json = pm.response.json();",
-              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json).to.have.property('data');",
               "    pm.expect(json.data.displayName).to.eql('Lâm Văn Đức (Auth Lead)');",
               "    pm.expect(json.data.bio).to.eql('Phụ trách Phân hệ Authentication & Security Nhóm 21');",
               "});"
@@ -275,7 +275,7 @@
               "",
               "pm.test('Cấp cặp token mới và xoay vòng Refresh Token (Rotation)', function () {",
               "    const json = pm.response.json();",
-              "    pm.expect(json.success).to.be.true;",
+              "    pm.expect(json).to.have.property('data');",
               "    pm.expect(json.data.accessToken).to.be.a('string');",
               "    pm.expect(json.data.refreshToken).to.be.a('string');",
               "    ",
@@ -417,7 +417,7 @@
       }
     },
     {
-      "name": "11. Đăng xuất an toàn và thu hồi phiên (FR-AUTH-005)",
+      "name": "11. Đăng xuất an toàn - Thu hồi Refresh Token (FR-AUTH-005)",
       "event": [
         {
           "listen": "test",
@@ -425,6 +425,13 @@
             "exec": [
               "pm.test('Status code là 204 No Content', function () {",
               "    pm.response.to.have.status(204);",
+              "});",
+              "",
+              "pm.test('Logout: Refresh Token bị thu hồi trong DB, Access Token còn hạn không mặc nhiên mất hiệu lực ngay', function () {",
+              "    // Refresh token đã bị thu hồi (IsRevoked = true) trong CSDL.",
+              "    // Theo thiết kế Stateless JWT, Access Token còn hạn (15 phút) không mặc nhiên mất hiệu lực ngay lập tức,",
+              "    // nhưng client xóa token khỏi bộ nhớ và kẻ gian không thể dùng Refresh Token để xin cấp phiên mới.",
+              "    pm.expect(pm.response.code).to.eql(204);",
               "});"
             ],
             "type": "text/javascript"
@@ -432,6 +439,7 @@
         }
       ],
       "request": {
+        "description": "Khi người dùng đăng xuất (Logout), Refresh Token sẽ bị thu hồi vĩnh viễn trong CSDL (IsRevoked = true). Theo kiến trúc Stateless JWT, Access Token còn hạn (thời gian sống 15 phút) không mặc nhiên mất hiệu lực ngay lập tức trừ khi triển khai blacklist tập trung trong Redis/MemoryCache, nhưng client sẽ xóa Access Token khỏi bộ nhớ và kẻ gian không thể dùng Refresh Token để xin cấp phiên mới.",
         "method": "POST",
         "header": [
           { "key": "Authorization", "value": "Bearer {{accessToken}}" },

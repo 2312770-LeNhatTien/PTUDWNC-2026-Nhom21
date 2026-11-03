@@ -18,7 +18,7 @@ Căn cứ theo tài liệu phân công chính thức `docs/HUONG_DAN_KHAC_PHUC_S
 | **Q02.1** | **Bộ kiểm thử tự động xUnit Backend E2E** | Xây dựng suite `AuthE2EIntegrationTests.cs` kiểm thử luồng vòng đời đầy đủ, kiểm tra lưu trữ hash bảo mật trong DB, kiểm tra `PendingJob.Welcome` (R08), kiểm thử cơ chế Rate Limiting chống Brute-Force (D7/R20). | ✅ Hoàn thành (4/4 passed) |
 | **Q02.2** | **Kiểm thử tấn công Token Reuse Detection** | Mô phỏng tấn công gửi lại Refresh Token cũ đã bị xoay vòng (Token Rotation) $\rightarrow$ Hệ thống kích hoạt Reuse Detection thu hồi toàn bộ token family (fail-closed, 401). | ✅ Hoàn thành |
 | **Q01.1** | **Bộ kiểm thử tự động giao diện Playwright E2E** | Xây dựng suite `src/Frontend/tests/auth-e2e.spec.ts` kiểm thử 5 kịch bản UI (Validation form, RFC 7807 409/401/429 alerts, trạng thái Authenticated trên Navbar và luồng Đăng xuất thu hồi phiên). | ✅ Hoàn thành (5/5 passed) |
-| **Q03.1** | **Bộ kịch bản Postman Collection & Environment** | Tạo file `CulinaryBlog_Auth_Security_E2E.postman_collection.json` và `CulinaryBlog_Local.postman_environment.json` phục vụ chạy kiểm thử tích hợp độc lập qua Postman hoặc Newman CLI. | ✅ Hoàn thành |
+| **Q03.1** | **Bộ kịch bản Postman Collection & Environment** | Tạo file `CulinaryBlog_Auth_Security_E2E.postman_collection.json` và `CulinaryBlog_Local.postman_environment.json` phục vụ chạy kiểm thử tích hợp độc lập qua Postman hoặc Newman CLI. | ✅ Hoàn thành (13/13 passed) |
 | **P01.2** | **Nghiệm thu phân hệ trên môi trường Deployment** | Đối chiếu cookie phiên Hangfire Dashboard (`/hangfire`) có đầy đủ cờ `Secure`, `SameSite=Lax`, path chuẩn theo Quyết định D14; CSP không chặn Google Sign-In và ảnh MinIO. | ✅ Hoàn thành |
 
 ---
@@ -33,28 +33,25 @@ Căn cứ theo tài liệu phân công chính thức `docs/HUONG_DAN_KHAC_PHUC_S
   - `409 Conflict`: `errorCode = "RESOURCE_CONFLICT"` hoặc `"GOOGLE_ACCOUNT_LINK_REQUIRED"`.
   - `429 Too Many Requests`: `errorCode = "RATE_LIMIT_EXCEEDED"`, kèm đầy đủ các headers điều tiết: `Retry-After: 60`, `X-RateLimit-Limit: 5`, `X-RateLimit-Remaining: 0`.
 - **Security Headers chuẩn OWASP**:
-  ```http
-  X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
-  Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Strict-Transport-Security: max-age=31536000; includeSubDomains (trên HTTPS/Production)
-  ```
+  - `X-Content-Type-Options: nosniff`: Ngăn MIME-sniffing.
+  - `X-Frame-Options: DENY`: Chống Clickjacking.
+  - `X-XSS-Protection: 1; mode=block`: Bật bộ lọc XSS.
+  - `Referrer-Policy: strict-origin-when-cross-origin`: Bảo vệ rò rỉ URL chứa dữ liệu nhạy cảm.
+- **Hợp đồng phản hồi thành công**: Thống nhất định dạng ApiResponse chuẩn `{ "data": ..., "meta": ... }` theo đúng SRS mục 8.
 
 ---
 
 ### 2.2 Bộ Kiểm Thử Tự Động xUnit Backend E2E (`tests/Backend.Tests/AuthE2EIntegrationTests.cs`)
-File kiểm thử mới được tích hợp vào bộ test runner của dự án, sử dụng PostgreSQL và InMemory configuration mô phỏng môi trường thật:
-
-1. **`E2E_Full_User_Lifecycle_And_Pending_Jobs_Flow`**:
+Bao gồm 4 phương thức kiểm thử tích hợp chuyên sâu:
+1. **`TC01_E2E_FullAuthLifecycle_And_PendingJobWelcome_Verified`**:
    - Khởi tạo người dùng ngẫu nhiên qua `POST /api/v1/auth/register` (HTTP 201 Created).
    - Kiểm tra Database PostgreSQL: Bản ghi `PendingJobs` loại `"welcome"` được tạo thành công ngay trong cùng giao dịch tạo người dùng (R08 & FR-JOB-001).
    - Kiểm tra bảng `RefreshTokens`: Token gốc được băm bằng SHA-256 (`TokenHash`), bảo vệ tuyệt đối không lưu plain text token theo SRS 7.8.
    - Gọi `GET /api/v1/auth/me` kiểm tra hồ sơ tác giả, xác nhận không để lộ trường nhạy cảm `passwordHash`.
    - Cập nhật hồ sơ qua `PATCH /api/v1/auth/me` thành công.
    - Xoay vòng Refresh Token Rotation qua `POST /api/v1/auth/refresh` (HTTP 200 OK), cấp token mới và đánh dấu thu hồi token cũ.
-   - Đăng xuất qua `POST /api/v1/auth/logout` (HTTP 204 No Content), thu hồi token trên Database.
-   - Kiểm tra dùng lại token sau khi đăng xuất $\rightarrow$ Bị từ chối HTTP 401 Unauthorized.
+   - Đăng xuất qua `POST /api/v1/auth/logout` (HTTP 204 No Content): Refresh Token bị thu hồi vĩnh viễn trên Database (`IsRevoked = true`). Theo thiết kế Stateless JWT, Access Token còn hạn (thời gian sống 15 phút) không mặc nhiên mất hiệu lực ngay lập tức trừ khi áp dụng blacklist tập trung trong Redis/MemoryCache, nhưng client xóa token khỏi bộ nhớ và kẻ gian không thể dùng Refresh Token để gia hạn phiên mới.
+   - Kiểm tra dùng lại Refresh Token sau khi đăng xuất $\rightarrow$ Bị từ chối HTTP 401 Unauthorized.
 
 2. **`Token_Reuse_Attack_Triggers_Reuse_Detection_And_Invalidates_Entire_Token_Family`**:
    - Thực hiện refresh token hợp lệ: $T_1 \rightarrow T_2$.
@@ -83,7 +80,7 @@ Bao phủ 5 kịch bản giao diện người dùng trực quan:
 ### 2.4 Bộ Kịch Bản Postman Collection & Environment
 - **File Collection:** `tests/postman/CulinaryBlog_Auth_Security_E2E.postman_collection.json`
 - **File Environment:** `tests/postman/CulinaryBlog_Local.postman_environment.json`
-- Gồm **13 Requests** tuần tự có kịch bản Pre-request Script tự động sinh email ngẫu nhiên, tự động trích xuất và gán biến `accessToken`, `refreshToken`, `oldRotatedRefreshToken`, kèm mã Test Assertions kiểm tra chặt chẽ Status Code, định dạng RFC 7807 ProblemDetails và Headers bảo mật.
+- Gồm **13 Requests** tuần tự có kịch bản Pre-request Script tự động sinh email ngẫu nhiên, tự động trích xuất và gán biến `accessToken`, `refreshToken`, `oldRotatedRefreshToken`, kèm mã Test Assertions kiểm tra chặt chẽ Status Code, cấu trúc `{ data, meta }`, định dạng RFC 7807 ProblemDetails và Headers bảo mật.
 
 ---
 
@@ -93,15 +90,12 @@ Bao phủ 5 kịch bản giao diện người dùng trực quan:
 Chạy kiểm thử toàn bộ giải pháp Backend trên môi trường local với PostgreSQL container:
 
 ```powershell
-dotnet test C:\Users\ASUS\source\repos\PTUDWNC-2026-Nhom21\tests\Backend.Tests\Backend.Tests.csproj -c Release
+dotnet test tests/Backend.Tests/Backend.Tests.csproj -c Release
 ```
 
 **Kết quả ghi nhận:**
-```
-Test run for Backend.Tests.dll (.NETCoreApp,Version=v10.0)
-A total of 1 test files matched the specified pattern.
-
-Passed!  - Failed:     0, Passed:    64, Skipped:     0, Total:    64, Duration: 22 s
+```text
+Passed!  - Failed: 0, Passed: 64, Skipped: 0, Total: 64, Duration: 22 s
 ```
 - **Bộ test E2E mới (`AuthE2EIntegrationTests.cs`)**: **4/4 passed (100%)**
 - **Toàn bộ suite Backend (`Backend.Tests`)**: **64/64 passed (100%)**, không có bất kỳ hồi quy (regression) nào.
@@ -112,40 +106,98 @@ Passed!  - Failed:     0, Passed:    64, Skipped:     0, Total:    64, Duration:
 Chạy kiểm thử tự động giao diện người dùng:
 
 ```powershell
-node src/Frontend/node_modules/@playwright/test/cli.js test --config src/Frontend/playwright.config.ts auth-e2e
+npx playwright test tests/auth-e2e.spec.ts
 ```
 
 **Kết quả ghi nhận:**
-```
+```text
 Running 5 tests using 1 worker
 
-  ok 1 tests/auth-e2e.spec.ts:25:7 › TC01: Form Đăng ký validate Client-side chính xác (3.4s)
-  ok 2 tests/auth-e2e.spec.ts:50:7 › TC02: Đăng ký trùng email hiển thị RFC 7807 (409 Conflict) (1.6s)
-  ok 3 tests/auth-e2e.spec.ts:85:7 › TC03: Đăng nhập sai thông tin hiển thị RFC 7807 (401 Unauthorized) (3.3s)
-  ok 4 tests/auth-e2e.spec.ts:115:7 › TC04: Đăng nhập vượt tần suất hiển thị Rate Limiting (429) (1.7s)
-  ok 5 tests/auth-e2e.spec.ts:149:7 › TC05: Trạng thái Authenticated Navbar & Đăng xuất an toàn (5.4s)
+  ok 1 tests/auth-e2e.spec.ts:25:7 › TC01: Form Đăng ký thực hiện validate dữ liệu nhập phía Client chính xác (3.7s)
+  ok 2 tests/auth-e2e.spec.ts:50:7 › TC02: Đăng ký trùng email hiển thị cảnh báo lỗi RFC 7807 (409 Conflict) (1.9s)
+  ok 3 tests/auth-e2e.spec.ts:85:7 › TC03: Đăng nhập sai thông tin hiển thị lỗi RFC 7807 (401 Unauthorized) (3.3s)
+  ok 4 tests/auth-e2e.spec.ts:115:7 › TC04: Đăng nhập vượt ngưỡng tần suất hiển thị cảnh báo Rate Limiting (429) (1.7s)
+  ok 5 tests/auth-e2e.spec.ts:149:7 › TC05: Trạng thái Xác thực trên Navbar và Luồng Đăng xuất an toàn thu hồi phiên (4.9s)
 
-  5 passed (31.0s)
+  5 passed (37.8s)
 ```
 - **Tỷ lệ đạt**: **5/5 passed (100%)**.
 
 ---
 
-### 3.3 Kiểm tra Biên dịch & Type Checking
+### 3.3 Kết quả kiểm thử tự động Postman/Newman Collection (`newman run`)
+Chạy tự động toàn bộ collection E2E với file environment sạch trên backend cổng 5000:
+
+```powershell
+npx newman run tests/postman/CulinaryBlog_Auth_Security_E2E.postman_collection.json -e tests/postman/CulinaryBlog_Local.postman_environment.json
+```
+
+**Kết quả ghi nhận:**
+```text
+┌─────────────────────────┬────────────────────┬────────────────────┐
+│                         │           executed │             failed │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│              iterations │                  1 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│                requests │                 13 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│            test-scripts │                 13 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│      prerequest-scripts │                  1 │                  0 │
+├─────────────────────────┼────────────────────┼────────────────────┤
+│              assertions │                 24 │                  0 │
+├─────────────────────────┴────────────────────┴────────────────────┤
+│ total run duration: 3.5s                                          │
+└───────────────────────────────────────────────────────────────────┘
+```
+- **Tỷ lệ đạt**: **13/13 requests passed, 24/24 assertions passed (100%)**.
+
+---
+
+### 3.4 Kiểm tra Biên dịch & Type Checking
 - **Backend Build (`dotnet build`)**: 0 Error(s), 0 Warning(s).
 - **Frontend Typecheck (`tsc --noEmit`)**: 0 Error(s).
+
+---
+
+### 3.5 Hướng Dẫn Cấu Hình Google OAuth 2.0 Web Client ID Cho Toàn Nhóm
+Để đăng nhập Google OAuth 2.0 thật hoạt động trên máy cá nhân của các thành viên mà không để lộ secret lên Git:
+
+1. **Tạo Web Client ID trên Google Cloud Console**:
+   - Truy cập: [Google Cloud Console Credentials](https://console.cloud.google.com/apis/credentials)
+   - Tạo **OAuth client ID**, Application type: **Web application**.
+   - Thêm vào mục **Authorized JavaScript origins**:
+     - `http://localhost:3000` (Frontend Next.js)
+     - `http://localhost:5000` (Backend API)
+   - Sao chép chuỗi Client ID (dạng `xxx.apps.googleusercontent.com`).
+
+2. **Cấu hình Frontend**:
+   - Mở file `src/Frontend/.env.local` (file này đã nằm trong `.gitignore`, không lo bị push lên Git):
+     ```env
+     NEXT_PUBLIC_GOOGLE_CLIENT_ID=xxx.apps.googleusercontent.com
+     ```
+   - *Lưu ý*: Nếu chưa cấu hình hoặc để trống, giao diện sẽ hiển thị thẻ thông báo hướng dẫn rõ ràng thay vì gọi Google SDK với ID mẫu gây lỗi *"The given client ID is not found"*.
+
+3. **Cấu hình Backend qua User Secrets**:
+   - Mở terminal tại thư mục `src/Backend/CulinaryBlog.API`:
+     ```powershell
+     dotnet user-secrets set "Google:ClientId" "xxx.apps.googleusercontent.com"
+     ```
+   - User Secrets được lưu ngoài thư mục mã nguồn máy cá nhân, tuyệt đối an toàn và không bị commit lên Git.
 
 ---
 
 ## 4. Quản Lý Nhánh & Commit Git
 
 - **Nhánh làm việc**: `2314299-LamVanDuc-buoi8`
-- **Các file thêm mới và hoàn thiện trong đợt này**:
+- **Các file tham gia commit**:
   1. `tests/Backend.Tests/AuthE2EIntegrationTests.cs`: Bộ test tích hợp xUnit E2E cho phân hệ Auth.
   2. `src/Frontend/tests/auth-e2e.spec.ts`: Bộ test Playwright E2E UI cho phân hệ Auth.
-  3. `tests/postman/CulinaryBlog_Auth_Security_E2E.postman_collection.json`: Bộ Postman Collection E2E.
-  4. `tests/postman/CulinaryBlog_Local.postman_environment.json`: Postman Environment cấu hình biến môi trường.
-  5. `docs/thanh-vien/Bao_Cao_Lab_08_2314299_LamVanDuc.md`: Báo cáo nghiệm thu cá nhân Lab 08.
+  3. `tests/postman/CulinaryBlog_Auth_Security_E2E.postman_collection.json`: Bộ Postman Collection E2E chuẩn `{ data, meta }`.
+  4. `tests/postman/CulinaryBlog_Local.postman_environment.json`: Postman Environment sạch.
+  5. `src/Frontend/components/auth/GoogleSignInButton.tsx`: Guard thông minh cảnh báo khi chưa cấu hình Google Client ID.
+  6. `src/Frontend/components/layout/Navbar.tsx`: Hoàn thiện điều hướng đăng xuất an toàn.
+  7. `docs/thanh-vien/Bao_Cao_Lab_08_2314299_LamVanDuc.md`: Báo cáo nghiệm thu cá nhân Lab 08.
 
 ---
 
@@ -159,5 +211,6 @@ Running 5 tests using 1 worker
 | Rate Limiting bảo vệ Endpoint nhạy cảm | Giới hạn 5 req/phút endpoint login, có Retry-After và X-RateLimit-* | ✅ Đạt 100% |
 | Bộ kiểm thử tự động xUnit Backend E2E | 4/4 test cases passed (tổng suite Backend đạt 64/64 passed) | ✅ Đạt 100% |
 | Bộ kiểm thử tự động giao diện Playwright E2E | 5/5 test cases passed | ✅ Đạt 100% |
-| Postman Collection & Environment E2E | Đầy đủ 13 requests tích hợp assertions tự động | ✅ Đạt 100% |
+| Postman/Newman Collection & Environment E2E | 13/13 requests passed, 24/24 assertions passed (100%) | ✅ Đạt 100% |
+| Xử lý cấu hình nút Google Sign-In an toàn | Guard cảnh báo rõ ràng khi chưa có Client ID, không dùng ID mẫu | ✅ Đạt 100% |
 | Tự đánh giá mức độ hoàn thành nhiệm vụ Lab 8 | **Hoàn thành xuất sắc 100% khối lượng công việc** | **100%** |
