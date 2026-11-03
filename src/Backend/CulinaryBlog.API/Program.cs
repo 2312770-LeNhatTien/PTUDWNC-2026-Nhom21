@@ -71,6 +71,7 @@ if (app.Environment.IsDevelopment())
 // Khôi phục HTTPS/IP trước cookie, redirect và limiter; chỉ tin proxy đã khai báo.
 app.UseForwardedHeaders();
 app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseExceptionHandler();
 
 // Dev chạy HTTP cổng 5000 (SRS mục 5.2). Production mới dùng HTTPS và do

@@ -53,6 +53,11 @@ public class GetRecipeBySlugQueryHandler : IRequestHandler<GetRecipeBySlugQuery,
             }
         }
 
+        // Public aggregates must never count reviews that were soft-deleted.
+        // Keep the predicate here as an explicit contract in addition to the
+        // EF global query filter on RecipeReview.
+        var publicReviews = recipe.Reviews.Where(review => !review.IsDeleted).ToList();
+
         return new RecipeDetailDto(
             recipe.Id,
             recipe.Title,
@@ -108,8 +113,8 @@ public class GetRecipeBySlugQueryHandler : IRequestHandler<GetRecipeBySlugQuery,
                 i.IsPrimary,
                 i.OrderIndex
             )).ToList(),
-            AverageRating: recipe.Reviews.Count == 0 ? 0 : Math.Round((decimal)recipe.Reviews.Average(review => review.Rating), 2),
-            ReviewCount: recipe.Reviews.Count
+            AverageRating: publicReviews.Count == 0 ? 0 : Math.Round((decimal)publicReviews.Average(review => review.Rating), 2),
+            ReviewCount: publicReviews.Count
         );
     }
 }

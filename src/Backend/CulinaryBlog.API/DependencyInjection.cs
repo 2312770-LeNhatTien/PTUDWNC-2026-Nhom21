@@ -118,8 +118,17 @@ public static class DependencyInjection
                     Instance = context.HttpContext.Request.Path
                 };
                 problem.Extensions["errorCode"] = "RATE_LIMIT_EXCEEDED";
+                if (context.HttpContext.Items.TryGetValue("CorrelationId", out var correlationId))
+                {
+                    problem.Extensions["correlationId"] = correlationId;
+                    context.HttpContext.Response.Headers["X-Correlation-ID"] = correlationId?.ToString();
+                }
 
-                await context.HttpContext.Response.WriteAsJsonAsync(problem, token);
+                await context.HttpContext.Response.WriteAsJsonAsync(
+                    problem,
+                    options: null,
+                    contentType: "application/problem+json",
+                    cancellationToken: token);
             };
 
             // FR-AUTH-002 / DECISIONS D7: Endpoint login giới hạn 5 request/phút theo IP

@@ -57,8 +57,8 @@ Tuần 7 (Lab 7 - Đánh giá sao & Bình luận):
   ✅ Component gắn sao ⭐ tương tác, bình luận tại trang chi tiết món và hiển thị rating trên RecipeCard
 
 Tuần 8 (Lab 8 - Tối ưu hóa Database & Nghiệm thu):
-  🔲 Tối ưu hóa chỉ mục CSDL PostgreSQL (EXPLAIN ANALYZE), rà soát chuẩn RFC 7807 ProblemDetails
-  🔲 Kiểm tra cấu hình bảo mật Security Headers (CORS, CSP, HSTS) và cùng nhóm chuẩn bị nghiệm thu
+  ✅ Tối ưu hóa chỉ mục CSDL PostgreSQL (GIN/B-Tree), rà soát chuẩn RFC 7807 ProblemDetails
+  ✅ Kiểm tra cấu hình bảo mật Security Headers (CORS, CSP, HSTS) và cùng nhóm chuẩn bị nghiệm thu
 ```
 
 ---
@@ -271,4 +271,16 @@ git checkout -b 2312777-NguyenVietToan-buoi4
   3. Kiểm tra các tiêu chuẩn bảo mật Security Headers (CORS, CSP, HSTS, X-Frame-Options) và cùng nhóm chuẩn bị nghiệm thu đồ án.
 
 **Hướng dẫn chi tiết:** mục **P02** trong [tài liệu khắc phục chung](../HUONG_DAN_KHAC_PHUC_SAU_RA_SOAT.md). Kiểm tra SQL và headers tại lớp trả response; không tạo index cho mọi cột máy móc hoặc áp CSP khiến Google Sign-In/MinIO không chạy.
+
+### Lab 8 — bằng chứng kiểm chứng và giới hạn môi trường
+
+| Hạng mục | Kết quả | Môi trường/dữ liệu |
+|---|---|---|
+| RFC 7807 400/401/403/404/409/500 | Đạt qua test handler; 401/403/429 được kiểm tra thêm ở API test | .NET 10, `application/problem+json`, có `errorCode` và correlation ID |
+| Security headers khi thành công/lỗi | Đạt qua TestServer HTTPS: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, HSTS | Production environment giả lập, request scheme `https`, downstream exception được clear response |
+| CSP, login, upload, hiển thị ảnh | Smoke test deployment trên main đã bao phủ login, upload MinIO TLS `:9443`, resize và decode ảnh; CSP nay lấy `NEXT_PUBLIC_MEDIA_URL` | Compose Lab 8, Nginx HTTPS `:8443`, media HTTPS `:9443` |
+| EXPLAIN search | Main đã ghi nhận `Bitmap Index Scan IDX_Recipe_SearchVector`, execution khoảng `0,155 ms` | PostgreSQL 16.15, 100 recipe Published, pool 40; số đo dataset nhỏ |
+| EXPLAIN phân trang | Đã thêm truy vấn tái lập tại `scripts/lab8-explain.sql`; chưa ghi số đo mới trong workspace này vì PostgreSQL local chưa chạy | Chạy lại trên cùng DB/seed để lưu output thật, không suy diễn từ kết quả search |
+
+Lệnh SQL trong `scripts/lab8-explain.sql` là bằng chứng tái lập cho search và phân trang; không đưa token, dữ liệu mật khẩu hoặc file báo cáo cá nhân vào Git.
 
