@@ -116,12 +116,15 @@ services:
         API_URL: http://api:8080
         NEXT_PUBLIC_API_URL: ${PUBLIC_ORIGIN}
         NEXT_PUBLIC_MEDIA_URL: ${MEDIA_PUBLIC_ORIGIN}
+        NEXT_PUBLIC_SITE_URL: ${PUBLIC_ORIGIN}
         NEXT_IMAGE_UNOPTIMIZED: ${NEXT_IMAGE_UNOPTIMIZED:-false}
     restart: unless-stopped
     environment:
       API_URL: http://api:8080
       AUTH_URL: ${PUBLIC_ORIGIN}
       AUTH_TRUST_HOST: 'true'
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN}
+      NEXT_PUBLIC_SITE_URL: ${PUBLIC_ORIGIN}
     secrets: [auth_secret]
     networks: [backend]
     depends_on:

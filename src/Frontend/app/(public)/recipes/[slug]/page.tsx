@@ -15,6 +15,7 @@ import RecipeReviews from '@/components/recipes/RecipeReviews';
 import type { RecipeDifficulty, RecipeImageDto } from '@/types/api';
 import { isAxiosError } from 'axios';
 import FallbackImage from '@/components/ui/FallbackImage';
+import { getSiteUrl, serializeJsonLd } from '@/lib/seo';
 
 interface RecipeDetailPageProps {
   // Trong Next.js 15, params là một Promise cần được await
@@ -184,10 +185,7 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
     : null;
 
   // 4. Xây dựng cấu trúc dữ liệu vi mô Schema.org Recipe JSON-LD (P03)
-  const siteUrl =
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    'http://localhost:3000';
+  const siteUrl = getSiteUrl();
   const canonicalUrl = `${siteUrl}/recipes/${recipe.slug}`;
 
   // Tổng hợp mảng URL ảnh cho Recipe Schema
@@ -286,7 +284,7 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
       {/* ── CẤU TRÚC DỮ LIỆU SCHEMA.ORG RECIPE JSON-LD (P03) ──────────── */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdRecipe) }}
+        dangerouslySetInnerHTML={{ __html: serializeJsonLd(jsonLdRecipe) }}
       />
 
       {/* ── THANH QUẢN LÝ DÀNH CHO TÁC GIẢ & QUẢN TRỊ VIÊN (FR-RCP-005 UI) ── */}

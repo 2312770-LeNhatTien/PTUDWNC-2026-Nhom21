@@ -15,6 +15,7 @@ const mockRecipe = {
   publishedAt: '2026-10-28T08:00:00Z',
   category: { id: 'cat-001', name: 'Món nước', slug: 'mon-nuoc' },
   author: { id: 'author-001', displayName: 'Đầu Bếp Tuấn', avatarUrl: 'https://example.com/avatar.jpg' },
+  authorDisplayName: 'Đầu Bếp Tuấn',
   nutrition: {
     calories: 450,
     protein: 28,
@@ -48,13 +49,50 @@ const mockRecipe = {
   reviewCount: 25,
 };
 
+const mockXssRecipe = {
+  ...mockRecipe,
+  id: 'rec-seo-xss',
+  title: 'Bánh Mì</script><script>window.__xss_executed=true</script>',
+  slug: 'banh-mi-xss-test',
+  description: 'Mô tả test XSS trong JSON-LD và canonical: </script><script>alert(1)</script>',
+};
+
 let mockServer: http.Server;
 
 test.beforeAll(async () => {
   mockServer = http.createServer((req, res) => {
+    if (req.url?.includes('banh-mi-xss-test')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ isSuccess: true, data: mockXssRecipe }));
+      return;
+    }
     if (req.url?.includes('pho-bo-gia-truyen-ha-noi')) {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ isSuccess: true, data: mockRecipe }));
+      return;
+    }
+    if (req.url?.includes('/categories/mon-nuoc')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        isSuccess: true,
+        data: {
+          id: 'cat-001',
+          name: 'Món nước',
+          slug: 'mon-nuoc',
+          description: 'Các món nước thơm ngon',
+          orderIndex: 1,
+          recipeCount: 1,
+          recipes: [mockRecipe],
+        }
+      }));
+      return;
+    }
+    if (req.url?.includes('/categories')) {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        isSuccess: true,
+        data: [{ id: 'cat-001', name: 'Món nước', slug: 'mon-nuoc', recipeCount: 5 }]
+      }));
       return;
     }
     res.writeHead(404, { 'Content-Type': 'application/json' });
@@ -142,5 +180,34 @@ test.describe('P03: SEO Metadata & Schema.org Recipe JSON-LD', () => {
     await page.goto('/login');
     const robotsLogin = page.locator('meta[name="robots"]');
     await expect(robotsLogin).toHaveAttribute('content', /noindex/);
+  });
+
+  test('JSON-LD escapes HTML characters to prevent XSS breakout (P1 fix)', async ({ page }) => {
+    await page.goto('/recipes/banh-mi-xss-test');
+
+    // Verify injected script does NOT execute in browser context
+    const isXssExecuted = await page.evaluate(() => (window as unknown as { __xss_executed?: boolean }).__xss_executed);
+    expect(isXssExecuted).toBeUndefined();
+
+    // Verify raw script tag innerHTML has escaped characters (< replaced with \u003c)
+    const rawContent = await page.locator('script[type="application/ld+json"]').innerHTML();
+    expect(rawContent).not.toContain('</script><script>');
+    expect(rawContent).toContain('\\u003c/script\\u003e');
+
+    // Verify JSON parses cleanly back to the original content
+    const parsed = JSON.parse(rawContent);
+    expect(parsed.name).toBe('Bánh Mì</script><script>window.__xss_executed=true</script>');
+  });
+
+  test('Category pages have explicit canonical URLs distinct from homepage (P2 fix)', async ({ page }) => {
+    // 1. /categories list page
+    await page.goto('/categories');
+    const categoriesCanonical = page.locator('link[rel="canonical"]');
+    await expect(categoriesCanonical).toHaveAttribute('href', /.*\/categories$/);
+
+    // 2. /categories/[slug] detail page
+    await page.goto('/categories/mon-nuoc');
+    const categoryDetailCanonical = page.locator('link[rel="canonical"]');
+    await expect(categoryDetailCanonical).toHaveAttribute('href', /.*\/categories\/mon-nuoc$/);
   });
 });

@@ -221,8 +221,28 @@ Commits (Lab 8):
 | Noindex private routes | ✅ Dashboard, auth, admin, profile |
 | robots.txt | ✅ Qua Next.js `app/robots.ts` |
 | Lighthouse desktop SEO+Perf | ✅ Perf=90, Best Practices=96 |
-| E2E test | ✅ Pass |
+| E2E test | ✅ Pass 5/5 test cases |
 | Mobile CLS | ⚠️ Cần fix Image sizing |
 | Mobile LCP | ⚠️ Cần preload + CDN |
 
-Lab 8 hoàn thành các yêu cầu cốt lõi P03. Vấn đề mobile performance do thiếu image dimension cố định và CDN — có thể khắc phục trong iteration tiếp theo.
+---
+
+## 6. Khắc phục & Tối ưu bổ sung (Code Review & Audit Fixes)
+
+Sau khi kiểm thử và rà soát bảo mật / deployment, đã giải quyết triệt để 4 lỗi tồn đọng:
+
+1. **P1 — Chống XSS trong JSON-LD (`src/Frontend/lib/seo.ts`):**
+   - **Vấn đề:** Trước đó `JSON.stringify()` nhúng trực tiếp vào thẻ `<script>` không escape dấu `<` và `>`, dẫn đến việc chuỗi độc hại như `</script><script>alert(1)</script>` có thể ngắt thẻ script của trình duyệt và thực thi mã độc XSS.
+   - **Khắc phục:** Viết hàm tiện ích `serializeJsonLd()` thực hiện serialize an toàn bằng cách escape `<` thành `\u003c`, `>` thành `\u003e`, `&` thành `\u0026`. Trình duyệt HTML parser hoàn toàn không bị ngắt script trong khi JSON parser vẫn đọc đúng dữ liệu chuẩn. Bổ sung test E2E Playwright mô phỏng payload XSS để kiểm chứng.
+
+2. **P2 — Đồng bộ Canonical Origin với môi trường Docker (`NEXT_PUBLIC_SITE_URL`):**
+   - **Vấn đề:** Biến môi trường production `PUBLIC_ORIGIN` chưa được kết nối với build arg frontend trong Docker Compose, khiến URL canonical và schema JSON-LD vẫn mặc định trỏ về `localhost:3000`.
+   - **Khắc phục:** Bổ sung `ARG NEXT_PUBLIC_SITE_URL` và `ENV NEXT_PUBLIC_SITE_URL` vào `Dockerfile`, cấu hình mapping `${PUBLIC_ORIGIN}` trong `docker-compose.prod.yml`, và chuẩn hóa hàm `getSiteUrl()` phân giải theo thứ tự ưu tiên các biến môi trường (`NEXT_PUBLIC_SITE_URL` -> `PUBLIC_ORIGIN` -> `NEXT_PUBLIC_APP_URL` -> `AUTH_URL` -> `http://localhost:3000`).
+
+3. **P2 — Sửa lỗi Canonical Danh mục kế thừa từ Root Layout:**
+   - **Vấn đề:** `/categories` và `/categories/[slug]` chưa cấu hình metadata alternates riêng nên kế thừa canonical `/` của root layout, dẫn đến sai lệch SEO trên công cụ tìm kiếm.
+   - **Khắc phục:** Cấu hình `alternates: { canonical: '/categories' }` tại `categories/page.tsx` và `generateMetadata` tại `categories/[slug]/page.tsx` trả về canonical đúng đường dẫn `/categories/${slug}`.
+
+4. **P2 — Loại bỏ JWT Key cố định khỏi Git (`appsettings.Development.json`):**
+   - **Vấn đề:** File `appsettings.Development.json` bị commit cứng chuỗi bí mật `JwtSettings:Key`, vi phạm quy tắc an toàn thông tin của dự án.
+   - **Khắc phục:** Xóa bỏ khối `JwtSettings:Key` khỏi `appsettings.Development.json`, chuyển hoàn toàn sang sử dụng `dotnet user-secrets` theo đúng hướng dẫn `docs/SETUP.md`. Đã kiểm chứng backend khởi động và đọc key từ secret manager bình thường.
