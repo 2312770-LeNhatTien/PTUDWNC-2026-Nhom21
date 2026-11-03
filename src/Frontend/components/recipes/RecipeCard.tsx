@@ -89,7 +89,7 @@ export default function RecipeCard({ recipe }: RecipeCardProps) {
         <div className="mt-auto pt-4 border-t border-neutral-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-100 text-orange-700 font-bold text-xs">
-              {recipe.authorDisplayName.charAt(0)}
+              {(recipe.authorDisplayName || "U").charAt(0).toUpperCase()}
             </div>
             <span className="text-xs font-medium text-neutral-700">
               {recipe.authorDisplayName}
