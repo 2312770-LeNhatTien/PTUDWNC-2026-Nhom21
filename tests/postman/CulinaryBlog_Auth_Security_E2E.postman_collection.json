@@ -1,0 +1,518 @@
+{
+  "info": {
+    "_postman_id": "c1f2e3d4-b5a6-4789-9012-3456789abcde",
+    "name": "Culinary Blog - Auth & Security E2E Test Suite (Lab 8 - Lâm Văn Đức)",
+    "description": "Bộ kịch bản kiểm thử tích hợp tự động End-to-End (E2E) cho phân hệ Xác thực & Bảo mật (Authentication & Security) của đồ án Culinary Blog.\nThành viên thực hiện: Lâm Văn Đức (MSSV: 2314299) - Nhóm 21 (PTUDWNC-2026).\n\nBao gồm các kịch bản:\n1. Toàn bộ vòng đời tài khoản (Register -> Login -> /me -> Token Rotation -> Logout).\n2. Kiểm thử bảo mật tấn công tái sử dụng Refresh Token cũ (Token Reuse Attack & Reuse Detection).\n3. Kiểm tra định dạng chuẩn RFC 7807 ProblemDetails (400, 401, 403, 409, 429).\n4. Kiểm tra Rate Limiting chống Brute-Force (login 5 req/phút) và các Headers bảo mật.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "01. Đăng ký tài khoản mới hợp lệ (FR-AUTH-001)",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "exec": [
+              "const randomId = Math.random().toString(36).substring(2, 10);",
+              "const email = `e2e_user_${Date.now()}_${randomId}@culinaryblog.test`;",
+              "const userName = `e2e_user_${randomId}`;",
+              "pm.environment.set('testEmail', email);",
+              "pm.environment.set('testUserName', userName);",
+              "pm.environment.set('testPassword', 'P@ssword123!');",
+              "console.log('Khởi tạo tài khoản test E2E:', email);"
+            ],
+            "type": "text/javascript"
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code là 201 Created', function () {",
+              "    pm.response.to.have.status(201);",
+              "});",
+              "",
+              "pm.test('Response trả về đầy đủ Access Token, Refresh Token và User Profile', function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json).to.have.property('data');",
+              "    pm.expect(json.data.accessToken).to.be.a('string');",
+              "    pm.expect(json.data.refreshToken).to.be.a('string');",
+              "    pm.expect(json.data.user.email).to.eql(pm.environment.get('testEmail'));",
+              "    pm.expect(json.data.user.roles).to.include('Author');",
+              "    ",
+              "    // Lưu tokens vào environment để các request tiếp theo sử dụng",
+              "    pm.environment.set('accessToken', json.data.accessToken);",
+              "    pm.environment.set('refreshToken', json.data.refreshToken);",
+              "    pm.environment.set('userId', json.data.user.id);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"displayName\": \"Lâm Văn Đức E2E Tester\",\n  \"userName\": \"{{testUserName}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "register"]
+        }
+      }
+    },
+    {
+      "name": "02. Đăng ký trùng Email - Kiểm tra RFC 7807 Conflict 409",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code là 409 Conflict', function () {",
+              "    pm.response.to.have.status(409);",
+              "});",
+              "",
+              "pm.test('Content-Type là application/problem+json', function () {",
+              "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+              "});",
+              "",
+              "pm.test('Cấu trúc RFC 7807 ProblemDetails đúng chuẩn', function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.status).to.eql(409);",
+              "    pm.expect(json.title).to.be.a('string');",
+              "    pm.expect(json.errorCode).to.eql('RESOURCE_CONFLICT');",
+              "    pm.expect(json.detail).to.be.a('string');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\",\n  \"displayName\": \"Người dùng trùng lặp\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/register",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "register"]
+        }
+      }
+    },
+    {
+      "name": "03. Đăng nhập sai mật khẩu - Kiểm tra RFC 7807 Unauthorized 401",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code là 401 Unauthorized', function () {",
+              "    pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test('Lỗi định dạng theo RFC 7807 ProblemDetails', function () {",
+              "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.status).to.eql(401);",
+              "    pm.expect(json.errorCode).to.eql('HTTP_401');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"WrongPassword@999\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "04. Đăng nhập thành công Email/Mật khẩu (FR-AUTH-002)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code là 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Đăng nhập thành công trả về cặp token mới', function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json).to.have.property('data');",
+              "    pm.expect(json.data.accessToken).to.be.a('string');",
+              "    pm.expect(json.data.refreshToken).to.be.a('string');",
+              "    ",
+              "    pm.environment.set('accessToken', json.data.accessToken);",
+              "    pm.environment.set('refreshToken', json.data.refreshToken);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "05. Xem hồ sơ cá nhân - Bảo mật không lộ mật khẩu (FR-AUTH-006)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code là 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Thông tin hồ sơ đầy đủ và không lộ PasswordHash', function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json).to.have.property('data');",
+              "    pm.expect(json.data.email).to.eql(pm.environment.get('testEmail'));",
+              "    pm.expect(json.data).to.not.have.property('passwordHash');",
+              "    pm.expect(json.data).to.not.have.property('securityStamp');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "me"]
+        }
+      }
+    },
+    {
+      "name": "06. Cập nhật hồ sơ cá nhân (FR-AUTH-007)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code là 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Hồ sơ được cập nhật thành công', function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json).to.have.property('data');",
+              "    pm.expect(json.data.displayName).to.eql('Lâm Văn Đức (Auth Lead)');",
+              "    pm.expect(json.data.bio).to.eql('Phụ trách Phân hệ Authentication & Security Nhóm 21');",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "PATCH",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"displayName\": \"Lâm Văn Đức (Auth Lead)\",\n  \"bio\": \"Phụ trách Phân hệ Authentication & Security Nhóm 21\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/me",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "me"]
+        }
+      }
+    },
+    {
+      "name": "07. Làm mới Token - Token Rotation (FR-AUTH-004)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code là 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Cấp cặp token mới và xoay vòng Refresh Token (Rotation)', function () {",
+              "    const json = pm.response.json();",
+              "    pm.expect(json).to.have.property('data');",
+              "    pm.expect(json.data.accessToken).to.be.a('string');",
+              "    pm.expect(json.data.refreshToken).to.be.a('string');",
+              "    ",
+              "    const oldToken = pm.environment.get('refreshToken');",
+              "    pm.expect(json.data.refreshToken).to.not.eql(oldToken);",
+              "    ",
+              "    // Lưu token cũ để lát nữa thực hiện kịch bản tấn công Token Reuse",
+              "    pm.environment.set('oldRotatedRefreshToken', oldToken);",
+              "    // Cập nhật token mới",
+              "    pm.environment.set('accessToken', json.data.accessToken);",
+              "    pm.environment.set('refreshToken', json.data.refreshToken);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/refresh",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "refresh"]
+        }
+      }
+    },
+    {
+      "name": "08. Tấn công tái sử dụng Refresh Token cũ (Token Reuse Attack)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code là 401 Unauthorized khi gửi lại token cũ đã bị thu hồi', function () {",
+              "    pm.response.to.have.status(401);",
+              "});",
+              "",
+              "pm.test('Kích hoạt cơ chế Reuse Detection và trả về RFC 7807', function () {",
+              "    pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json');",
+              "    const json = pm.response.json();",
+              "    pm.expect(json.status).to.eql(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{oldRotatedRefreshToken}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/refresh",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "refresh"]
+        }
+      }
+    },
+    {
+      "name": "09. Kiểm tra toàn bộ Token Family đã bị thu hồi sau tấn công",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Token hợp lệ gần nhất cũng bị vô hiệu hóa (Fail-Closed)', function () {",
+              "    // Theo nguyên tắc Token Reuse Detection, khi phát hiện token cũ được dùng lại,",
+              "    // toàn bộ chuỗi token family của phiên đó bị thu hồi lập tức để bảo vệ tài khoản.",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/refresh",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "refresh"]
+        }
+      }
+    },
+    {
+      "name": "10. Đăng nhập lại tạo phiên mới",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code là 200 OK', function () {",
+              "    pm.response.to.have.status(200);",
+              "});",
+              "",
+              "pm.test('Cấp token mới sau khi đăng nhập lại', function () {",
+              "    const json = pm.response.json();",
+              "    pm.environment.set('accessToken', json.data.accessToken);",
+              "    pm.environment.set('refreshToken', json.data.refreshToken);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{testEmail}}\",\n  \"password\": \"{{testPassword}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/login",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "11. Đăng xuất an toàn - Thu hồi Refresh Token (FR-AUTH-005)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code là 204 No Content', function () {",
+              "    pm.response.to.have.status(204);",
+              "});",
+              "",
+              "pm.test('Logout: Refresh Token bị thu hồi trong DB, Access Token còn hạn không mặc nhiên mất hiệu lực ngay', function () {",
+              "    // Refresh token đã bị thu hồi (IsRevoked = true) trong CSDL.",
+              "    // Theo thiết kế Stateless JWT, Access Token còn hạn (15 phút) không mặc nhiên mất hiệu lực ngay lập tức,",
+              "    // nhưng client xóa token khỏi bộ nhớ và kẻ gian không thể dùng Refresh Token để xin cấp phiên mới.",
+              "    pm.expect(pm.response.code).to.eql(204);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "description": "Khi người dùng đăng xuất (Logout), Refresh Token sẽ bị thu hồi vĩnh viễn trong CSDL (IsRevoked = true). Theo kiến trúc Stateless JWT, Access Token còn hạn (thời gian sống 15 phút) không mặc nhiên mất hiệu lực ngay lập tức trừ khi triển khai blacklist tập trung trong Redis/MemoryCache, nhưng client sẽ xóa Access Token khỏi bộ nhớ và kẻ gian không thể dùng Refresh Token để xin cấp phiên mới.",
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/logout",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "logout"]
+        }
+      }
+    },
+    {
+      "name": "12. Kiểm tra Refresh Token đã bị thu hồi sau Đăng xuất",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code là 401 Unauthorized khi dùng token đã đăng xuất', function () {",
+              "    pm.response.to.have.status(401);",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/v1/auth/refresh",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "v1", "auth", "refresh"]
+        }
+      }
+    },
+    {
+      "name": "13. Kiểm tra Security Headers trên phản hồi xác thực",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Headers bảo mật chuẩn OWASP và RFC có mặt đầy đủ', function () {",
+              "    pm.expect(pm.response.headers.get('X-Content-Type-Options')).to.eql('nosniff');",
+              "    pm.expect(pm.response.headers.get('X-Frame-Options')).to.eql('DENY');",
+              "    pm.expect(pm.response.headers.get('Referrer-Policy')).to.eql('strict-origin-when-cross-origin');",
+              "    pm.expect(pm.response.headers.has('Permissions-Policy')).to.be.true;",
+              "});"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/health/live",
+          "host": ["{{baseUrl}}"],
+          "path": ["health", "live"]
+        }
+      }
+    }
+  ]
+}
