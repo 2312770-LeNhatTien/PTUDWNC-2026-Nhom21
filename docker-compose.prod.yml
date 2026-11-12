@@ -151,10 +151,17 @@ services:
       api: { condition: service_healthy }
       frontend: { condition: service_healthy }
 
-  # Chỉ gọi thủ công với bộ compose local; production không có tài khoản demo mặc định.
+  # Chỉ bật MailHog khi kiểm chứng triển khai local; SMTP được cấu hình qua env.
+  mailhog:
+    profiles: [local]
+    image: mailhog/mailhog:latest
+    ports: ['127.0.0.1:8028:8025', '127.0.0.1:1028:1025']
+    networks: [backend]
+
+  # Chỉ gọi thủ công, kể cả khi bật profile local; không tự seed cùng lệnh up.
   seed-demo:
     <<: *api-runtime
-    profiles: [local]
+    profiles: [manual]
     restart: 'no'
     command: [--seed-demo]
     environment:

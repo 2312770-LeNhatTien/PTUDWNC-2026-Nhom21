@@ -11,5 +11,5 @@ function Invoke-DeploymentCompose([string[]]$CommandArgs) {
 }
 function Set-DeploymentContext([string]$EnvFile, [bool]$Local) {
     $script:DeploymentComposeArgs = @('compose', '--env-file', $EnvFile, '-f', 'docker-compose.prod.yml')
-    if ($Local) { $script:DeploymentComposeArgs += @('-f', 'docker-compose.lab8.yml') }
+    if ($Local) { $script:DeploymentComposeArgs += @('--profile', 'local') }
 }
