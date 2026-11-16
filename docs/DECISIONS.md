@@ -243,7 +243,11 @@ Like/favorite, sửa/xóa review và moderation chưa được giao trong phần
 ## D19 - Triển khai Docker và HTTPS (Lab 8, Tiến)
 
 - API và Next.js có Dockerfile multi-stage; Next dùng standalone, runtime chạy user
-  không đặc quyền. Compose production tách khỏi compose dev; MailHog chỉ có ở override local.
+  không đặc quyền. `docker-compose.yml` phục vụ hạ tầng development;
+  `docker-compose.prod.yml` phục vụ ứng dụng container/Nginx/HTTPS. Kiểm chứng deployment
+  trên máy local dùng profile `local` trong cùng file production, không tách file theo buổi học.
+  Profile này chỉ bật MailHog; env local dùng SMTP `mailhog:1025`.
+  `seed-demo` thuộc profile `manual`, chỉ chạy khi gọi đích danh, không tự seed khi `up`.
 - Nginx kết thúc TLS 1.2/1.3 và redirect public HTTP; API nhận HTTP nội bộ, xử lý
   forwarded headers trước cookie/limiter và chỉ tin proxy đã cấu hình. API/DB/Redis/MinIO
   không publish cổng nội bộ. Cổng TLS media chỉ cho GET/HEAD; upload vẫn qua API theo D18.

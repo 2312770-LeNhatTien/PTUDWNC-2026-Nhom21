@@ -79,11 +79,18 @@ public class GlobalExceptionMiddleware : IExceptionHandler
 
         // Gắn CorrelationId để tra log (FR-OBS-002).
         if (httpContext.Items.TryGetValue("CorrelationId", out var correlationId))
+        {
             problem.Extensions["correlationId"] = correlationId;
+            httpContext.Response.Headers["X-Correlation-ID"] = correlationId?.ToString();
+        }
 
         httpContext.Response.StatusCode = status;
         httpContext.Response.ContentType = "application/problem+json";
-        await httpContext.Response.WriteAsJsonAsync(problem, cancellationToken);
+        await httpContext.Response.WriteAsJsonAsync(
+            problem,
+            options: null,
+            contentType: "application/problem+json",
+            cancellationToken: cancellationToken);
         return true;
     }
 }

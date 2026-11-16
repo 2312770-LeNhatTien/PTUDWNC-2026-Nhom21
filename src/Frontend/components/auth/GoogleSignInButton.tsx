@@ -3,7 +3,7 @@
 // ============================================================================
 // CHỨC NĂNG: Nút Đăng nhập / Đăng ký một chạm bằng Google OAuth 2.0 (FR-AUTH-003 UI)
 // THÀNH VIÊN: Lâm Văn Đức (MSSV: 2314299)
-// TUẦN 5 (LAB 5): Tích hợp Google Identity Services (GIS) SDK & xử lý Token
+// TUẦN 5 (LAB 5) & TUẦN 8: Tích hợp Google Identity Services (GIS) SDK & xử lý Token
 // ============================================================================
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -77,10 +77,16 @@ export default function GoogleSignInButton({
   // 4. Trạng thái thông báo lỗi khi xác thực Google
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // 5. Lấy Client ID từ biến môi trường (hoặc giá trị mẫu trong lúc phát triển)
-  const googleClientId =
-    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-    "YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com";
+  // 5. Kiểm tra Google Client ID hợp lệ (chống truyền dummy/placeholder ID gây lỗi 'The given client ID is not found')
+  const rawClientId = (process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "").trim();
+  const isGoogleConfigured =
+    rawClientId.length > 0 &&
+    !rawClientId.includes("YOUR_GOOGLE_CLIENT_ID") &&
+    !rawClientId.startsWith("330982249317-ql4nni0lf25s6im4cchhdd57bm38me0e") &&
+    !rawClientId.includes("demo-client-id") &&
+    rawClientId.endsWith(".apps.googleusercontent.com");
+
+  const googleClientId = isGoogleConfigured ? rawClientId : "";
 
   /**
    * Hàm xử lý khi người dùng chọn tài khoản Google thành công trên Popup GIS
@@ -123,7 +129,7 @@ export default function GoogleSignInButton({
    * Khởi tạo Google Identity Services và render nút Google duy nhất vào DOM
    */
   const initializeGoogleSignIn = useCallback(() => {
-    if (typeof window === "undefined" || !window.google?.accounts?.id) {
+    if (!isGoogleConfigured || typeof window === "undefined" || !window.google?.accounts?.id) {
       return;
     }
 
@@ -160,16 +166,16 @@ export default function GoogleSignInButton({
         setIsButtonRendered(true);
       }
     } catch {
-      // Bỏ qua lỗi khởi tạo nếu Client ID chưa được cung cấp thật
+      // Bỏ qua lỗi khởi tạo nếu có sự cố ngoại lệ
     }
-  }, [googleClientId, handleCredentialResponse, mode]);
+  }, [googleClientId, handleCredentialResponse, isGoogleConfigured, mode]);
 
   // Lắng nghe sự kiện khi Google SDK đã tải xong
   useEffect(() => {
-    if (isGsiLoaded) {
+    if (isGsiLoaded && isGoogleConfigured) {
       initializeGoogleSignIn();
     }
-  }, [isGsiLoaded, initializeGoogleSignIn]);
+  }, [isGsiLoaded, isGoogleConfigured, initializeGoogleSignIn]);
 
   /**
    * Thu hồi phiên ghi nhớ Google của tài khoản trước để ép Google hiển thị danh sách chọn tài khoản mới
@@ -197,55 +203,82 @@ export default function GoogleSignInButton({
 
   return (
     <div className="w-full space-y-3">
-      {/* 1. Tải Google Identity Services SDK chính thức từ Google */}
-      <Script
-        src="https://accounts.google.com/gsi/client"
-        strategy="afterInteractive"
-        onLoad={() => setIsGsiLoaded(true)}
-      />
+      {/* 1. Chỉ tải Google Identity Services SDK khi đã cấu hình Client ID hợp lệ */}
+      {isGoogleConfigured && (
+        <Script
+          src="https://accounts.google.com/gsi/client"
+          strategy="afterInteractive"
+          onLoad={() => setIsGsiLoaded(true)}
+        />
+      )}
 
-      {/* 2. Thông báo lỗi nếu xảy ra sự cố khi đăng nhập Google */}
+      {/* 2. Thông báo lỗi nếu xảy ra sự cố khi xác thực Google với Backend */}
       {errorMessage && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-600 animate-in fade-in">
           <span>⚠️ {errorMessage}</span>
         </div>
       )}
 
-      {/* 3. Khung chứa nút Google chính thức do GIS SDK render */}
-      <div className="relative w-full flex flex-col items-center">
-        {/* Nút chuẩn của Google SDK sẽ render vào div này */}
-        <div
-          ref={buttonRef}
-          className={`w-full flex justify-center min-h-[44px] ${isLoading ? "opacity-50 pointer-events-none" : ""}`}
-        />
-
-        {/* Placeholder Loading chỉ hiển thị trong lúc Google SDK đang tải */}
-        {!isButtonRendered && (
-          <div className="w-full max-w-[320px] flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm">
-            <svg className="h-4 w-4 animate-spin text-orange-600" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
-            </svg>
-            <span>Đang tải Google Sign-In...</span>
+      {/* 3. Hiển thị thông báo khi chưa cấu hình Google Client ID hoặc render nút Google SDK */}
+      {!isGoogleConfigured ? (
+        <div className="w-full flex flex-col items-center">
+          <div className="w-full max-w-[340px] rounded-xl border border-dashed border-amber-300 bg-amber-50/80 p-3.5 text-center text-xs text-amber-900 shadow-sm animate-in fade-in">
+            <div className="flex items-center justify-center gap-1.5 font-semibold text-amber-800 mb-1">
+              <svg className="w-4 h-4 text-amber-600 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <span>Google Sign-In chưa được cấu hình</span>
+            </div>
+            <p className="text-[11px] text-amber-700 leading-normal">
+              Chưa thiết lập Google OAuth Client ID. Vui lòng cấu hình{" "}
+              <code className="font-mono bg-amber-100/90 px-1 py-0.5 rounded text-[10px]">NEXT_PUBLIC_GOOGLE_CLIENT_ID</code>{" "}
+              trong <code className="font-mono bg-amber-100/90 px-1 py-0.5 rounded text-[10px]">.env.local</code> và{" "}
+              <code className="font-mono bg-amber-100/90 px-1 py-0.5 rounded text-[10px]">Google:ClientId</code> trên Backend.
+            </p>
           </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="relative w-full flex flex-col items-center">
+          {/* Nút chuẩn của Google SDK sẽ render vào div này */}
+          <div
+            ref={buttonRef}
+            className={`w-full flex justify-center min-h-[44px] ${isLoading ? "opacity-50 pointer-events-none" : ""}`}
+          />
 
-      {/* 4. Lối tắt chọn tài khoản Google khác */}
-      <div className="flex justify-center pt-0.5">
-        <button
-          type="button"
-          onClick={handleSwitchGoogleAccount}
-          className="text-xs text-slate-500 hover:text-orange-600 transition-colors inline-flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-orange-50"
-        >
-          <span>🔄</span>
-          <span className="underline">Đăng nhập tài khoản Google khác</span>
-        </button>
-      </div>
+          {/* Placeholder Loading chỉ hiển thị trong lúc Google SDK đang tải */}
+          {!isButtonRendered && (
+            <div className="w-full max-w-[320px] flex items-center justify-center gap-3 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-semibold text-slate-600 shadow-sm">
+              <svg className="h-4 w-4 animate-spin text-orange-600" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                />
+              </svg>
+              <span>Đang tải Google Sign-In...</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 4. Lối tắt chọn tài khoản Google khác (chỉ hiển thị khi đã cấu hình) */}
+      {isGoogleConfigured && (
+        <div className="flex justify-center pt-0.5">
+          <button
+            type="button"
+            onClick={handleSwitchGoogleAccount}
+            className="text-xs text-slate-500 hover:text-orange-600 transition-colors inline-flex items-center gap-1.5 py-1 px-2.5 rounded-lg hover:bg-orange-50"
+          >
+            <span>🔄</span>
+            <span className="underline">Đăng nhập tài khoản Google khác</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 
@@ -18,6 +19,9 @@ public sealed class RateLimitTests(ApiFixture app)
             Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/v1/auth/login", new { email = "missing@example.test", password = "BadPassword@123" })).StatusCode);
         var rejected = await client.PostAsJsonAsync("/api/v1/auth/login", new { email = "missing@example.test", password = "BadPassword@123" });
         Assert.Equal(HttpStatusCode.TooManyRequests, rejected.StatusCode);
+        Assert.Equal("application/problem+json", rejected.Content.Headers.ContentType?.MediaType);
+        var problem = await rejected.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("RATE_LIMIT_EXCEEDED", problem.GetProperty("errorCode").GetString());
         Assert.True(rejected.Headers.Contains("Retry-After"));
         Assert.Equal("5", rejected.Headers.GetValues("X-RateLimit-Limit").Single());
         Assert.Equal("0", rejected.Headers.GetValues("X-RateLimit-Remaining").Single());

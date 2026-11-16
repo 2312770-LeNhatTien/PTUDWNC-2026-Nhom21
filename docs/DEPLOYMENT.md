@@ -1,4 +1,4 @@
-# Triển khai Lab 8 — Docker, Nginx và HTTPS
+# Triển khai Docker, Nginx và HTTPS
 
 Phần P01 của Lê Nhật Tiến (2312770), dựa trên SRS 6.2/6.5 và DECISIONS D19. Chạy lệnh PowerShell từ root repo. Cần Docker Compose v2, PowerShell 7; Node.js 22 chỉ cần khi chạy Playwright ngoài container. Docker Desktop phải dùng Linux containers.
 
@@ -19,9 +19,11 @@ API upload kiểm tra bytes/quyền theo D18; không dùng lại presigned PUT. 
 | Nginx website/API/dashboard/SEO | 443 | 443 | 127.0.0.1:8443 |
 | Nginx public media (chỉ GET/HEAD) | 9443 | 9443 | 127.0.0.1:9443 |
 | API / Next / PostgreSQL / Redis / MinIO | 8080 / 3000 / 5432 / 6379 / 9000 | Không publish | Không publish |
-| MailHog, chỉ override local | 8025 / 1025 | Không có | 127.0.0.1:8028 / 1028 |
+| MailHog, chỉ profile local | 8025 / 1025 | Không có | 127.0.0.1:8028 / 1028 |
 
-`docker-compose.prod.yml` chứa cấu hình triển khai; `docker-compose.lab8.yml` chỉ thêm MailHog local. Không chạy compose dev cùng tên project production. Network mặc định `172.31.88.0/24`, Nginx `172.31.88.10`; đổi cả `PRODUCTION_SUBNET` và `PROXY_IP` nếu bị trùng mạng. API chỉ tin forwarded headers từ proxy được khai báo; Nginx ghi đè IP/scheme do client gửi.
+`docker-compose.yml` có sẵn dùng cho hạ tầng development: chạy ứng dụng trực tiếp ở cổng 3000/5000, kết nối PostgreSQL/Redis/MinIO/Seq/MailHog qua các cổng dev. `docker-compose.prod.yml` đóng gói ứng dụng cùng Nginx/HTTPS và giữ dịch vụ dữ liệu trong mạng riêng theo D19. Khi thử deployment trên máy local, bật `--profile local` trong chính file này để thêm MailHog; không cần file Compose theo buổi học. Không dùng compose dev làm override cho production vì Compose có thể gộp cả cổng dev, thông tin đăng nhập demo và cấu hình volume khác nhau.
+
+Không chạy compose dev cùng tên project production. Network mặc định `172.31.88.0/24`, Nginx `172.31.88.10`; đổi cả `PRODUCTION_SUBNET` và `PROXY_IP` nếu bị trùng mạng. API chỉ tin forwarded headers từ proxy được khai báo; Nginx ghi đè IP/scheme do client gửi.
 
 Named volumes giữ PostgreSQL, Redis AOF, MinIO, SEO và Data Protection keys. API chạy user 1654, Next chạy user node. Runtime image không chứa source, `.env.local`, secrets, log, báo cáo Word hoặc kế hoạch local. Với API scale-out, SEO/key ring phải dùng storage chung có quyền phù hợp; volume local trên một Docker host không thay thế shared storage nhiều máy.
 
@@ -35,17 +37,19 @@ runtime chỉ có server, license upstream và HTTP health probe, không cần `
 
 ```powershell
 ./scripts/Initialize-Deployment.ps1 -Local
-docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml config --quiet
-docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml build api frontend minio
-docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml up -d --wait --wait-timeout 180
+docker compose --env-file .env.production.local -f docker-compose.prod.yml --profile local config --quiet
+docker compose --env-file .env.production.local -f docker-compose.prod.yml --profile local build api frontend minio
+docker compose --env-file .env.production.local -f docker-compose.prod.yml --profile local up -d --wait --wait-timeout 180
 # Tạo demo CHỈ khi test local, không tự chạy ở production.
-docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml run --rm seed-demo
+docker compose --env-file .env.production.local -f docker-compose.prod.yml --profile local run --rm seed-demo
 curl.exe --fail --cacert .secrets/tls/tls.crt https://localhost:8443/health
 ```
 
 Script sinh secret ngẫu nhiên vào `.secrets/` và cert tự ký localhost có hạn 30 ngày. Không cài CA vào máy. Browser có thể cảnh báo certificate; local có thể mở/cho phép certificate của website và media, hoặc dùng Playwright `ignoreHTTPSErrors`. Production phải dùng certificate hợp lệ, không tắt xác minh TLS. Local tắt HSTS (`max-age=0`), còn profile production mặc định bật một năm.
 
-Nếu đã có `.env.production.local`, script dừng để tránh vô tình thay khóa deployment. Có thể dùng `-EnvFile .env.production.tien.local`; khi đó truyền cùng đường dẫn đó vào mọi lệnh compose/backup/restore. Khi đổi project name phải hiểu rằng Docker sẽ dùng bộ volumes mới. Không đổi credentials PostgreSQL chỉ bằng sửa file khi đang dùng volume cũ; phải thực hiện rotation tương ứng trong dịch vụ.
+Nếu đã có `.env.production.local`, script dừng để tránh vô tình thay khóa deployment. Với env local từng dùng file override cũ, đặt `SMTP_HOST=mailhog` và `SMTP_PORT=1025`, rồi dùng `--profile local` như các lệnh trên; giữ nguyên secrets, project name và đường dẫn volumes. Profile `local` chỉ bật MailHog; `seed-demo` vẫn phải gọi đích danh bằng `run --rm seed-demo`, không tự chạy khi `up`.
+
+Có thể dùng `-EnvFile .env.production.tien.local`; khi đó truyền cùng đường dẫn đó vào mọi lệnh compose/backup/restore. Khi đổi project name phải hiểu rằng Docker sẽ dùng bộ volumes mới. Không đổi credentials PostgreSQL chỉ bằng sửa file khi đang dùng volume cũ; phải thực hiện rotation tương ứng trong dịch vụ.
 
 Tài khoản demo từ seeder hiện có: Admin `admin@culinary.local` / `Admin@123`, Author `bep_truong_an@culinary.local` / `Author@123`. Chúng chỉ được tạo khi gọi `seed-demo` với môi trường Development. Website local: https://localhost:8443; mail: http://localhost:8028. Bộ này tách với web dev/Lab 7 ở cổng 3000/5000.
 
@@ -111,9 +115,9 @@ Pop-Location
 Deployment smoke chỉ chạy sau khi dựng bộ local riêng và gọi `seed-demo`; test tạo recipe, upload ảnh và xóa một ảnh thử. Nó kiểm health/live/ready, HTTP308, TLS origin, upload có validate, resize native Linux, ảnh 300×300, cleanup MinIO, publish/public SSR, Admin cookie Secure/HttpOnly và dashboard/sitemap. Regression editor có request con chậm để kiểm tra không mất nội dung vừa gõ và RowVersion mới.
 
 ```powershell
-docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml ps
-docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml logs --tail 100 api nginx frontend
-docker compose --env-file .env.production.local -f docker-compose.prod.yml -f docker-compose.lab8.yml restart api frontend nginx
+docker compose --env-file .env.production.local -f docker-compose.prod.yml --profile local ps
+docker compose --env-file .env.production.local -f docker-compose.prod.yml --profile local logs --tail 100 api nginx frontend
+docker compose --env-file .env.production.local -f docker-compose.prod.yml --profile local restart api frontend nginx
 ```
 
 `/health/live` chỉ đo tiến trình, `/health/ready` đo PostgreSQL/Redis, `/health` thêm MinIO. Readiness lỗi là tín hiệu sửa phụ thuộc, không xóa volume để chữa lỗi. Jobs lỗi kiểm tra dashboard/Admin và log correlation ID; retry theo D14/D16. Đừng gửi token hoặc nội dung secrets vào báo cáo.

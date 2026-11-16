@@ -92,7 +92,7 @@ export default function Navbar() {
       window.dispatchEvent(new Event("auth-changed"));
       try { await signOut({ redirect: false }); }
       catch (error) { console.warn('Không thể kết thúc cookie phiên đăng nhập:', error); }
-      router.push("/login");
+      window.location.href = "/login";
     }
   };
 

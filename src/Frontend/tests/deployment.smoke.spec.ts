@@ -9,6 +9,13 @@ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAEAAAAAwCAYAAAChS3wfAAAAAXNSR0I
 test('TLS proxy, verified upload, core flow and durable cleanup on Linux', async ({ request, page, baseURL }) => {
   for (const path of ['/health', '/health/live', '/health/ready', '/', '/robots.txt', '/sitemap.xml'])
     expect((await request.get(path)).status(), path).toBe(200);
+  const homepage = await request.get('/');
+  const mediaOrigin = process.env.MEDIA_PUBLIC_ORIGIN || (() => {
+    const origin = new URL(baseURL!);
+    origin.port = '9443';
+    return origin.origin;
+  })();
+  expect(homepage.headers()['content-security-policy']).toContain(`img-src 'self' data: blob: ${mediaOrigin}`);
   const redirect = await request.get('http://localhost:8088/recipes', { maxRedirects: 0 });
   expect(redirect.status()).toBe(308); expect(redirect.headers().location).toBe(`${baseURL}/recipes`);
   const login = await request.post('/api/v1/auth/login', { data: { email: 'bep_truong_an@culinary.local', password: 'Author@123' } });
@@ -97,7 +104,7 @@ test('recreate keeps dashboard cookie and SEO through persistent volumes', async
   const before = await (await request.get('/sitemap.xml')).text();
   // Recreate app thật để kiểm tra key ring/SEO volume, không chỉ restart cùng tiến trình.
   execFileSync('docker', ['compose', '--env-file', process.env.DEPLOYMENT_ENV_FILE || '.env.production.local',
-    '-f', 'docker-compose.prod.yml', '-f', 'docker-compose.lab8.yml', 'up', '-d', '--no-deps', '--force-recreate', '--wait',
+    '-f', 'docker-compose.prod.yml', '--profile', 'local', 'up', '-d', '--no-deps', '--force-recreate', '--wait',
     '--wait-timeout', '90', 'api', 'frontend', 'nginx'], { cwd: resolve('../..'), stdio: 'pipe', timeout: 110000 });
   expect((await request.get('/hangfire')).status()).toBe(200);
   expect(await (await request.get('/sitemap.xml')).text()).toBe(before);
