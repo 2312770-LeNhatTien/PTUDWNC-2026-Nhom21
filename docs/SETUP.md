@@ -59,6 +59,8 @@ Get-Content -LiteralPath scripts/import-vietnamese-recipes.sql -Encoding UTF8 -R
 
 Các bài mới được xuất bản ngay dưới tài khoản đã chọn. `imported_recipes` cho biết số bài mới, còn `skipped_existing_slugs` cho biết số đường dẫn đã có và được bỏ qua, kể cả bài đã xóa mềm. Tệp mang theo nội dung, nguyên liệu, từng bước nấu và nguồn tham khảo. Để có ảnh bìa, tải ảnh bạn có quyền sử dụng trong mục **Bộ sưu tập hình ảnh** khi chỉnh sửa bài.
 
+Nếu có gói ảnh demo, giải nén thư mục `recipe-demo` vào `src/Frontend/public/` trước khi chạy frontend. Thêm `-v include_images=true` vào cuối lệnh nhập trên để gắn 30 ảnh bìa và 27 ảnh bước nấu. Có thể chạy lại với cùng email để bổ sung ảnh cho các bài đã nhập từ tệp này. Lệnh giữ nguyên ảnh đã có và bỏ qua các bước có nội dung đã sửa.
+
 ```powershell
 dotnet run --project src/Backend/CulinaryBlog.API
 ```

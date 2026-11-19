@@ -1,7 +1,11 @@
 -- 30 công thức ẩm thực đã đăng trên máy local. Xem cách nhập trong docs/SETUP.md.
--- Nguồn tham khảo nằm trong hướng dẫn từng món. Ảnh MinIO và thông tin tài khoản
--- không đi kèm. Tệp yêu cầu PostgreSQL đã áp dụng migrations và có danh mục.
+-- Nguồn tham khảo nằm trong hướng dẫn từng món. Dùng include_images=true khi đã
+-- giải nén thư mục ảnh recipe-demo vào public của frontend dev.
 \set ON_ERROR_STOP on
+\if :{?include_images}
+\else
+\set include_images false
+\endif
 BEGIN;
 
 CREATE TEMP TABLE import_author ON COMMIT DROP AS
@@ -103,6 +107,74 @@ FROM imported_recipe_ids added
 JOIN import_recipes r ON r.slug = added."Slug"
 CROSS JOIN LATERAL jsonb_to_recordset(r.steps)
     AS s(number integer, title text, description text, timer_minutes integer);
+
+\if :include_images
+-- Các tên ảnh tương ứng với thư mục recipe-demo trong gói ảnh local.
+CREATE TEMP TABLE import_images (slug text PRIMARY KEY, cover text, steps jsonb) ON COMMIT DROP;
+INSERT INTO import_images VALUES
+    ('banh-xeo-tom-thit-dau-xanh', 'banh-xeo-tom-thit-dau-xanh.avif', '[{"number":4,"file":"banh-xeo-tom-thit-dau-xanh-step-4.avif"}]'::jsonb),
+    ('bap-cai-luoc-cham-trung-nuoc-mam', 'bap-cai-luoc-cham-trung-nuoc-mam.jpg', '[{"number":3,"file":"bap-cai-luoc-cham-trung-nuoc-mam-step-3.jpg"}]'::jsonb),
+    ('bo-luc-lac-an-kem-com-ca-chua', 'bo-luc-lac-an-kem-com-ca-chua.avif', '[{"number":4,"file":"bo-luc-lac-an-kem-com-ca-chua-step-4.avif"}]'::jsonb),
+    ('bun-cha-gio-rau-song', 'bun-cha-gio-rau-song.avif', '[{"number":3,"file":"bun-cha-gio-rau-song-step-3.avif"}]'::jsonb),
+    ('bun-thit-nuong-rau-song', 'bun-thit-nuong-rau-song.avif', '[{"number":4,"file":"bun-thit-nuong-rau-song-step-4.avif"}]'::jsonb),
+    ('ca-kho-to', 'ca-kho-to.avif', '[{"number":3,"file":"ca-kho-to-step-3.avif"}]'::jsonb),
+    ('ca-phe-cot-dua-da-xay', 'ca-phe-cot-dua-da-xay.avif', '[{"number":3,"file":"ca-phe-cot-dua-da-xay-step-3.avif"}]'::jsonb),
+    ('ca-phe-sua-da-pha-phin', 'ca-phe-sua-da-pha-phin.avif', '[{"number":3,"file":"ca-phe-sua-da-pha-phin-step-3.avif"}]'::jsonb),
+    ('ca-ri-ga-nuoc-cot-dua', 'ca-ri-ga-nuoc-cot-dua.avif', '[{"number":4,"file":"ca-ri-ga-nuoc-cot-dua-step-4.avif"}]'::jsonb),
+    ('canh-kho-qua-nhoi-thit', 'canh-kho-qua-nhoi-thit.avif', '[]'::jsonb),
+    ('cha-gio-thit-heo-cu-san', 'cha-gio-thit-heo-cu-san.avif', '[{"number":4,"file":"cha-gio-thit-heo-cu-san-step-4.avif"}]'::jsonb),
+    ('chao-ga-gung-hanh', 'chao-ga-gung-hanh.avif', '[{"number":3,"file":"chao-ga-gung-hanh-step-3.avif"}]'::jsonb),
+    ('che-bap-nep-la-dua', 'che-bap-nep-la-dua.avif', '[{"number":3,"file":"che-bap-nep-la-dua-step-3.avif"}]'::jsonb),
+    ('che-chuoi-bot-bang-nuoc-cot-dua', 'che-chuoi-bot-bang-nuoc-cot-dua.avif', '[{"number":3,"file":"che-chuoi-bot-bang-nuoc-cot-dua-step-3.avif"}]'::jsonb),
+    ('dau-hu-nhoi-thit-sot-ca-chua', 'dau-hu-nhoi-thit-sot-ca-chua.avif', '[{"number":3,"file":"dau-hu-nhoi-thit-sot-ca-chua-step-3.avif"}]'::jsonb),
+    ('dau-hu-sot-ca-chua', 'dau-hu-sot-ca-chua.avif', '[{"number":3,"file":"dau-hu-sot-ca-chua-step-3.avif"}]'::jsonb),
+    ('do-chua-ca-rot-cu-cai-ngam-lanh', 'do-chua-ca-rot-cu-cai-ngam-lanh.avif', '[{"number":3,"file":"do-chua-ca-rot-cu-cai-ngam-lanh-step-3.avif"}]'::jsonb),
+    ('ga-kho-gung', 'ga-kho-gung.avif', '[]'::jsonb),
+    ('ga-xao-sa-ot', 'ga-xao-sa-ot.avif', '[{"number":3,"file":"ga-xao-sa-ot-step-3.avif"}]'::jsonb),
+    ('goi-cuon-tom-thit-cham-tuong-dau-phong', 'goi-cuon-tom-thit-cham-tuong-dau-phong.avif', '[]'::jsonb),
+    ('goi-xoai-xanh-tom-luoc', 'goi-xoai-xanh-tom-luoc.avif', '[{"number":3,"file":"goi-xoai-xanh-tom-luoc-step-3.avif"}]'::jsonb),
+    ('mi-bo-toi-hanh-la', 'mi-bo-toi-hanh-la.avif', '[{"number":3,"file":"mi-bo-toi-hanh-la-step-3.avif"}]'::jsonb),
+    ('mo-hanh-lam-bang-dau-an', 'mo-hanh-lam-bang-dau-an.avif', '[{"number":2,"file":"mo-hanh-lam-bang-dau-an-step-2.avif"}]'::jsonb),
+    ('nuoc-mam-chua-ngot-toi-ot', 'nuoc-mam-chua-ngot-toi-ot.avif', '[{"number":3,"file":"nuoc-mam-chua-ngot-toi-ot-step-3.avif"}]'::jsonb),
+    ('sinh-to-bo-sua-dac', 'sinh-to-bo-sua-dac.avif', '[{"number":3,"file":"sinh-to-bo-sua-dac-step-3.avif"}]'::jsonb),
+    ('sua-chua-sua-dac-lam-bang-may-u', 'sua-chua-sua-dac-lam-bang-may-u.avif', '[{"number":3,"file":"sua-chua-sua-dac-lam-bang-may-u-step-3.avif"}]'::jsonb),
+    ('suon-cot-let-nuong-sa', 'suon-cot-let-nuong-sa.avif', '[{"number":4,"file":"suon-cot-let-nuong-sa-step-4.avif"}]'::jsonb),
+    ('sup-nui-ga-xe', 'sup-nui-ga-xe.avif', '[{"number":3,"file":"sup-nui-ga-xe-step-3.avif"}]'::jsonb),
+    ('thit-kho-trung-nuoc-dua', 'thit-kho-trung-nuoc-dua.avif', '[{"number":3,"file":"thit-kho-trung-nuoc-dua-step-3.avif"}]'::jsonb),
+    ('xoi-la-dua-nuoc-cot-dua', 'xoi-la-dua-nuoc-cot-dua.avif', '[{"number":3,"file":"xoi-la-dua-nuoc-cot-dua-step-3.avif"}]'::jsonb);
+
+-- Bổ sung ảnh cho bài đã nhập trước đây nếu nội dung và tác giả khớp.
+CREATE TEMP TABLE image_targets ON COMMIT DROP AS
+SELECT p."Id", p."Slug", p."Title", image.cover, image.steps
+FROM "Recipes" p
+JOIN import_recipes r ON r.slug = p."Slug" AND r.title = p."Title"
+    AND r.instructions = p."Instructions"
+JOIN import_images image ON image.slug = p."Slug"
+JOIN import_author author ON author."Id" = p."AuthorId"
+WHERE NOT p."IsDeleted";
+
+INSERT INTO "RecipeImages" ("Id", "RecipeId", "OriginalUrl", "AltText", "IsPrimary",
+    "OrderIndex", "CreatedAt", "IsDeleted")
+SELECT gen_random_uuid(), target."Id", '/recipe-demo/' || target.cover, target."Title",
+    true, 0, now(), false
+FROM image_targets target
+WHERE NOT EXISTS (
+    SELECT 1 FROM "RecipeImages" image
+    WHERE image."RecipeId" = target."Id" AND NOT image."IsDeleted"
+)
+ON CONFLICT DO NOTHING;
+
+UPDATE "RecipeSteps" step
+SET "ImageUrl" = '/recipe-demo/' || photo.file, "UpdatedAt" = now()
+FROM image_targets target
+JOIN import_recipes r ON r.slug = target."Slug"
+CROSS JOIN LATERAL jsonb_to_recordset(target.steps) AS photo(number integer, file text)
+CROSS JOIN LATERAL jsonb_to_recordset(r.steps) AS original(number integer, title text, description text)
+WHERE step."RecipeId" = target."Id" AND step."StepNumber" = photo.number
+  AND original.number = photo.number AND original.title = step."Title"
+  AND original.description = step."Description" AND NOT step."IsDeleted"
+  AND nullif(step."ImageUrl", '') IS NULL;
+\endif
 
 SELECT count(*) AS imported_recipes,
     (SELECT count(*) FROM import_recipes) - count(*) AS skipped_existing_slugs
