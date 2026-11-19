@@ -47,6 +47,18 @@ Remove-Item Env:ConnectionStrings__DefaultConnection
 
 Migration hiện có bao gồm `unaccent`, concurrency token/trigger, full-text SearchVector/GIN, PendingJobs và CacheVersion. Không cần chạy SQL extension bằng tay. Khi chạy Development, API mặc định cũng migrate/seed; tắt bằng `Database__InitializeOnStartup=false` nếu chỉ muốn tự quản lý migration. Production phải apply migration riêng có kiểm soát; seeder tài khoản demo chỉ chạy Development.
 
+### Nhập 30 công thức có nguồn tham khảo
+
+Sau khi áp dụng migration và khởi tạo danh mục ở môi trường dev, thay email bên dưới bằng email của tài khoản **Author** hoặc **Admin** đang hoạt động trên máy bạn. Chạy lệnh từ thư mục gốc của repo trong PowerShell:
+
+```powershell
+$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
+Get-Content -LiteralPath scripts/import-vietnamese-recipes.sql -Encoding UTF8 -Raw |
+  docker compose exec -T postgres psql -X -U postgres -d culinary_blog -v author_email=author@example.com
+```
+
+Các bài mới được xuất bản ngay dưới tài khoản đã chọn. `imported_recipes` cho biết số bài mới, còn `skipped_existing_slugs` cho biết số đường dẫn đã có và được bỏ qua, kể cả bài đã xóa mềm. Tệp mang theo nội dung, nguyên liệu, từng bước nấu và nguồn tham khảo. Để có ảnh bìa, tải ảnh bạn có quyền sử dụng trong mục **Bộ sưu tập hình ảnh** khi chỉnh sửa bài.
+
 ```powershell
 dotnet run --project src/Backend/CulinaryBlog.API
 ```
