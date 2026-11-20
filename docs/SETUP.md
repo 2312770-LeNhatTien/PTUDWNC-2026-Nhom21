@@ -47,19 +47,19 @@ Remove-Item Env:ConnectionStrings__DefaultConnection
 
 Migration hiện có bao gồm `unaccent`, concurrency token/trigger, full-text SearchVector/GIN, PendingJobs và CacheVersion. Không cần chạy SQL extension bằng tay. Khi chạy Development, API mặc định cũng migrate/seed; tắt bằng `Database__InitializeOnStartup=false` nếu chỉ muốn tự quản lý migration. Production phải apply migration riêng có kiểm soát; seeder tài khoản demo chỉ chạy Development.
 
-### Nhập 30 công thức có nguồn tham khảo
+### Bộ 30 công thức của Lê Nhật Tiến
 
-Sau khi áp dụng migration và khởi tạo danh mục ở môi trường dev, thay email bên dưới bằng email của tài khoản **Author** hoặc **Admin** đang hoạt động trên máy bạn. Chạy lệnh từ thư mục gốc của repo trong PowerShell:
+Khi chạy backend Development với cấu hình mặc định, seeder tự nạp **30 công thức, 295 nguyên liệu, 95 bước nấu, 30 ảnh bìa và 27 ảnh bước nấu**. Nội dung ở `Persistence/Data/vietnamese-recipes.json` trong Infrastructure, được nhúng vào bản build; 57 ảnh đi cùng repo tại `src/Frontend/public/recipe-images/`, có trong cả image Docker frontend. Không cần tải ZIP hay nhập SQL riêng.
+
+Seeder dọn các bài nhận diện đúng là mẫu cũ của năm tài khoản demo, giữ bài thật và không nạp trùng slug. Không xóa volume/database để cập nhật dữ liệu. Nếu đã tắt tự khởi tạo, sau migration có thể chạy thủ công ở Development:
 
 ```powershell
-$OutputEncoding = [System.Text.UTF8Encoding]::new($false)
-Get-Content -LiteralPath scripts/import-vietnamese-recipes.sql -Encoding UTF8 -Raw |
-  docker compose exec -T postgres psql -X -U postgres -d culinary_blog -v author_email=author@example.com
+dotnet run --project src/Backend/CulinaryBlog.API -- --seed-demo
 ```
 
-Các bài mới được xuất bản ngay dưới tài khoản đã chọn. `imported_recipes` cho biết số bài mới, còn `skipped_existing_slugs` cho biết số đường dẫn đã có và được bỏ qua, kể cả bài đã xóa mềm. Tệp mang theo nội dung, nguyên liệu, từng bước nấu và nguồn tham khảo. Để có ảnh bìa, tải ảnh bạn có quyền sử dụng trong mục **Bộ sưu tập hình ảnh** khi chỉnh sửa bài.
+Tên lệnh `--seed-demo` được giữ tương thích với Compose hiện có; nội dung nạp là bộ 30 công thức cố định, không sinh ngẫu nhiên. Hồ sơ tác giả là **Lê Nhật Tiến — 2312770@dlu.edu.vn**. Tài khoản đã có trên máy Tiến giữ nguyên mật khẩu/quyền; máy mới chỉ tạo hồ sơ không có mật khẩu đăng nhập, không chia sẻ thông tin xác thực cá nhân. Thành viên dùng tài khoản riêng hoặc Admin dev để thử quản lý bài.
 
-Nếu có gói ảnh demo, giải nén thư mục `recipe-demo` vào `src/Frontend/public/` trước khi chạy frontend. Thêm `-v include_images=true` vào cuối lệnh nhập trên để gắn 30 ảnh bìa và 27 ảnh bước nấu. Có thể chạy lại với cùng email để bổ sung ảnh cho các bài đã nhập từ tệp này. Lệnh giữ nguyên ảnh đã có và bỏ qua các bước có nội dung đã sửa.
+Công thức được biên soạn lại từ Hungry Huy, có nguồn trong hướng dẫn từng món; ảnh đi kèm cũng lấy từ nguồn này. Đây không phải ảnh tự chụp hay công thức đã nấu kiểm chứng; không tự điền dinh dưỡng khi chưa có số liệu xác thực. Xem quyết định D20.
 
 ```powershell
 dotnet run --project src/Backend/CulinaryBlog.API
@@ -81,7 +81,7 @@ npm run dev
 
 Mở `http://localhost:3000`. `API_URL` là địa chỉ backend cho Next.js server; `NEXT_PUBLIC_API_URL` là địa chỉ trình duyệt truy cập được. Cả hai mặc định `http://localhost:5000`; client tự chuẩn hóa `/api/v1`. Khi đổi cổng, cập nhật CORS và Auth URL tương ứng.
 
-Tài khoản demo chỉ trên DB Development mới seed: `admin@culinary.local` / `Admin@123`, `bep_truong_an@culinary.local` / `Author@123`. Đừng đưa tài khoản demo lên môi trường public.
+Tài khoản demo chỉ trên DB Development mới seed: `admin@culinary.local` / `Admin@123`. Đừng đưa tài khoản demo lên môi trường public.
 
 ## 5. Các cổng local
 
