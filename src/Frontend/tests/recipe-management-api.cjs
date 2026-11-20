@@ -8,11 +8,12 @@ async function req(path, method = 'GET', body, token) {
   return { status: response.status, body: text ? JSON.parse(text) : null };
 }
 async function main() {
-  const login = await req('/auth/login', 'POST', { email: 'bep_truong_an@culinary.local', password: 'Author@123' });
-  assert.equal(login.status, 200);
+  const run = Date.now();
+  const login = await req('/auth/register', 'POST', { email: `recipes-owner-${run}@example.test`, password: 'TestPassword@123', displayName: 'Owner kiểm thử' });
+  assert.equal(login.status, 201);
   const token = login.body.data.accessToken;
-  const authorLogin = await req('/auth/login', 'POST', { email: 'ha_bep_nha@culinary.local', password: 'Author@123' });
-  assert.equal(authorLogin.status, 200);
+  const authorLogin = await req('/auth/register', 'POST', { email: `recipes-other-${run}@example.test`, password: 'TestPassword@123', displayName: 'Tác giả khác' });
+  assert.equal(authorLogin.status, 201);
   const otherToken = authorLogin.body.data.accessToken;
   const categoryId = (await req('/categories')).body.data[0].id;
   const payload = { title: `Recipe integration ${Date.now()}`, description: 'Kiểm tra quản lý công thức', instructions: 'Hướng dẫn', categoryId, prepTime: 10, cookTime: 20, servings: 2, difficulty: 'Easy', nutrition: { calories: 123 }, ingredients: [{ name: 'Gạo', quantity: 1, unit: 'kg' }], steps: [{ title: 'Nấu', description: 'Nấu chín' }] };
@@ -20,7 +21,13 @@ async function main() {
   assert.equal(created.status, 201, JSON.stringify(created.body));
   const id = created.body.data.id;
   const path = `/recipes/${id}`;
+  const sortingIds = [];
   try {
+    // Hai bài riêng để kiểm tra sắp xếp, không dựa vào dữ liệu mẫu ngẫu nhiên.
+    for (const title of [`A sorting ${run}`, `Z sorting ${run}`]) {
+      const row = await req('/recipes', 'POST', { ...payload, title }, otherToken);
+      assert.equal(row.status, 201); sortingIds.push(row.body.data.id);
+    }
     assert.equal((await req('/recipes/mine')).status, 401);
     assert.equal((await req(`${path}/edit`)).status, 401);
     for (const [suffix, method, body] of [['/edit', 'GET'], ['/archive', 'PATCH'], ['', 'DELETE'], ['', 'PUT', { ...payload, rowVersion: Buffer.alloc(16).toString('base64') }]]) {
@@ -80,6 +87,9 @@ async function main() {
     const remaining = (await req('/recipes/mine?pageSize=100', 'GET', undefined, token)).body;
     assert.ok(!remaining.data.some(r => r.id === id));
     console.log('PASS recipe management: private preview, own list/filter, validation, nutrition/children preservation, stale and concurrent updates, child version, archive, soft-delete.');
-  } finally { await req(path, 'DELETE', undefined, token); }
+  } finally {
+    await req(path, 'DELETE', undefined, token);
+    for (const sortingId of sortingIds) await req(`/recipes/${sortingId}`, 'DELETE', undefined, otherToken);
+  }
 }
 main().catch(error => { console.error(error); process.exitCode = 1; });

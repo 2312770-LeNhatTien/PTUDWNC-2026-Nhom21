@@ -51,7 +51,7 @@ Nếu đã có `.env.production.local`, script dừng để tránh vô tình tha
 
 Có thể dùng `-EnvFile .env.production.tien.local`; khi đó truyền cùng đường dẫn đó vào mọi lệnh compose/backup/restore. Khi đổi project name phải hiểu rằng Docker sẽ dùng bộ volumes mới. Không đổi credentials PostgreSQL chỉ bằng sửa file khi đang dùng volume cũ; phải thực hiện rotation tương ứng trong dịch vụ.
 
-Tài khoản demo từ seeder hiện có: Admin `admin@culinary.local` / `Admin@123`, Author `bep_truong_an@culinary.local` / `Author@123`. Chúng chỉ được tạo khi gọi `seed-demo` với môi trường Development. Website local: https://localhost:8443; mail: http://localhost:8028. Bộ này tách với web dev/Lab 7 ở cổng 3000/5000.
+Lệnh `seed-demo` (tên giữ tương thích) nạp bộ 30 công thức kèm ảnh theo D20. Admin dev: `admin@culinary.local` / `Admin@123`; hồ sơ tác giả Tiến trên máy mới không có mật khẩu. Chỉ gọi lệnh với môi trường Development. Website local: https://localhost:8443; mail: http://localhost:8028. Bộ này tách với web dev/Lab 7 ở cổng 3000/5000.
 
 ## 3. Domain/máy chủ thật
 

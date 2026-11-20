@@ -18,8 +18,9 @@ test('TLS proxy, verified upload, core flow and durable cleanup on Linux', async
   expect(homepage.headers()['content-security-policy']).toContain(`img-src 'self' data: blob: ${mediaOrigin}`);
   const redirect = await request.get('http://localhost:8088/recipes', { maxRedirects: 0 });
   expect(redirect.status()).toBe(308); expect(redirect.headers().location).toBe(`${baseURL}/recipes`);
-  const login = await request.post('/api/v1/auth/login', { data: { email: 'bep_truong_an@culinary.local', password: 'Author@123' } });
-  expect(login.status()).toBe(200);
+  // Tự tạo tác giả trong DB thử, không phụ thuộc tài khoản demo đã bỏ.
+  const login = await request.post('/api/v1/auth/register', { data: { email: `deploy-${Date.now()}@example.test`, password: 'TestPassword@123', displayName: 'Tác giả kiểm thử' } });
+  expect(login.status()).toBe(201);
   const session = (await login.json()).data;
   const headers = { Authorization: `Bearer ${session.accessToken}` };
   const categories = (await (await request.get('/api/v1/categories')).json()).data;

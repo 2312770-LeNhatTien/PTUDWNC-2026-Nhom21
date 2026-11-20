@@ -1,7 +1,15 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 
 // Run only against the isolated, seeded test database (see README_JOBS).
 const api = 'http://localhost:5107';
+// Tác giả dùng riêng cho DB thử, không lấy tài khoản hay bài viết của Tiến.
+async function registerAuthor(client: APIRequestContext) {
+  const response = await client.post(api + '/api/v1/auth/register', { data: {
+    email: `jobs-${Date.now()}-${Math.random().toString(36).slice(2)}@example.test`, password: 'TestPassword@123', displayName: 'Tác giả kiểm thử',
+  } });
+  expect(response.status()).toBe(201);
+  return (await response.json()).data;
+}
 test('Admin dashboard, cookie revocation, recurring trigger and public SEO rewrites', async ({ page, playwright }) => {
   const client = await playwright.request.newContext();
   const login = async (email: string, password: string) => {
@@ -10,7 +18,7 @@ test('Admin dashboard, cookie revocation, recurring trigger and public SEO rewri
     return (await r.json()).data;
   };
   let admin = await login('admin@culinary.local', 'Admin@123');
-  const author = await login('bep_truong_an@culinary.local', 'Author@123');
+  const author = await registerAuthor(client);
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
   const session = (token: string, refreshToken: string) => client.post(`${api}/api/v1/admin/hangfire/session`, { headers: auth(token), data: { refreshToken } });
   try {
@@ -84,7 +92,7 @@ test('Admin dashboard, cookie revocation, recurring trigger and public SEO rewri
     }, await xml.text());
     expect(doc.errors).toBe(0);
     expect(doc.namespace).toBe('http://www.sitemaps.org/schemas/sitemap/0.9');
-    expect(doc.urls.length).toBeGreaterThan(100);
+    expect(doc.urls.length).toBeGreaterThan(30);
     expect(doc.urls.every(url => url?.startsWith('http://localhost:3107/'))).toBe(true);
     expect(doc.urls).toContain('http://localhost:3107/recipes');
     expect(new Set(doc.urls).size).toBe(doc.urls.length);
@@ -95,9 +103,7 @@ test('Admin dashboard, cookie revocation, recurring trigger and public SEO rewri
 
 test('sitemap follows publish, archive and soft-delete without pagination/cache', async ({ playwright }) => {
   const client = await playwright.request.newContext();
-  const login = await client.post(`${api}/api/v1/auth/login`, { data: { email: 'bep_truong_an@culinary.local', password: 'Author@123' } });
-  expect(login.status()).toBe(200);
-  const token = (await login.json()).data.accessToken;
+  const token = (await registerAuthor(client)).accessToken;
   const adminLogin = await client.post(`${api}/api/v1/auth/login`, { data: { email: 'admin@culinary.local', password: 'Admin@123' } });
   expect(adminLogin.status()).toBe(200);
   const admin = (await adminLogin.json()).data.accessToken;

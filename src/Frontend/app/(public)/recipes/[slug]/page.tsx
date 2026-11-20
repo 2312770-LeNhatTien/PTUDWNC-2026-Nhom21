@@ -112,7 +112,7 @@ export async function generateMetadata({
         tags: [recipe.category?.name, recipe.difficulty].filter(Boolean) as string[],
         images: [
           {
-            url: imageUrl,
+            url: new URL(imageUrl, getSiteUrl()).href,
             width: 1200,
             height: 630,
             alt: primaryImg?.altText || recipe.title,
@@ -123,7 +123,7 @@ export async function generateMetadata({
         card: 'summary_large_image',
         title: `${recipe.title} | Culinary Blog`,
         description,
-        images: [imageUrl],
+        images: [new URL(imageUrl, getSiteUrl()).href],
       },
       robots: isPublished
         ? { index: true, follow: true }
@@ -208,7 +208,8 @@ export default async function RecipeDetailPage({ params }: RecipeDetailPageProps
     description:
       recipe.description ||
       `Công thức nấu món ${recipe.title} chuẩn vị với hướng dẫn chi tiết từng bước.`,
-    image: recipeImages,
+    // Ảnh đi kèm repo dùng đường dẫn tương đối; Schema cần URL đầy đủ.
+    image: recipeImages.map(url => new URL(url, siteUrl).href),
     author: {
       '@type': 'Person',
       name: recipe.author.displayName,
