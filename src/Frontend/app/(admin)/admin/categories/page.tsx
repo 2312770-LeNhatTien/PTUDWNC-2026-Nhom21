@@ -69,7 +69,7 @@ export default function AdminCategoriesPage() {
     try {
       await categoriesApi.delete(deleting.id);
       confirmation.current?.close();
-      setMessage('Đã xóa mềm danh mục (D1).');
+      setMessage('Đã xóa danh mục.');
       await load();
     } catch (err) { setFormError(errorMessage(err)); }
     finally { setSaving(false); }
@@ -84,12 +84,12 @@ export default function AdminCategoriesPage() {
       </div>
       {message && <p role="status" className="mb-4 rounded-lg bg-green-50 p-3 text-green-800">{message}</p>}
       {error && <div role="alert" className="mb-4 rounded-lg bg-red-50 p-3 text-red-700">{error} <button onClick={() => void load()} className="underline">Thử lại</button></div>}
-      <label className="block max-w-md">Tìm danh mục<input className={`${inputClass} my-3`} value={filter} onChange={e => setFilter(e.target.value)} placeholder="Tên hoặc slug" /></label>
+      <label className="block max-w-md">Tìm danh mục<input className={`${inputClass} my-3`} value={filter} onChange={e => setFilter(e.target.value)} placeholder="Tên danh mục" /></label>
       {loading ? <p role="status">Đang tải danh mục…</p> : <div className="overflow-x-auto rounded-xl border bg-white">
-        <table className="w-full text-left"><thead className="bg-orange-50"><tr>{['Tên danh mục', 'Slug', 'Số món', 'Thứ tự', 'Thao tác'].map(title => <th className="p-4" key={title}>{title}</th>)}</tr></thead>
-          <tbody>{categories.filter(c => `${c.name} ${c.slug}`.toLocaleLowerCase('vi').includes(filter.toLocaleLowerCase('vi'))).map(category => <tr key={category.id} className="border-t">
+        <table className="w-full text-left"><thead className="bg-orange-50"><tr>{['Tên danh mục', 'Số món', 'Thứ tự', 'Thao tác'].map(title => <th className="p-4" key={title}>{title}</th>)}</tr></thead>
+          <tbody>{categories.filter(c => c.name.toLocaleLowerCase('vi').includes(filter.toLocaleLowerCase('vi'))).map(category => <tr key={category.id} className="border-t">
             <td className="p-4"><a href={`/categories/${category.slug}`} className="font-semibold text-orange-700">{category.name}</a><p className="text-sm text-neutral-500">{category.description}</p></td>
-            <td className="p-4">{category.slug}</td><td className="p-4">{category.recipeCount}</td><td className="p-4">{category.orderIndex}</td>
+            <td className="p-4">{category.recipeCount}</td><td className="p-4">{category.orderIndex}</td>
             <td className="p-4"><div className="flex gap-4"><button onClick={() => openEditor(category)} className="text-orange-700" aria-label={`Sửa ${category.name}`}>Sửa</button><button className="text-red-700" aria-label={`Xóa ${category.name}`} onClick={() => { setDeleting(category); setFormError(''); confirmation.current?.showModal(); }}>Xóa</button></div></td>
           </tr>)}</tbody>
         </table>{!categories.length && !error && <p className="p-6">Chưa có danh mục.</p>}
@@ -98,7 +98,7 @@ export default function AdminCategoriesPage() {
         <form onSubmit={save} className="space-y-4">
           <h2 id="category-editor-title" className="text-xl font-bold">{editing ? 'Sửa danh mục' : 'Thêm danh mục'}</h2>
           <label className="block">Tên danh mục<input autoFocus required maxLength={100} className={inputClass} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></label>
-          {editing && <p className="rounded-lg bg-orange-50 p-3 text-sm">Slug giữ nguyên: <strong>{editing.slug}</strong>. Đổi tên không làm thay đổi liên kết.</p>}
+          {editing && <p className="text-sm text-neutral-500">Đổi tên không làm thay đổi đường dẫn danh mục.</p>}
           <label className="block">Mô tả<textarea className={inputClass} value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} /></label>
           <label className="block">URL ảnh<input type="url" className={inputClass} value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} /></label>
           <ImageUploader onUploadSuccess={url => setForm(previous => ({ ...previous, imageUrl: url }))} />
