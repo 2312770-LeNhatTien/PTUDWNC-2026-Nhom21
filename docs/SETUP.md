@@ -47,9 +47,9 @@ Remove-Item Env:ConnectionStrings__DefaultConnection
 
 Migration hiện có bao gồm `unaccent`, concurrency token/trigger, full-text SearchVector/GIN, PendingJobs và CacheVersion. Không cần chạy SQL extension bằng tay. Khi chạy Development, API mặc định cũng migrate/seed; tắt bằng `Database__InitializeOnStartup=false` nếu chỉ muốn tự quản lý migration. Production phải apply migration riêng có kiểm soát; seeder tài khoản demo chỉ chạy Development.
 
-### Bộ 30 công thức của Lê Nhật Tiến
+### Bộ 50 công thức của Lê Nhật Tiến
 
-Khi chạy backend Development với cấu hình mặc định, seeder tự nạp **30 công thức, 295 nguyên liệu, 95 bước nấu, 30 ảnh bìa và 27 ảnh bước nấu**. Nội dung ở `Persistence/Data/vietnamese-recipes.json` trong Infrastructure, được nhúng vào bản build; 57 ảnh đi cùng repo tại `src/Frontend/public/recipe-images/`, có trong cả image Docker frontend. Không cần tải ZIP hay nhập SQL riêng.
+Khi chạy backend Development với cấu hình mặc định, seeder tự nạp **50 công thức thuộc 18 danh mục, 574 nguyên liệu, 172 bước nấu, 50 ảnh bìa và đủ 172 ảnh bước nấu**. Nội dung đã nhập qua giao diện được lưu tại `Persistence/Data/vietnamese-recipes.json` trong Infrastructure, nhúng vào bản build; 222 ảnh đi cùng repo tại `src/Frontend/public/recipe-images/`, có trong cả image Docker frontend. Không cần tải ZIP hay nhập SQL riêng.
 
 Seeder dọn các bài nhận diện đúng là mẫu cũ của năm tài khoản demo, giữ bài thật và không nạp trùng slug. Không xóa volume/database để cập nhật dữ liệu. Nếu đã tắt tự khởi tạo, sau migration có thể chạy thủ công ở Development:
 
@@ -57,9 +57,9 @@ Seeder dọn các bài nhận diện đúng là mẫu cũ của năm tài khoả
 dotnet run --project src/Backend/CulinaryBlog.API -- --seed-demo
 ```
 
-Tên lệnh `--seed-demo` được giữ tương thích với Compose hiện có; nội dung nạp là bộ 30 công thức cố định, không sinh ngẫu nhiên. Hồ sơ tác giả là **Lê Nhật Tiến — 2312770@dlu.edu.vn**. Tài khoản đã có trên máy Tiến giữ nguyên mật khẩu/quyền; máy mới chỉ tạo hồ sơ không có mật khẩu đăng nhập, không chia sẻ thông tin xác thực cá nhân. Thành viên dùng tài khoản riêng hoặc Admin dev để thử quản lý bài.
+Tên lệnh `--seed-demo` được giữ tương thích với Compose hiện có; nội dung nạp là bộ 50 công thức cố định, không sinh ngẫu nhiên. Hồ sơ tác giả là **Lê Nhật Tiến — 2312770@dlu.edu.vn**. Tài khoản đã có trên máy Tiến giữ nguyên mật khẩu/quyền; máy mới chỉ tạo hồ sơ không có mật khẩu đăng nhập, không chia sẻ thông tin xác thực cá nhân. Thành viên dùng tài khoản riêng hoặc Admin dev để thử quản lý bài.
 
-Công thức được biên soạn lại từ Hungry Huy, có nguồn trong hướng dẫn từng món; ảnh đi kèm cũng lấy từ nguồn này. Đây không phải ảnh tự chụp hay công thức đã nấu kiểm chứng; không tự điền dinh dưỡng khi chưa có số liệu xác thực. Xem quyết định D20.
+Công thức được biên soạn lại từ Hungry Huy; một số ảnh thao tác bổ sung từ Cookbeo, CET, Hội Đầu Bếp Á Âu và BlueStone. Nguồn được ghi trong hướng dẫn từng món. Đây không phải ảnh tự chụp hay công thức đã nấu kiểm chứng; không tự điền dinh dưỡng khi chưa có số liệu xác thực. Xem quyết định D20.
 
 ```powershell
 dotnet run --project src/Backend/CulinaryBlog.API
