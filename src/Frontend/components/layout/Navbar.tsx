@@ -144,12 +144,6 @@ export default function Navbar() {
           {isAdmin && (
             <>
               <Link
-                href="/recipes/gallery-test"
-                className="hover:text-orange-600 transition-colors flex items-center gap-1"
-              >
-                <span>🖼️</span> Quản lý ảnh
-              </Link>
-              <Link
                 href="/recipes/steps-test"
                 className="hover:text-orange-600 transition-colors flex items-center gap-1"
               >
@@ -301,15 +295,6 @@ export default function Navbar() {
 
                     {isAdmin && (
                       <>
-                        <Link
-                          href="/recipes/gallery-test"
-                          onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-2.5 rounded-xl px-3 py-2 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                        >
-                          <span className="text-sm">🖼️</span>
-                          <span>Quản lý ảnh (Gallery)</span>
-                        </Link>
-
                         <Link
                           href="/recipes/ingredients-test"
                           onClick={() => setIsUserMenuOpen(false)}
@@ -463,13 +448,6 @@ export default function Navbar() {
                 <Link href="/admin/jobs" onClick={() => setIsMobileMenuOpen(false)}
                   className="px-3 py-2 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-colors">
                   Tác vụ nền
-                </Link>
-                <Link
-                  href="/recipes/gallery-test"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="px-3 py-2 rounded-xl hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                >
-                  🖼️ Quản lý ảnh
                 </Link>
                 <Link
                   href="/recipes/steps-test"
