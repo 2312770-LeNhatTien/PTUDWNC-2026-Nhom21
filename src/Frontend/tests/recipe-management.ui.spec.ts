@@ -176,7 +176,7 @@ test('dashboard filters, private preview, conflict reload, archive and soft dele
   await page.getByRole('button', { name: 'Xác nhận lưu trữ' }).click();
   await expect(page.getByText('Đã lưu trữ công thức.', { exact: true })).toBeVisible();
   await page.getByLabel('Trạng thái', { exact: true }).selectOption('Archived');
-  await row.getByRole('button', { name: 'Xóa mềm', exact: true }).click();
-  await page.getByRole('button', { name: 'Xác nhận xóa mềm' }).click();
+  await row.getByRole('button', { name: 'Xóa', exact: true }).click();
+  await page.getByRole('button', { name: 'Xác nhận xóa' }).click();
   await expect(row).toHaveCount(0);
 });

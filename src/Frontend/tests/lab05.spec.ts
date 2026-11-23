@@ -89,7 +89,7 @@ test('keeps delete confirmation open on CATEGORY_NOT_EMPTY and supports successf
   blocked = false;
   await page.getByRole('button', { name: 'Xác nhận xóa' }).click();
   await expect(page.getByRole('dialog')).not.toBeVisible();
-  await expect(page.getByRole('status').filter({ hasText: 'Đã xóa mềm' })).toBeVisible();
+  await expect(page.getByRole('status').filter({ hasText: 'Đã xóa' })).toBeVisible();
 });
 
 test('shows a retryable API error instead of a false empty result', async ({ page }) => {

@@ -43,7 +43,7 @@ export default function MyRecipesPage() {
     try {
       if (action.kind === 'archive') await recipesApi.archive(action.recipe.id);
       else await recipesApi.delete(action.recipe.id);
-      setNotice(action.kind === 'archive' ? 'Đã lưu trữ công thức.' : 'Đã xóa mềm công thức. Dữ liệu và ảnh được giữ lại.');
+      setNotice(action.kind === 'archive' ? 'Đã lưu trữ công thức.' : 'Đã xóa công thức.');
       setAction(null); setReload(v => v + 1);
     } catch (err) { setActionError(errorMessage(err)); }
     finally { setBusy(false); }
@@ -79,7 +79,7 @@ export default function MyRecipesPage() {
               <Link href={`/dashboard/recipes/${recipe.id}/preview`} className="text-neutral-700 underline">Xem trước</Link>
               <Link href={`/dashboard/recipes/${recipe.id}/edit`} className="font-semibold text-orange-700 underline">Sửa</Link>
               {recipe.status !== 'Archived' && <button disabled={busy} onClick={() => { setActionError(''); setAction({ kind: 'archive', recipe }); }} className="text-neutral-700 underline">Lưu trữ</button>}
-              <button disabled={busy} onClick={() => { setActionError(''); setAction({ kind: 'delete', recipe }); }} className="text-red-700 underline">Xóa mềm</button>
+              <button disabled={busy} onClick={() => { setActionError(''); setAction({ kind: 'delete', recipe }); }} className="text-red-700 underline">Xóa</button>
             </div></td>
           </tr>)}</tbody>
         </table></div>
@@ -88,12 +88,12 @@ export default function MyRecipesPage() {
           <span className="py-2">Trang {page}/{meta.totalPages}</span>
           <button disabled={page >= meta.totalPages} onClick={() => setPage(v => v + 1)} className="rounded-xl border px-4 py-2 disabled:opacity-40">Sau</button>
         </nav></>}
-    {action && <Modal title={action.kind === 'archive' ? 'Lưu trữ công thức' : 'Xóa mềm công thức'} onClose={() => { if (!busy) setAction(null); }}>
+    {action && <Modal title={action.kind === 'archive' ? 'Lưu trữ công thức' : 'Xóa công thức'} onClose={() => { if (!busy) setAction(null); }}>
       <p className="mb-3 font-semibold">{action.recipe.title}</p>
-      <p className="text-neutral-600">{action.kind === 'archive' ? 'Bài sẽ ẩn khỏi danh sách công khai và được giữ trong mục Đã lưu trữ.' : 'Bài sẽ ẩn khỏi danh sách của bạn. Bản ghi và ảnh vẫn được giữ lại trong hệ thống.'}</p>
+      <p className="text-neutral-600">{action.kind === 'archive' ? 'Bài sẽ ẩn khỏi danh sách công khai và được giữ trong mục Đã lưu trữ.' : 'Bạn có muốn xóa công thức này? Bài sẽ được gỡ khỏi danh sách của bạn và trang công khai.'}</p>
       {actionError && <p role="alert" className="mt-4 text-red-700">{actionError}</p>}
       <div className="mt-6 flex justify-end gap-3"><button disabled={busy} onClick={() => setAction(null)} className="rounded-xl border px-4 py-2">Hủy</button>
-        <button disabled={busy} onClick={confirmAction} className="rounded-xl bg-orange-600 px-4 py-2 text-white disabled:opacity-50">{busy ? 'Đang xử lý...' : action.kind === 'archive' ? 'Xác nhận lưu trữ' : 'Xác nhận xóa mềm'}</button></div>
+        <button disabled={busy} onClick={confirmAction} className="rounded-xl bg-orange-600 px-4 py-2 text-white disabled:opacity-50">{busy ? 'Đang xử lý...' : action.kind === 'archive' ? 'Xác nhận lưu trữ' : 'Xác nhận xóa'}</button></div>
     </Modal>}
   </main>;
 }

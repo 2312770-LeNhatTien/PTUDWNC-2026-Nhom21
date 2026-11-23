@@ -24,25 +24,31 @@ public static class DatabaseSeeder
             if (!await roles.RoleExistsAsync(role))
                 EnsureSucceeded(await roles.CreateAsync(new IdentityRole(role)));
 
-        // Tài khoản quản trị chỉ phục vụ Development, không phải tác giả bài viết.
-        var admin = await users.FindByEmailAsync("admin@culinary.local");
-        if (admin is null)
+        // Năm tài khoản dùng chung để mỗi thành viên demo đúng mười công thức.
+        var accounts = new (string Email, string Name, string Role, string Password)[]
         {
-            admin = ApplicationUser.Create("admin@culinary.local", "Quản Trị Viên", "admin");
-            admin.EmailConfirmed = true;
-            EnsureSucceeded(await users.CreateAsync(admin, "Admin@123"));
-            EnsureSucceeded(await users.AddToRoleAsync(admin, "Admin"));
-        }
-
-        // Chỉ chia sẻ hồ sơ tác giả, không đưa mật khẩu/hash/token thật vào repo.
-        var author = await users.FindByEmailAsync("2312770@dlu.edu.vn");
-        if (author is null)
+            ("admin@culinary.local", "Quản Trị Viên", "Admin", "Admin@123"),
+            ("tien@culinary.local", "Lê Nhật Tiến", "Author", "Demo@123"),
+            ("toan@culinary.local", "Nguyễn Viết Toàn", "Author", "Demo@123"),
+            ("tuan@culinary.local", "Nguyễn Đình Tuấn", "Author", "Demo@123"),
+            ("duc@culinary.local", "Lâm Văn Đức", "Author", "Demo@123")
+        };
+        var authors = new Dictionary<string, ApplicationUser>();
+        foreach (var account in accounts)
         {
-            author = ApplicationUser.Create("2312770@dlu.edu.vn", "Lê Nhật Tiến");
-            EnsureSucceeded(await users.CreateAsync(author));
+            var user = await users.FindByEmailAsync(account.Email);
+            if (user is null)
+            {
+                user = ApplicationUser.Create(account.Email, account.Name,
+                    account.Role == "Admin" ? "admin" : account.Email);
+                user.EmailConfirmed = true;
+                EnsureSucceeded(await users.CreateAsync(user, account.Password));
+            }
+            if (!await users.IsInRoleAsync(user, account.Role))
+                EnsureSucceeded(await users.AddToRoleAsync(user, account.Role));
+            authors.Add(account.Email, user);
         }
-        if (!await users.IsInRoleAsync(author, "Author") && !await users.IsInRoleAsync(author, "Admin"))
-            EnsureSucceeded(await users.AddToRoleAsync(author, "Author"));
+        var previousAuthor = await users.FindByEmailAsync("2312770@dlu.edu.vn");
         await SeedCategoriesAsync(db, logger);
 
         var demoEmails = new[] { "bep_truong_an@culinary.local", "ha_bep_nha@culinary.local",
@@ -71,7 +77,17 @@ public static class DatabaseSeeder
         var categories = await db.Categories.ToDictionaryAsync(c => c.Slug);
         foreach (var item in document.RootElement.EnumerateArray())
         {
+            var author = authors[Text(item, "author_email")!];
             var slug = Text(item, "slug")!;
+            // Đổi đúng chủ cũ trong transaction trước khi đọc phiên bản do trigger sinh.
+            if (previousAuthor is not null)
+            {
+                var reassigned = await db.Recipes.IgnoreQueryFilters()
+                    .Where(r => r.Slug == slug && r.AuthorId == previousAuthor.Id)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(r => r.AuthorId, author.Id));
+                if (reassigned > 0)
+                    (await db.Set<CacheVersion>().SingleAsync(v => v.Id == 1)).Advance();
+            }
             var recipe = await db.Recipes.IgnoreQueryFilters().AsSplitQuery().Include(r => r.Images).Include(r => r.Steps)
                 .SingleOrDefaultAsync(r => r.Slug == slug);
             if (recipe is null)

@@ -53,8 +53,8 @@ test('real login, private preview, two-tab conflict/reload, archive and delete',
     await expect(page.getByText('Đã lưu trữ công thức.', { exact: true })).toBeVisible();
     await page.getByLabel('Trạng thái', { exact: true }).selectOption('Archived');
     await expect(row).toBeVisible();
-    await row.getByRole('button', { name: 'Xóa mềm', exact: true }).click();
-    await page.getByRole('button', { name: 'Xác nhận xóa mềm' }).click();
+    await row.getByRole('button', { name: 'Xóa', exact: true }).click();
+    await page.getByRole('button', { name: 'Xác nhận xóa' }).click();
     await expect(row).toHaveCount(0);
     // A failed Auth.js request must not prevent clearing backend credentials.
     await page.route('**/api/auth/signout', route => route.abort('failed'));

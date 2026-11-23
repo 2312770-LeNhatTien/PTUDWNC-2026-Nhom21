@@ -355,5 +355,5 @@ npm run dev
 
 Tài khoản thử nghiệm có sẵn trong CSDL:
 - **Admin**: `admin@culinary.local` / Mật khẩu: `Admin@123`
-- Bộ dữ liệu: **50 công thức của Lê Nhật Tiến** thuộc **18 danh mục**, kèm **222 ảnh** (đủ ảnh bìa và từng bước); tự nạp khi chạy backend Development. Không còn sinh bài ngẫu nhiên. Chi tiết: [SETUP.md](docs/SETUP.md).
-- Hồ sơ tác giả trên máy mới không mang mật khẩu cá nhân; dùng tài khoản riêng hoặc Admin dev để thử quản lý bài.
+- Bốn tài khoản thành viên: `tien@culinary.local`, `toan@culinary.local`, `tuan@culinary.local`, `duc@culinary.local`; mật khẩu ban đầu `Demo@123`, quyền Author.
+- Bộ dữ liệu gồm **50 công thức** thuộc **18 danh mục**, kèm **222 ảnh** (đủ ảnh bìa và từng bước). Admin và bốn thành viên mỗi người sở hữu **10 món** để demo sửa, lưu trữ và xóa ngay trong **Công thức của tôi**. Tự nạp khi chạy backend Development. Chi tiết tài khoản và cách cập nhật database cũ ở [SETUP.md](docs/SETUP.md).

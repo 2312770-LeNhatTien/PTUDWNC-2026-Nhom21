@@ -108,7 +108,7 @@ export default function AdminCategoriesPage() {
         </form>
       </dialog>
       <dialog ref={confirmation} aria-labelledby="delete-category-title" className="w-full max-w-md space-y-4 rounded-2xl p-6 backdrop:bg-black/50" onCancel={e => { if (saving) e.preventDefault(); }}>
-        <h2 id="delete-category-title" className="text-xl font-bold">Xóa danh mục?</h2><p>Bạn muốn xóa “{deleting?.name}”? Chỉ danh mục không còn công thức mới được xóa. Dữ liệu được xóa mềm.</p>
+        <h2 id="delete-category-title" className="text-xl font-bold">Xóa danh mục?</h2><p>Bạn muốn xóa “{deleting?.name}”? Chỉ danh mục không còn công thức mới được xóa.</p>
         {formError && <p role="alert" className="text-red-700">{formError}</p>}
         <div className="flex justify-end gap-4"><button disabled={saving} onClick={() => confirmation.current?.close()}>Hủy</button><button disabled={saving} onClick={() => void remove()} className={buttonClass}>{saving ? 'Đang xóa…' : 'Xác nhận xóa'}</button></div>
       </dialog>

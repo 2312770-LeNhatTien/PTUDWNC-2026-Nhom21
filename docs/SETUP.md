@@ -81,7 +81,19 @@ npm run dev
 
 Mở `http://localhost:3000`. `API_URL` là địa chỉ backend cho Next.js server; `NEXT_PUBLIC_API_URL` là địa chỉ trình duyệt truy cập được. Cả hai mặc định `http://localhost:5000`; client tự chuẩn hóa `/api/v1`. Khi đổi cổng, cập nhật CORS và Auth URL tương ứng.
 
-Tài khoản demo chỉ trên DB Development mới seed: `admin@culinary.local` / `Admin@123`. Đừng đưa tài khoản demo lên môi trường public.
+Development nạp năm tài khoản demo dưới đây. Mỗi tài khoản sở hữu 10 trong bộ 50 công thức kèm ảnh, có thể mở **Công thức của tôi** để sửa, lưu trữ và xóa bài của mình.
+
+| Tài khoản | Email đăng nhập | Mật khẩu ban đầu | Số công thức |
+| --- | --- | --- | --- |
+| Admin | `admin@culinary.local` | `Admin@123` | 10 |
+| Lê Nhật Tiến | `tien@culinary.local` | `Demo@123` | 10 |
+| Nguyễn Viết Toàn | `toan@culinary.local` | `Demo@123` | 10 |
+| Nguyễn Đình Tuấn | `tuan@culinary.local` | `Demo@123` | 10 |
+| Lâm Văn Đức | `duc@culinary.local` | `Demo@123` | 10 |
+
+Sau khi pull, chạy lại backend Development để nạp tài khoản và chuyển quyền sở hữu bộ bài cũ theo `author_email` trong JSON. Database mới cũng dùng đúng phân chia này. Chạy lại giữ mật khẩu đã đổi, nội dung đã sửa và trạng thái xóa. Nếu tự tắt `Database:InitializeOnStartup`, chạy rõ `dotnet run --project src/Backend/CulinaryBlog.API -- --seed-demo` trong môi trường Development. Khi thành viên thêm hoặc xóa bài, số bài trong dashboard sẽ thay đổi tương ứng.
+
+Các email trên dành riêng cho demo. Tài khoản email cá nhân của Tiến trên database cũ giữ thông tin đăng nhập riêng. Dùng tài khoản demo để trình diễn trên máy khác. Các tài khoản mật khẩu công khai chỉ dùng trong Development.
 
 ## 5. Các cổng local
 
